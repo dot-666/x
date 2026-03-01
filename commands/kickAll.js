@@ -45,11 +45,6 @@ async function kickAllCommand(sock, chatId, message, senderId) {
             })
             .map(p => p.id);
 
-        if (targets.length === 0) {
-            await sock.sendMessage(chatId, { text: '⚠️ No non‑admin members to kick.' }, { quoted: message });
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-            return;
-        }
 
         await sock.sendMessage(chatId, { text: `🔄 Kicking ${targets.length} member(s)...` }, { quoted: message });
 
