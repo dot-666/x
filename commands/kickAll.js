@@ -19,9 +19,8 @@ async function kickAllCommand(sock, chatId, message, senderId) {
         const botJid = normaliseJid(sock.user.id);
         const senderNormalised = normaliseJid(senderId);
 
-        // Admin checks using direct property
-        const isBotAdmin = participants.some(p => normaliseJid(p.id) === botJid && p.admin);
-        const isSenderAdmin = participants.some(p => normaliseJid(p.id) === senderNormalised && p.admin);
+        const isBotAdmin = participants.some(p => normaliseJid(p.id) === botJid && (p.admin === 'admin' || p.admin === 'superadmin'));
+        const isSenderAdmin = participants.some(p => normaliseJid(p.id) === senderNormalised && (p.admin === 'admin' || p.admin === 'superadmin'));
 
         if (!isBotAdmin) {
             await sock.sendMessage(chatId, { text: '🚫 I need to be an admin to kick members.' }, { quoted: message });
@@ -35,28 +34,35 @@ async function kickAllCommand(sock, chatId, message, senderId) {
             return;
         }
 
-        // Build target list: exclude bot, sender, and admins (p.admin is truthy)
         const targets = participants
             .filter(p => {
                 const normId = normaliseJid(p.id);
                 return normId !== botJid &&
                        normId !== senderNormalised &&
-                       !p.admin;   // p.admin is null/undefined for non‑admins
+                       p.admin !== 'admin' && 
+                       p.admin !== 'superadmin';
             })
             .map(p => p.id);
 
+        if (targets.length === 0) {
+            await sock.sendMessage(chatId, { text: '⚠️ No non-admin members to kick.' }, { quoted: message });
+            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
+            return;
+        }
 
         await sock.sendMessage(chatId, { text: `🔄 Kicking ${targets.length} member(s)...` }, { quoted: message });
 
-        try {
-            await sock.groupParticipantsUpdate(chatId, targets, 'remove');
-            await sock.sendMessage(chatId, { text: `✅ Successfully kicked ${targets.length} member(s).` }, { quoted: message });
-            await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
-        } catch (kickErr) {
-            console.error('Bulk kick failed:', kickErr);
-            await sock.sendMessage(chatId, { text: `❌ Failed to kick members: ${kickErr.message}` }, { quoted: message });
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
+        for (let i = 0; i < targets.length; i += 5) {
+            const batch = targets.slice(i, i + 5);
+            try {
+                await sock.groupParticipantsUpdate(chatId, batch, 'remove');
+            } catch (batchErr) {
+                console.error('Batch kick failed:', batchErr);
+            }
         }
+
+        await sock.sendMessage(chatId, { text: `✅ Successfully kicked ${targets.length} member(s).` }, { quoted: message });
+        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
     } catch (err) {
         console.error('Error in kickAllCommand:', err);
         await sock.sendMessage(chatId, { text: '❌ An unexpected error occurred.' }, { quoted: message });
