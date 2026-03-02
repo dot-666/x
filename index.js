@@ -63,6 +63,10 @@ global.isBotConnected = false;
 global.connectDebounceTimeout = null;
 // --- NEW: Error State Management ---
 global.errorRetryCount = 0; // The in-memory counter for 408 errors in the active process
+global.autoRestartTimer = null; // <-- NEW: timer for 24h auto-restart
+
+// <-- NEW: Flag file to detect auto‑restart and suppress welcome message
+const AUTO_RESTART_FLAG = path.join(__dirname, '.auto_restart');
 
 // ***************************************************************
 // *** DEPENDENCIES MOVED DOWN HERE (AFTER THE CLONING IS COMPLETE) ***
@@ -326,7 +330,8 @@ async function getLoginMethod() {
     choice = choice.trim();
 
     if (choice === '1') {
-        let phone = await question(chalk.bgBlack(chalk.greenBright(`Enter your WhatsApp number (e.g., 254798570132): `)));
+        // <-- MODIFIED: question text changed
+        let phone = await question(chalk.bgBlack(chalk.greenBright(`Type your number: `)));
         phone = phone.replace(/[^0-9]/g, '');
         const pn = require('awesome-phonenumber');
         if (!pn('+' + phone).isValid()) { log('Invalid phone number.', 'red'); return getLoginMethod(); }
@@ -334,7 +339,8 @@ async function getLoginMethod() {
         await saveLoginMethod('number');
         return 'number';
     } else if (choice === '2') {
-        let sessionId = await question(chalk.bgBlack(chalk.greenBright(`Paste your Session ID here: `)));
+        // <-- MODIFIED: question text changed
+        let sessionId = await question(chalk.bgBlack(chalk.greenBright(`Paste your session id: `)));
         sessionId = sessionId.trim();
         // Pre-check the format during interactive entry as well
         if (!sessionId.includes("JUNE-MD:~")) { 
@@ -387,10 +393,41 @@ Please enter this code in WhatsApp app:
     }
 }
 
+// <-- NEW: Auto-restart scheduler
+function scheduleAutoRestart() {
+    // Clear any existing timer
+    if (global.autoRestartTimer) {
+        clearTimeout(global.autoRestartTimer);
+    }
+    const ONE_DAY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    global.autoRestartTimer = setTimeout(() => {
+        log('[AUTO-RESTART] 24 hours elapsed. Restarting bot silently...', 'blue');
+        // Create flag file to suppress welcome message on next start
+        try {
+            fs.writeFileSync(AUTO_RESTART_FLAG, '');
+        } catch (e) {
+            log(`Failed to create auto-restart flag: ${e.message}`, 'red', true);
+        }
+        process.exit(1); // Trigger host restart
+    }, ONE_DAY);
+}
+
 // --- Dedicated function to handle post-connection initialization and welcome message
 async function sendWelcomeMessage(XeonBotInc) {
     // Safety check: Only proceed if the welcome message hasn't been sent yet in this session.
     if (global.isBotConnected) return; 
+    
+    // Check for auto-restart flag
+    let isAutoRestart = false;
+    if (fs.existsSync(AUTO_RESTART_FLAG)) {
+        isAutoRestart = true;
+        try {
+            fs.unlinkSync(AUTO_RESTART_FLAG);
+            log('[AUTO-RESTART] Detected flag – welcome message suppressed.', 'blue');
+        } catch (e) {
+            log(`Failed to delete auto-restart flag: ${e.message}`, 'red', true);
+        }
+    }
     
     // CRITICAL: Wait 10 seconds for the connection to fully stabilize
     await delay(10000); 
@@ -421,14 +458,17 @@ async function sendWelcomeMessage(XeonBotInc) {
         if (!XeonBotInc.user || global.isBotConnected) return;
 
         global.isBotConnected = true;
-        const pNumber = XeonBotInc.user.id.split(':')[0] + '@s.whatsapp.net';
-        let data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
-        const currentMode = data.isPublic ? 'public' : 'private';           
-        const prefix = getPrefix();
+        
+        // Only send the welcome message if this is not an auto-restart
+        if (!isAutoRestart) {
+            const pNumber = XeonBotInc.user.id.split(':')[0] + '@s.whatsapp.net';
+            let data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
+            const currentMode = data.isPublic ? 'public' : 'private';           
+            const prefix = getPrefix();
 
-        // Send the message
-        await XeonBotInc.sendMessage(pNumber, {
-            text: `
+            // Send the message
+            await XeonBotInc.sendMessage(pNumber, {
+                text: `
 ┏━━━━━✧ CONNECTED ✧━━━━━━━
 ┃✧ Prefix: [ ${prefix} ]
 ┃✧ mode: ${currentMode}
@@ -439,8 +479,11 @@ async function sendWelcomeMessage(XeonBotInc) {
 ┃✧ Telegram: t.me/supremLord
 ┃✧ Group: t.me/junexOff
 ┗━━━━━━━━━━━━━━━━━━━━━`
-        });
-        log('[ BOT ] successfully connected.', 'blue');
+            });
+            log('[ BOT ] successfully connected.', 'blue');
+        } else {
+            log('[AUTO-RESTART] Bot reconnected silently.', 'blue');
+        }
         
         const newsletters = ["120363405182019728@newsletter", ""];
         global.newsletters = newsletters;
@@ -471,11 +514,12 @@ async function sendWelcomeMessage(XeonBotInc) {
             }
         }
 
-                    
-
         // NEW: Reset the error counter on successful connection
         deleteErrorCountFile();
         global.errorRetryCount = 0;
+
+        // <-- NEW: Schedule 24h auto-restart (regardless of auto-restart flag)
+        scheduleAutoRestart();
     } catch (e) {
         log(`Error sending welcome message during stabilization: ${e.message}`, 'red', true);
         global.isBotConnected = false;
@@ -581,6 +625,12 @@ async function startXeonBotInc() {
         
         if (connection === 'close') {
             global.isBotConnected = false; 
+            
+            // <-- NEW: Clear auto-restart timer on disconnect
+            if (global.autoRestartTimer) {
+                clearTimeout(global.autoRestartTimer);
+                global.autoRestartTimer = null;
+            }
             
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             // Capture both DisconnectReason.loggedOut (sometimes 401) and explicit 401 error
