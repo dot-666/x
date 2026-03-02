@@ -70,7 +70,7 @@ async function playCommand(sock, chatId, message) {
         let videoTitle;
 
         const apis = [
-            `https://apis.xwolf.space/download/yta3?url=${encodeURIComponent(video.url)}`,
+            `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
             `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${encodeURIComponent(video.url)}`,
             `https://api.giftedtech.co.ke/api/download/ytmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`
         ];
@@ -79,9 +79,9 @@ async function playCommand(sock, chatId, message) {
             try {
                 const response = await axios.get(api, { timeout: 30000 });
 
-                if (api.includes("wolf")) {
+                if (api.includes("keith")) {
                     if (response.data?.success) {
-                        downloadUrl = response.data.downloadUrl;
+                        downloadUrl = response.data.result;
                         videoTitle = response.data.title || video.title;
                         break;
                     }
