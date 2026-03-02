@@ -1,6 +1,23 @@
 const axios = require('axios');
 const yts = require('yt-search');
 
+function createFakeContact(message) {
+    return {
+        key: {
+            participants: "0@s.whatsapp.net",
+            remoteJid: "status@broadcast",
+            fromMe: false,
+            id: "JUNE-X"
+        },
+        message: {
+            contactMessage: {
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE MD\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+            }
+        },
+        participant: "0@s.whatsapp.net"
+    };
+}
+
 async function videoCommand(sock, chatId, message) {
     try {
         // Initial reaction
@@ -15,16 +32,19 @@ async function videoCommand(sock, chatId, message) {
         const parts = text.split(' ');
         const query = parts.slice(1).join(' ').trim();
 
+        // Create fake quoted message
+        const fake = createFakeContact(message);
+
         if (!query) {
             return sock.sendMessage(chatId, {
                 text: 'Provide a YouTube link or name.\nExample:\nvideo Not Like Us\nvideo Espresso'
-            }, { quoted: message });
+            }, { quoted: fake });
         }
 
         if (query.length > 100) {
             return sock.sendMessage(chatId, {
                 text: `Video name too long! Max 100 chars.`
-            }, { quoted: message });
+            }, { quoted: fake });
         }
 
         // Search video
@@ -32,17 +52,17 @@ async function videoCommand(sock, chatId, message) {
         if (!searchResult) {
             return sock.sendMessage(chatId, {
                 text: "Couldn't find that video. Try another!"
-            }, { quoted: message });
+            }, { quoted: fake });
         }
 
         const video = searchResult;
         
         await sock.sendMessage(chatId, {
             text: `_Downloading: ${video.title}_._`
-        }, { quoted: message });
+        }, { quoted: fake });
 
         // API call (no 100MB limit)
-        const apiUrl = `https://api.giftedtech.co.ke/api/download/savetubemp4?apikey=gifted&url=${encodeURIComponent(video.url)}`;
+        const apiUrl = `https://www.apiskeith.top/download/video?url=${encodeURIComponent(video.url)}`;
 
         let response;
         try {
@@ -69,15 +89,16 @@ async function videoCommand(sock, chatId, message) {
         }
 
         const caption = `Title: ${video.title}\nDuration: ${video.timestamp}`;
+        const vid = apiData.result;
 
         // Try sending as document first
         try {
             await sock.sendMessage(chatId, {
-                document: { url: apiData.result.download_url },
+                document: { url: vid },
                 mimetype: "video/mp4",
                 fileName: `${video.title.replace(/[^\w\s]/gi, '').substring(0, 80)}.mp4`,
                 caption
-            }, { quoted: message, timeout: 300000 });
+            }, { quoted: fake, timeout: 300000 });
 
             await sock.sendMessage(chatId, {
                 react: { text: '✅', key: message.key }
@@ -89,7 +110,7 @@ async function videoCommand(sock, chatId, message) {
                 video: { url: apiData.result.download_url },
                 caption: `${caption}\n(Sent as video)`,
                 mimetype: "video/mp4"
-            }, { quoted: message, timeout: 300000 });
+            }, { quoted: fake, timeout: 300000 });
 
             await sock.sendMessage(chatId, {
                 react: { text: '✅', key: message.key }
@@ -110,7 +131,7 @@ async function videoCommand(sock, chatId, message) {
             react: { text: '⚠️', key: message.key }
         });
 
-        return sock.sendMessage(chatId, { text: errorMessage }, { quoted: message });
+        return sock.sendMessage(chatId, { text: errorMessage }, { quoted: fake });
     }
 }
 
