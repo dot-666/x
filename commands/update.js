@@ -76,11 +76,7 @@ async function updateViaGit(sock, chatId, message) {
     return { oldRev, newRev, alreadyUpToDate, commits, files };
 }
 
-/**
- * Download a file with optional authentication token for GitHub API.
- * Token is only sent to api.github.com and stripped on redirects.
- */
-function downloadFile(url, dest, sock, chatId, message, token = null, visited = new Set()) {
+function downloadFile(url, dest, sock, chatId, message, visited = new Set()) {
     return new Promise((resolve, reject) => {
         try {
             if (visited.has(url) || visited.size > 5) {
@@ -92,27 +88,18 @@ function downloadFile(url, dest, sock, chatId, message, token = null, visited = 
 
             const useHttps = url.startsWith('https://');
             const client = useHttps ? require('https') : require('http');
-            
-            // Prepare headers – include token only for GitHub API requests
-            const headers = {
-                'User-Agent': 'KnightBot-Updater/1.0',
-                'Accept': '*/*'
-            };
-            if (token && url.includes('api.github.com')) {
-                headers['Authorization'] = `token ${token}`;
-            }
-
-            const req = client.get(url, { headers }, res => {
+            const req = client.get(url, {
+                headers: {
+                    'User-Agent': 'KnightBot-Updater/1.0',
+                    'Accept': '*/*'
+                }
+            }, res => {
                 if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
                     const location = res.headers.location;
                     if (!location) return reject(new Error(`HTTP ${res.statusCode} without Location`));
                     const nextUrl = new URL(location, url).toString();
                     res.resume();
-                    // On redirect, do NOT pass the token if the new host is different (security)
-                    const nextToken = (nextUrl.includes('api.github.com') && token) ? token : null;
-                    return downloadFile(nextUrl, dest, sock, chatId, message, nextToken, visited)
-                        .then(resolve)
-                        .catch(reject);
+                    return downloadFile(nextUrl, dest, sock, chatId, message, visited).then(resolve).catch(reject);
                 }
 
                 if (res.statusCode !== 200) {
@@ -204,26 +191,16 @@ function copyRecursive(src, dest, ignore = [], relative = '', outList = []) {
 async function updateViaZip(sock, chatId, message, zipOverride) {
     await updateProgress(sock, chatId, message, '🗜️ Starting ZIP update...');
     
-    // Determine zip URL: priority: override > settings.updateZipUrl > GitHub settings
-    let zipUrl = zipOverride || settings.updateZipUrl || '';
-    if (!zipUrl && settings.githubOwner && settings.githubRepo) {
-        // Build GitHub API zipball URL
-        const branch = settings.githubBranch || 'main';
-        zipUrl = `https://api.github.com/repos/${settings.githubOwner}/${settings.githubRepo}/zipball/${branch}`;
-    }
-    
+    const zipUrl = (zipOverride || settings.updateZipUrl || process.env.UPDATE_ZIP_URL || '').trim();
     if (!zipUrl) {
-        throw new Error('No ZIP URL configured and no GitHub repository details provided');
+        throw new Error('No ZIP URL configured');
     }
     
     const tmpDir = path.join(process.cwd(), 'tmp');
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
     
     const zipPath = path.join(tmpDir, 'update.zip');
-    
-    // Pass GitHub token only if URL is from GitHub API
-    const token = (zipUrl.includes('api.github.com') && settings.githubToken) ? settings.githubToken : null;
-    await downloadFile(zipUrl, zipPath, sock, chatId, message, token);
+    await downloadFile(zipUrl, zipPath, sock, chatId, message);
     
     const extractTo = path.join(tmpDir, 'update_extract');
     if (fs.existsSync(extractTo)) fs.rmSync(extractTo, { recursive: true, force: true });
