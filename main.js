@@ -367,7 +367,6 @@ const { antidemoteCommand, handleAntidemote } = require('./commands/antidemote')
 const { setbotconfigCommand, setmenuimageCommand } = require('./commands/menuimage');
 const vv2Command = require('./commands/vv2');
 const moviesCommand = require('./commands/movies');
-const restartCommand = require('./commands/restart');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
