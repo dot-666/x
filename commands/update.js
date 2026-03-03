@@ -76,6 +76,7 @@ async function updateViaGit(sock, chatId, message) {
     return { oldRev, newRev, alreadyUpToDate, commits, files };
 }
 
+// MODIFIED: Added token support for private repos
 function downloadFile(url, dest, sock, chatId, message, visited = new Set()) {
     return new Promise((resolve, reject) => {
         try {
@@ -86,19 +87,27 @@ function downloadFile(url, dest, sock, chatId, message, visited = new Set()) {
 
             updateProgress(sock, chatId, message, '⬇️ Downloading update...');
 
+            // Read token from settings or environment
+            const token = settings.updateZipToken || process.env.UPDATE_ZIP_TOKEN;
+
+            const headers = {
+                'User-Agent': 'June-xbot-Updater/1.0',
+                'Accept': '*/*'
+            };
+            if (token) {
+                // GitHub uses 'token' scheme; for other platforms (GitLab, Bitbucket) use 'Bearer'
+                headers['Authorization'] = `token ${token}`;
+            }
+
             const useHttps = url.startsWith('https://');
             const client = useHttps ? require('https') : require('http');
-            const req = client.get(url, {
-                headers: {
-                    'User-Agent': 'KnightBot-Updater/1.0',
-                    'Accept': '*/*'
-                }
-            }, res => {
+            const req = client.get(url, { headers }, res => {
                 if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
                     const location = res.headers.location;
                     if (!location) return reject(new Error(`HTTP ${res.statusCode} without Location`));
                     const nextUrl = new URL(location, url).toString();
                     res.resume();
+                    // Recursively follow redirects (token headers will be re-applied in the next call)
                     return downloadFile(nextUrl, dest, sock, chatId, message, visited).then(resolve).catch(reject);
                 }
 
