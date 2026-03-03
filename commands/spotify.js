@@ -1,7 +1,26 @@
 const axios = require('axios');
 
+function createFakeContact(message) {
+    return {
+        key: {
+            participants: "0@s.whatsapp.net",
+            remoteJid: "status@broadcast",
+            fromMe: false,
+            id: "JUNE-X"
+        },
+        message: {
+            contactMessage: {
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+            }
+        },
+        participant: "0@s.whatsapp.net"
+    };
+}
+
 async function spotifyCommand(sock, chatId, message) {
     try {
+        const quoted = createFakeContact(message);
+
         // Initial reaction
         await sock.sendMessage(chatId, {
             react: { text: '🎵', key: message.key }
@@ -11,11 +30,11 @@ async function spotifyCommand(sock, chatId, message) {
                      message.message?.extendedTextMessage?.text || 
                      message.message?.imageMessage?.caption || 
                      '';
-        
+
         if (!text.includes(' ')) {
             return await sock.sendMessage(chatId, {
                 text: '🎵 *Spotify Music Downloader*\n\n❌ Please provide a song name or Spotify URL!\n\n📝 *Usage:*\n.spotify Blinding Lights\nThe Weeknd\n.spot https://open.spotify.com/track/...\n.spdl Shape of You Ed Sheeran\n\n🔍 *Examples:*\n• .spotify Bohemian Rhapsody\n• .spot Yesterday The Beatles\n• .spotify https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b\n\n💡 *Supported:*\n• Song names\n• Artist + Song\n• Spotify URLs\n• Playlist URLs (first track)'
-            }, { quoted: message });
+            }, { quoted });
         }
 
         const parts = text.split(' ');
@@ -24,13 +43,13 @@ async function spotifyCommand(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: '🎵 *Spotify Music Downloader*\n\n❌ Please provide a song name or Spotify URL!\n\n📝 *Example:*\n.spotify Dance Monkey'
-            }, { quoted: message });
+            }, { quoted });
         }
 
         if (query.length > 200) {
             return await sock.sendMessage(chatId, {
                 text: '🎵 *Spotify Music Downloader*\n\n📝 Query too long! Max 200 characters.\n\n💡 Try a shorter song name.'
-            }, { quoted: message });
+            }, { quoted });
         }
 
         // Presence update
@@ -40,48 +59,23 @@ async function spotifyCommand(sock, chatId, message) {
         const apiUrl = `https://apiskeith.top/download/spotify?q=${encodeURIComponent(query)}`;
         const response = await axios.get(apiUrl, { timeout: 60000 });
 
-        const track = response.data?.result?.track;
+        const apiData = response.data;
+        if (!apiData?.status || !apiData?.result) throw new Error('No download link found');
 
-        if (!track?.downloadLink) throw new Error('No download link found');
-        if (!track?.title) throw new Error('Invalid track information');
+        const dl = apiData.result;
+        const fileName = `${query.replace(/[^a-z0-9]/gi, '_')}.mp3`;
 
         // Success reaction
         await sock.sendMessage(chatId, {
             react: { text: '✅', key: message.key }
         });
 
-        // Clean filename
-        const cleanFileName = (str) => str.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim();
-        const fileName = cleanFileName(`${track.title} - ${track.artist || 'Unknown Artist'}.mp3`);
-
-        // Track info FIRST
-        let trackInfo = `🎵 *Spotify Music Downloader*\n\n`;
-        trackInfo += `📀 *Title:* ${track.title}\n`;
-        if (track.artist) trackInfo += `🎤 *Artist:* ${track.artist}\n`;
-        if (track.album) trackInfo += `💿 *Album:* ${track.album}\n`;
-        if (track.duration) trackInfo += `⏱ *Duration:* ${track.duration}\n`;
-        if (track.releaseDate) trackInfo += `📅 *Released:* ${track.releaseDate}\n`;
-        if (track.popularity) trackInfo += `⭐ *Popularity:* ${track.popularity}/100\n`;
-        if (track.genres?.length > 0) trackInfo += `🎭 *Genres:* ${track.genres.join(', ')}\n`;
-        if (track.url) trackInfo += `🔗 *Spotify URL:* ${track.url}\n`;
-        trackInfo += `\n✅ *Download successful!*\n`;
-        trackInfo += `> ©supreme`;
-
-        await sock.sendMessage(chatId, { text: trackInfo }, { quoted: message });
-
-        // Then audio
+        // Send audio with fake contact quoted
         await sock.sendMessage(chatId, {
-            audio: { url: track.downloadLink },
+            audio: { url: dl },
             mimetype: 'audio/mpeg',
-            fileName: fileName
-        }, { quoted: message });
-
-        // Then document
-        await sock.sendMessage(chatId, {
-            document: { url: track.downloadLink },
-            mimetype: 'audio/mpeg',
-            fileName: fileName
-        }, { quoted: message });
+            fileName
+        }, { quoted });
 
         // Final reaction
         await sock.sendMessage(chatId, {
@@ -89,7 +83,8 @@ async function spotifyCommand(sock, chatId, message) {
         });
 
     } catch (error) {
-        console.error("Spotify command error:", error);
+        const quoted = createFakeContact(message);
+        console.error(`Spotify command error for query "${message.message?.conversation || ''}":`, error);
 
         await sock.sendMessage(chatId, {
             react: { text: '❌', key: message.key }
@@ -109,7 +104,7 @@ async function spotifyCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             text: `🎵 *Spotify Music Downloader*\n\n🚫 ${errorMessage}\n\n *Tips:*\n• Try a different song\n• Check the spelling\n• Try without special characters\n• Use exact song title\n• Wait a few minutes and try again\n\n🔗 *Alternative:* Use .ytmp3 for YouTube downloads`
-        }, { quoted: message });
+        }, { quoted });
     }
 }
 
