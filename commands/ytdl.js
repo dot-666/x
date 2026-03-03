@@ -78,7 +78,7 @@ async function ytsongCommand(sock, chatId, message) {
             videoUrl = videoInfo.url;
         }
 
-        const res = await axios.get(`https://apiskeith.vercel.app/download/audio?url=${videoUrl}`);
+        const res = await axios.get(`https://apiskeith.top/download/audio?url=${videoUrl}`);
         const dl = res.data?.result;
         if (!dl) {
             await sock.sendMessage(chatId, { text: "Download failed." }, { quoted: message });
