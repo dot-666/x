@@ -367,6 +367,7 @@ const { antidemoteCommand, handleAntidemote } = require('./commands/antidemote')
 const { setbotconfigCommand, setmenuimageCommand } = require('./commands/menuimage');
 const vv2Command = require('./commands/vv2');
 const moviesCommand = require('./commands/movies');
+const restartCommand = require('./commands/restart');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -782,6 +783,11 @@ return;
        
             case userMessage.startsWith(`${prefix}unban`):
                 await unbanCommand(sock, chatId, message);
+                break;
+
+                
+            case userMessage.startsWith(`${prefix}restart`):
+                await restartCommand(sock, chatId, message);
                 break;
 
             case userMessage === `${prefix}help` || 
