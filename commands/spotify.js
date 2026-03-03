@@ -6,7 +6,7 @@ function createFakeContact(message) {
             participants: "0@s.whatsapp.net",
             remoteJid: "status@broadcast",
             fromMe: false,
-            id: "JUNE-X"
+            id: "JUNE-X-MENU"
         },
         message: {
             contactMessage: {
