@@ -56,7 +56,7 @@ async function spotifyCommand(sock, chatId, message) {
         await sock.sendPresenceUpdate('recording', chatId);
 
         // API call
-        const apiUrl = `https://apiskeith.top/download/spotify?q=${encodeURIComponent(query)}`;
+        const apiUrl = `https://www.apiskeith.top/download/spotify?url=${encodeURIComponent(query)}`;
         const response = await axios.get(apiUrl, { timeout: 60000 });
 
         const apiData = response.data;
