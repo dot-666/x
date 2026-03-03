@@ -2085,7 +2085,6 @@ case userMessage === `${prefix}forfeit` ||
                 break;
             case userMessage.startsWith(`${prefix}update`):
             case userMessage.startsWith(`${prefix}start`):
-            case userMessage.startsWith(`${prefix}restart`):
                 {
                     const parts = rawText.trim().split(/\s+/);
                     const zipArg = parts[1] && parts[1].startsWith('http') ? parts[1] : '';
