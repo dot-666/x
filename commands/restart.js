@@ -1,34 +1,37 @@
 const { exec } = require("child_process");
-const { isSudo } = require('../lib/index');   // Import the sudo check function
+const { isSudo } = require('../lib/index');
 
 // Simple sleep function
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 module.exports = async function restartCommand(sock, chatId, message) {
     try {
-        // Extract sender's JID from the message
         const sender = message.key.participant || message.key.remoteJid;
 
-        // Authorisation check using isSudo (assumes it returns a boolean)
         if (!isSudo(sender)) {
             await sock.sendMessage(chatId, { text: "❌ Only the bot owner can use this command." }, { quoted: message });
             return;
         }
 
-        // Notify restart and wait briefly
         await sock.sendMessage(chatId, { text: "🔄 Restarting JUNE X..." }, { quoted: message });
         await sleep(1500);
 
-        // Execute restart command (adjust if your process manager differs)
-        exec("pm2 restart all", (error, stdout, stderr) => {
+        // Use npx to run the locally installed pm2 (from dependencies)
+        exec("npx pm2 restart all", (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`);
+                let errorMsg = `❌ Restart failed: ${error.message}`;
+                // Provide helpful hints based on error
+                if (error.message.includes("not found") || error.message.includes("command not found")) {
+                    errorMsg = "❌ pm2 is not available. Please ensure it's installed (npm install pm2) and try again, or run with 'npx pm2 restart all'.";
+                }
+                sock.sendMessage(chatId, { text: errorMsg }, { quoted: message })
+                    .catch(err => console.error("Failed to send error message:", err));
             } else {
-                // Attempt to send confirmation (note: bot may restart before this message is sent)
+                // Success – note: if pm2 restarts the bot, this message may not actually be delivered
                 sock.sendMessage(chatId, { text: "✅ Restart done" }, { quoted: message })
                     .catch(err => console.error("Failed to send restart done message:", err));
             }
-            // stdout/stderr can be logged if needed
         });
     } catch (e) {
         console.error("Restart command error:", e);
