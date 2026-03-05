@@ -1,0 +1,140 @@
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+const FormData = require("form-data");
+const sharp = require("sharp");
+const { downloadMediaMessage } = require("@whiskeysockets/baileys");
+const { webp2png } = require("../lib/uploader");
+
+async function gpteditCommand(sock, chatId, message) {
+    try {
+        // React to command
+        await sock.sendMessage(chatId, { react: { text: "🖼️", key: message.key } });
+
+        // Prepare temp directory
+        const tempDir = path.join(os.tmpdir(), "june-x-temp");
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+        // Extract prompt
+        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
+        const prompt = text?.split(" ").slice(1).join(" ").trim();
+
+        if (!prompt) {
+            return sock.sendMessage(chatId, {
+                text: "📷 *GPT Image Editor*\n\nReply to an *image* or *sticker* with a prompt.\n\nExample:\n.gptedit change the background to a beach"
+            }, { quoted: message });
+        }
+
+        // Check quoted message
+        const ctxInfo = message.message?.extendedTextMessage?.contextInfo;
+        const quotedMsg = ctxInfo?.quotedMessage;
+        if (!quotedMsg) {
+            return sock.sendMessage(chatId, {
+                text: "❌ Reply to an *image* or *sticker* with your prompt!"
+            }, { quoted: message });
+        }
+
+        const isImage = !!quotedMsg.imageMessage;
+        const isSticker = !!quotedMsg.stickerMessage;
+        if (!isImage && !isSticker) {
+            return sock.sendMessage(chatId, { text: "❌ Only images or static stickers are supported!" }, { quoted: message });
+        }
+
+        // Download media
+        const targetMessage = {
+            key: {
+                remoteJid: chatId,
+                id: ctxInfo.stanzaId,
+                participant: ctxInfo.participant,
+            },
+            message: quotedMsg,
+        };
+
+        const mediaBuffer = await downloadMediaMessage(
+            targetMessage,
+            "buffer",
+            {},
+            { logger: undefined, reuploadRequest: sock.updateMediaMessage }
+        );
+
+        if (!mediaBuffer) {
+            return sock.sendMessage(chatId, { text: "❌ Failed to download image. Try again." }, { quoted: message });
+        }
+
+        // Convert sticker to PNG if needed
+        let imageBuffer = mediaBuffer;
+        if (isSticker) {
+            const stickerMessage = quotedMsg.stickerMessage;
+            const isAnimated = stickerMessage.isAnimated || stickerMessage.mimetype?.includes("animated");
+            if (isAnimated) {
+                return sock.sendMessage(chatId, { text: "❌ Animated stickers are not supported." }, { quoted: message });
+            }
+            try {
+                imageBuffer = await webp2png(mediaBuffer);
+            } catch (err) {
+                console.error("Sticker conversion error:", err);
+                return sock.sendMessage(chatId, { text: "❌ Failed to convert sticker. Use a regular image." }, { quoted: message });
+            }
+        }
+
+        // Convert to JPEG if needed
+        let finalImageBuffer = imageBuffer;
+        try {
+            const metadata = await sharp(imageBuffer).metadata();
+            if (metadata.format !== "jpeg" && metadata.format !== "jpg") {
+                finalImageBuffer = await sharp(imageBuffer).jpeg({ quality: 90 }).toBuffer();
+            }
+        } catch (err) {
+            console.error("Sharp error:", err);
+            finalImageBuffer = imageBuffer;
+        }
+
+        // Prepare form data
+        const form = new FormData();
+        form.append("image", finalImageBuffer, { filename: "image.jpg", contentType: "image/jpeg" });
+        form.append("param", prompt);
+
+        // Call API
+        const apiUrl = "https://api.nexray.web.id/ai/gptimage";
+        const response = await axios.post(apiUrl, form, {
+            headers: { ...form.getHeaders(), "User-Agent": "Mozilla/5.0" },
+            responseType: "arraybuffer",
+            timeout: 120000,
+            maxContentLength: 10 * 1024 * 1024,
+        });
+
+        if (!response.data) {
+            return sock.sendMessage(chatId, { text: "❌ No image received from API." }, { quoted: message });
+        }
+
+        const resultImageBuffer = Buffer.from(response.data);
+        if (!resultImageBuffer || resultImageBuffer.length === 0) {
+            return sock.sendMessage(chatId, { text: "❌ Empty image received from API." }, { quoted: message });
+        }
+
+        // Check size limit
+        if (resultImageBuffer.length > 5 * 1024 * 1024) {
+            return sock.sendMessage(chatId, {
+                text: `❌ Image too large: ${(resultImageBuffer.length / 1024 / 1024).toFixed(2)}MB (max 5MB)`
+            }, { quoted: message });
+        }
+
+        // Notify user
+        await sock.sendMessage(chatId, { text: `_✨ GPT Vision Result ready!_` });
+
+        // Send edited image
+        await sock.sendMessage(chatId, {
+            image: resultImageBuffer,
+            caption: `✨ *GPT Vision Result*\n\n📝 Prompt: ${prompt}`
+        }, { quoted: message });
+
+    } catch (error) {
+        console.error("GPT Edit command error:", error);
+        return sock.sendMessage(chatId, {
+            text: `🚫 Error: ${error.message}`
+        }, { quoted: message });
+    }
+}
+
+module.exports = gpteditCommand;
