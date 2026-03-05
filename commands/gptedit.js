@@ -5,7 +5,7 @@ const os = require("os");
 const FormData = require("form-data");
 const sharp = require("sharp");
 const { downloadMediaMessage } = require("@whiskeysockets/baileys");
-const { webp2png } = require("../lib/uploader");
+const { webp2png } = require("../lib/webp2");
 
 async function gpteditCommand(sock, chatId, message) {
     try {
