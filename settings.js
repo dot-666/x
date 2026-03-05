@@ -16,7 +16,6 @@ const settings = {
   storeWriteInterval: 10000,
   description: "This is a bot for managing group commands and automating tasks.",
   version: "2.7.3",
-  updateRepo: 'username/private-repo',
   updateBranch: 'main',
   updateZipToken: '',
   updateZipUrl: "https://github.com/vinpink2/fx/archive/refs/heads/main.zip",
