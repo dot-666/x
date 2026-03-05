@@ -377,6 +377,7 @@ const moviesCommand = require('./commands/movies');
 const encryptCommand = require('./commands/encrypt');
 const trimCommand = require('./commands/trim');
 const teraboxCommand = require('./commands/terabox');
+const magicstudioCommand = require('./commands/magicstudio');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -774,6 +775,11 @@ return;
                 
             case userMessage.startsWith(`${prefix}wormgpt`):
                 await wormgptCommand(sock, chatId, message);
+                break;
+
+                
+            case userMessage.startsWith(`${prefix}magicstudio`):
+                await magicstudioCommand(sock, chatId, message);
                 break;
                 
                 
