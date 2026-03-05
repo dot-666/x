@@ -18,7 +18,7 @@ const settings = {
   version: "2.7.3",
   updateBranch: 'main',
   updateZipToken: '',
-  updateZipUrl: "https://github.com/vinpink2/fx/archive/refs/heads/main.zip",
+  updateZipUrl: "https://github.com/dot-666/x/archive/refs/heads/main.zip",
 };
 
 module.exports = settings;
