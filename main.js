@@ -54,6 +54,13 @@ const { Antilink } = require('./lib/antilink');
 const { tictactoeCommand, handleTicTacToeMove } = require('./commands/tictactoe');
 const { normalizeJid, compareJids } = require('./lib/jid');
 
+// New imports for console logging
+const moment = require('moment-timezone');
+const lolcatjs = require('lolcatjs');
+
+// Timezone setting
+const timezones = settings.timezone || 'Asia/Kolkata';
+
 const _cache = {
     groupMeta: new Map(),
     groupMetaTTL: 120000,
@@ -495,41 +502,40 @@ const fake = createFakeContact(message);
             const groupMetadata = isGroup
                 ? await getCachedGroupMeta(sock, chatId)
                 : {};
-            const from = normalizeJid(message.key.remoteJid);
-            const participant = normalizeJid(message.key.participant || from);
-            const body = message.message.conversation || message.message.extendedTextMessage?.text || '';
             const pushname = message.pushName || "Unknown User";
             const chatType = chatId.endsWith('@g.us') ? 'Group' : 'Private';
-            const chatName = chatType === 'Group' ? (groupMetadata?.subject || 'Unknown Group') : pushname;
-            const time = new Date().toLocaleTimeString();
-            function rainbowText(text) {
-  const colors = [
-    chalk.red.bold,
-    chalk.yellow.bold,
-    chalk.green.bold,
-    chalk.cyan.bold,
-    chalk.blue.bold,
-    chalk.magenta.bold,
-  ];
-  return text
-    .split("")
-    .map((char, i) => colors[i % colors.length](char))
-    .join("");
-}
+            const groupName = isGroup ? (groupMetadata?.subject || 'Unknown Group') : undefined;
+            const body = message.message.conversation || 
+                        message.message.extendedTextMessage?.text || 
+                        message.message.imageMessage?.caption || 
+                        message.message.videoMessage?.caption || 
+                        '';
 
-function rainbowLine(length) {
-  return rainbowText("━".repeat(length));
-}
-            
-const width = 55; // adjust rectangle width
-           
-console.log(chalk.bgHex("#121212")(`
-${rainbowLine(width)}
-${chalk.red.bold("┏")}   ${rainbowText("NEW MESSAGE")}: ${time}
-${chalk.blue.bold("┃")} FROM: ${rainbowText(pushname)}: ${participant}
-${chalk.white.bold("┃")} CHAT: ${rainbowText(chatType)}: ${chatName}
-${chalk.green.bold("┗")} MESG: ${rainbowText(body || "—")}
-${rainbowLine(width)}`));
+            // Determine message type (first key of message.message)
+            const mtype = message.message ? Object.keys(message.message)[0] : 'N/A';
+
+            //================== [ CONSOLE LOG] ==================//
+            const dayz = moment(Date.now()).tz(timezones).locale('en').format('dddd');
+            const timez = moment(Date.now()).tz(timezones).locale('en').format('HH:mm:ss z');
+            const datez = moment(Date.now()).tz(timezones).format("DD/MM/YYYY");
+
+            if (message.message) {
+                lolcatjs.fromString(`┏━━━━━━━━━━━━━『  JUNE-X BOT 』━━━━━━━━━━━━━─`);
+                lolcatjs.fromString(`»  Sent Time: ${dayz}, ${timez}`);
+                lolcatjs.fromString(`»  Date: ${datez}`);
+                lolcatjs.fromString(`»  Message Type: ${mtype}`);
+                lolcatjs.fromString(`»  Sender Name: ${pushname || 'N/A'}`);
+                lolcatjs.fromString(`»  Chat ID: ${chatId?.split('@')[0] || 'N/A'}`);
+                
+                if (isGroup) {
+                    lolcatjs.fromString(`»  Group: ${groupName || 'N/A'}`);
+                    lolcatjs.fromString(`»  Group JID: ${chatId?.split('@')[0] || 'N/A'}`);
+                }
+                
+                lolcatjs.fromString(`»  Message: ${body || 'N/A'}`);
+                lolcatjs.fromString('┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━─ ⳹\n\n');
+            }
+            //<================================================>//
         }
         
 
@@ -2215,4 +2221,3 @@ module.exports = {
         await handleStatusUpdate(sock, status);
     }
 };
-
