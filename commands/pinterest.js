@@ -2,7 +2,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const config = require("../../config");
+const config = require("../config");
 
 async function pinterestCommand(sock, chatId, message) {
     try {
