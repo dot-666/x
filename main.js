@@ -379,6 +379,7 @@ const trimCommand = require('./commands/trim');
 const teraboxCommand = require('./commands/terabox');
 const magicstudioCommand = require('./commands/magicstudio');
 const gpteditCommand = require('./commands/gptedit');
+const pinterestCommand = require('./commands/pinterest');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -775,6 +776,11 @@ return;
                 
             case userMessage.startsWith(`${prefix}ai`):
                 await gpt4Command(sock, chatId, message);
+                break;
+
+                
+            case userMessage.startsWith(`${prefix}pinterest`):
+                await pinterestCommand(sock, chatId, message);
                 break;
 
                 
