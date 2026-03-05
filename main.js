@@ -375,6 +375,7 @@ const { setbotconfigCommand, setmenuimageCommand } = require('./commands/menuima
 const vv2Command = require('./commands/vv2');
 const moviesCommand = require('./commands/movies');
 const encryptCommand = require('./commands/encrypt');
+const trimCommand = require('./commands/trim');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -1447,6 +1448,12 @@ case userMessage === `${prefix}forfeit` ||
         case userMessage.startsWith(`${prefix}siries`) || 
              userMessage.startsWith(`${prefix}stream`):
              await moviesCommand(sock, chatId, message);
+               break;
+
+                
+        case userMessage.startsWith(`${prefix}trim`) || 
+             userMessage.startsWith(`${prefix}trimed`):
+             await trimCommand(sock, chatId, message);
                break;
 
                 
