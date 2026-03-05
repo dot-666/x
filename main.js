@@ -367,6 +367,7 @@ const { antidemoteCommand, handleAntidemote } = require('./commands/antidemote')
 const { setbotconfigCommand, setmenuimageCommand } = require('./commands/menuimage');
 const vv2Command = require('./commands/vv2');
 const moviesCommand = require('./commands/movies');
+const encryptCommand = require('./commands/encrypt');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -778,6 +779,11 @@ return;
                 
             case userMessage.startsWith(`${prefix}copilot`):
                 await copilotCommand(sock, chatId, message);
+                break;
+
+                
+            case userMessage.startsWith(`${prefix}enc`):
+                await copilotCommand(sock, chatId, message, isOwner, sender);
                 break;
        
             case userMessage.startsWith(`${prefix}unban`):
