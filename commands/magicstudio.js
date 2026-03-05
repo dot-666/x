@@ -7,7 +7,7 @@ const axios = require("axios");
 
 const BASE = "https://api.siputzx.my.id/api/ai/magicstudio";
 
-async function magicStudioCommand(sock, chatId, message) {
+async function magicstudioCommand(sock, chatId, message) {
     try {
         // React to command
         await sock.sendMessage(chatId, { react: { text: "🎨", key: message.key } });
@@ -74,4 +74,4 @@ async function magicStudioCommand(sock, chatId, message) {
     }
 }
 
-module.exports = magicStudioCommand;
+module.exports = magicstudioCommand;
