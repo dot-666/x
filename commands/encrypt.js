@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const JsConfuser = require('js-confuser');
-const { downloadContentFromMessage } = require('@whisekey/baileys');
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 async function encryptCommand(sock, chatId, message, sender, isOwner) {
     try {
