@@ -4,11 +4,14 @@ const os = require("os");
 const JsConfuser = require('js-confuser');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
-async function encryptCommand(sock, chatId, message, sender, isOwner) {
+async function encryptCommand(sock, chatId, message, isOwner) {
     try {
         await sock.sendMessage(chatId, {
             react: { text: "🔐", key: message.key }
         });
+
+        // Derive sender from message
+        const sender = message.key.participant || message.key.remoteJid;
 
         // Use system temp directory
         const tempDir = path.join(os.tmpdir(), "june-x-temp");
@@ -141,8 +144,8 @@ async function encryptCommand(sock, chatId, message, sender, isOwner) {
                     `👑 *@Tennor-modz*`
         }, { quoted: message });
 
-        // Log usage for owners
-        if (isOwner) {
+        // Optional log – only for owners (sender is now defined)
+        if (isOwner && sender) {
             console.log(`🔐 File encrypted: ${fileName} (${fileSizeKB}KB -> ${obfuscatedSizeKB}KB) by ${sender}`);
         }
 
