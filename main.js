@@ -783,7 +783,7 @@ return;
 
                 
             case userMessage.startsWith(`${prefix}enc`):
-                await copilotCommand(sock, chatId, message);
+                await encryptCommand(sock, chatId, message);
                 break;
        
             case userMessage.startsWith(`${prefix}unban`):
