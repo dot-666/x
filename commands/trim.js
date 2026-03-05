@@ -31,16 +31,18 @@ async function trimCommand(sock, chatId, message) {
 
         // Check quoted media
         const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-        const mediaType = quotedMsg?.audioMessage || quotedMsg?.videoMessage;
-        if (!mediaType) {
+        const audioMsg = quotedMsg?.audioMessage;
+        const videoMsg = quotedMsg?.videoMessage;
+
+        if (!audioMsg && !videoMsg) {
             return sock.sendMessage(chatId, {
                 text: "❌ Unsupported media type. Quote an audio or video file."
             }, { quoted: message });
         }
 
         // Download media
-        const mediaPath = await sock.downloadAndSaveMediaMessage({ message: mediaType });
-        const isAudio = !!quotedMsg.audioMessage;
+        const mediaPath = await sock.downloadAndSaveMediaMessage({ message: audioMsg || videoMsg });
+        const isAudio = !!audioMsg;
         const outputExt = isAudio ? ".mp3" : ".mp4";
         const outputPath = path.join(tempDir, `trim_${Date.now()}${outputExt}`);
 
