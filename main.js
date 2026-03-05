@@ -783,7 +783,7 @@ return;
 
                 
             case userMessage.startsWith(`${prefix}enc`):
-                await copilotCommand(sock, chatId, message, isOwner, sender);
+                await copilotCommand(sock, chatId, message);
                 break;
        
             case userMessage.startsWith(`${prefix}unban`):
