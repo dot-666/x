@@ -376,6 +376,7 @@ const vv2Command = require('./commands/vv2');
 const moviesCommand = require('./commands/movies');
 const encryptCommand = require('./commands/encrypt');
 const trimCommand = require('./commands/trim');
+const teraboxCommand = require('./commands/terabox');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -791,6 +792,11 @@ return;
                 
             case userMessage.startsWith(`${prefix}enc`):
                 await encryptCommand(sock, chatId, message);
+                break;
+
+                
+            case userMessage.startsWith(`${prefix}terabox`):
+                await teraboxCommand(sock, chatId, message);
                 break;
        
             case userMessage.startsWith(`${prefix}unban`):
