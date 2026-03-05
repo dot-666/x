@@ -19,8 +19,13 @@ let progressMsg = null;
 async function updateProgress(sock, chatId, message, text) {
     try {
         if (progressMsg) {
-            await sock.sendMessage(chatId, { text: text, edit: progressMsg.key });
+            // Edit existing message
+            await sock.sendMessage(chatId, { 
+                text: text,
+                edit: progressMsg.key 
+            });
         } else {
+            // Send new message and store reference
             const sent = await sock.sendMessage(chatId, { text: text }, { quoted: message });
             progressMsg = sent;
         }
@@ -71,7 +76,6 @@ async function updateViaGit(sock, chatId, message) {
     return { oldRev, newRev, alreadyUpToDate, commits, files };
 }
 
-// Enhanced download with token and redirect handling
 function downloadFile(url, dest, sock, chatId, message, visited = new Set()) {
     return new Promise((resolve, reject) => {
         try {
@@ -82,27 +86,14 @@ function downloadFile(url, dest, sock, chatId, message, visited = new Set()) {
 
             updateProgress(sock, chatId, message, '⬇️ Downloading update...');
 
-            const token = settings.updateZipToken || process.env.UPDATE_ZIP_TOKEN;
-
-            const headers = {
-                'User-Agent': 'June-xbot-Updater/1.0',
-                'Accept': '*/*'
-            };
-            if (token) {
-                // Choose auth scheme based on host
-                const urlObj = new URL(url);
-                if (urlObj.hostname.includes('github.com')) {
-                    headers['Authorization'] = `token ${token}`;
-                } else if (urlObj.hostname.includes('gitlab.com')) {
-                    headers['Authorization'] = `Bearer ${token}`;
-                } else {
-                    // Default to token scheme (GitHub style)
-                    headers['Authorization'] = `token ${token}`;
+            const useHttps = url.startsWith('https://');
+            const client = useHttps ? require('https') : require('http');
+            const req = client.get(url, {
+                headers: {
+                    'User-Agent': 'KnightBot-Updater/1.0',
+                    'Accept': '*/*'
                 }
-            }
-
-            const client = url.startsWith('https://') ? require('https') : require('http');
-            const req = client.get(url, { headers }, res => {
+            }, res => {
                 if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
                     const location = res.headers.location;
                     if (!location) return reject(new Error(`HTTP ${res.statusCode} without Location`));
@@ -197,23 +188,12 @@ function copyRecursive(src, dest, ignore = [], relative = '', outList = []) {
     }
 }
 
-// Enhanced updateViaZip: supports repo+branch config
 async function updateViaZip(sock, chatId, message, zipOverride) {
     await updateProgress(sock, chatId, message, '🗜️ Starting ZIP update...');
     
-    // Determine ZIP URL
-    let zipUrl;
-    if (zipOverride) {
-        zipUrl = zipOverride;
-    } else if (settings.updateZipUrl) {
-        zipUrl = settings.updateZipUrl;   // direct URL (backward compatible)
-    } else if (settings.updateRepo) {
-        // Build GitHub archive URL – you can extend for GitLab/Bitbucket
-        const repo = settings.updateRepo.replace(/^https?:\/\/[^\/]+\//, ''); // clean if full URL provided
-        const branch = settings.updateBranch || 'main';
-        zipUrl = `https://github.com/${repo}/archive/${branch}.zip`;
-    } else {
-        throw new Error('No ZIP URL or repository configured');
+    const zipUrl = (zipOverride || settings.updateZipUrl || process.env.UPDATE_ZIP_URL || '').trim();
+    if (!zipUrl) {
+        throw new Error('No ZIP URL configured');
     }
     
     const tmpDir = path.join(process.cwd(), 'tmp');
