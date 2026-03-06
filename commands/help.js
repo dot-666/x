@@ -99,14 +99,15 @@ const COMMAND_CATEGORIES = {
         'shazam', 'fetch', 'ssweb', 'trt',
         'transcribe', 'locate', 'location', 'url', 'tourl',
         'vcf', 'ping', 'runtime', 'alive', 'vv',
-        'block', 'listblock'
+        'block', 'listblock', 'enc'
     ],
     'STICKER MENU': [
         'sticker', 'stickercrop', 'tgsticker', 'take', 'emojimix',
-        'meme', 'smeme', 'blur', 'removebg', 'simage', 'timage'
+        'meme', 'smeme', 'blur', 'removebg', 'simage', 'toimage'
     ],
     'CONVERTER': [
-        'totext', 'toimage', 'toaudio', 'tomp3', 'toppt', 'tourl'
+        'totext', 'toimage', 'toaudio', 'tomp3', 'toppt', 'tourl',
+        'gptedit', 'pinterest', 'terabox'
     ],
     'GAME MENU': [
         'tictactoe', 'connect4', 'hangman', 'trivia', 'answer',
