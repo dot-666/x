@@ -143,7 +143,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     const totalMemory = os.totalmem();
     const systemUsedMemory = totalMemory - os.freemem();
     const prefix2 = getPrefix();
-    const bot = setBotNameCommand();
+    const bot = settings.botName;
     let newOwner = getOwnerName();
     const menuSettings = getMenuSettings();
     
@@ -237,7 +237,7 @@ function createFakeContact(message) {
 // JUNE-X BOT menu style function (restored original branding)
 async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thumbnailBuffer, pushname) {
     const fkontak = createFakeContact(message);
-    const botname = setBotNameCommand();
+    const botname = settings.botName;
     const ownername = pushname;
     const tylorkids = thumbnailBuffer;
     const plink = "https://github.com/vinpink2";
