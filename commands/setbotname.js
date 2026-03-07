@@ -1,4 +1,10 @@
 const { isSudo } = require('../lib/index');
+const fs = require('fs').promises;
+const path = require('path');
+const settings = require('../settings');
+
+// Path to your settings file (adjust based on your project structure)
+const SETTINGS_PATH = path.join(__dirname, '../data/settings.json');
 
 async function setBotNameCommand(sock, chatId, message, args) {
     try {
@@ -24,11 +30,32 @@ async function setBotNameCommand(sock, chatId, message, args) {
 
         const newBotName = parts.join(' ');
 
-        // Update bot profile name
-        await sock.updateProfileName(newBotName);
+        // Ensure the data directory exists
+        const dataDir = path.dirname(SETTINGS_PATH);
+        try {
+            await fs.access(dataDir);
+        } catch {
+            await fs.mkdir(dataDir, { recursive: true });
+        }
+
+        // Read current settings
+        let settings = {};
+        try {
+            const data = await fs.readFile(SETTINGS_PATH, 'utf8');
+            settings = JSON.parse(data);
+        } catch (err) {
+            // If file doesn't exist or is invalid, start with empty object
+            console.warn('Settings file not found or invalid, creating new one.');
+        }
+
+        // Update bot name
+        settings.botName = newBotName;
+
+        // Write back to file
+        await fs.writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 
         return sock.sendMessage(chatId, { 
-            text: `✅ Bot name changed to: *${newBotName}*` 
+            text: `✅ Bot name changed to: *${newBotName}* (stored in settings)` 
         }, { quoted: message });
 
     } catch (error) {
