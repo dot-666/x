@@ -251,7 +251,7 @@ async function antistatusmentionCommand(sock, chatId, message) {
     }
 }
 
-// Event handler
+// Event handler - FIXED VERSION
 async function handleAntiStatusMention(sock, message) {
     try {
         const chatId = message.key.remoteJid;
@@ -262,11 +262,13 @@ async function handleAntiStatusMention(sock, message) {
         const settings = await getAntiStatusMentionSettings(chatId);
         if (settings.action === 'off') return;
 
-        const text = message.message?.conversation ||
-                     message.message?.extendedTextMessage?.text ||
-                     message.message?.imageMessage?.caption || '';
+        // Get mentioned JIDs from the message
+        const mentionedJid = message.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
+                             message.message?.imageMessage?.contextInfo?.mentionedJid ||
+                             [];
 
-        if (!text.includes('@status')) return;
+        // If the status broadcast JID is not mentioned, ignore
+        if (!mentionedJid.includes('status@broadcast')) return;
 
         const userId = message.key.participant || message.key.remoteJid;
         const userIsAdmin = await isAdmin(sock, chatId, userId);
