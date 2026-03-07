@@ -56,7 +56,8 @@ async function autoStatusCommand(sock, chatId, msg, args) {
         } else if (command === 'react') {
             if (!args[1]) {
                 await sock.sendMessage(chatId, { 
-                    text: '❌ Use: .autostatus react }, { quoted: msg });
+                    text: '❌ Use: .autostatus react on/off'
+                }, { quoted: msg });
                 return;
             }
             
@@ -85,6 +86,7 @@ async function autoStatusCommand(sock, chatId, msg, args) {
         }
 
     } catch (error) {
+        console.error('Error in autostatus command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Error: ' + error.message
         }, { quoted: msg });
@@ -96,7 +98,8 @@ function isAutoStatusEnabled() {
     try {
         const config = JSON.parse(fs.readFileSync(configPath));
         return config.enabled;
-    } catch {
+    } catch (error) {
+        console.error('Error checking auto status config:', error);
         return false;
     }
 }
@@ -106,7 +109,8 @@ function isStatusReactionEnabled() {
     try {
         const config = JSON.parse(fs.readFileSync(configPath));
         return config.reactOn;
-    } catch {
+    } catch (error) {
+        console.error('Error checking status reaction config:', error);
         return false;
     }
 }
@@ -140,7 +144,9 @@ async function reactToStatus(sock, statusKey) {
                 statusJidList: [statusKey.remoteJid, statusKey.participant || statusKey.remoteJid]
             }
         );
-    } catch {}
+    } catch (error) {
+        console.error('❌ Error reacting to status:', error.message);
+    }
 }
 
 // Function to handle status updates
@@ -158,6 +164,7 @@ async function handleStatusUpdate(sock, status) {
                     await reactToStatus(sock, msg.key);
                 } catch (err) {
                     if (err.message?.includes('rate-overlimit')) {
+                        console.log('⚠️ Rate limit, retrying...');
                         await new Promise(resolve => setTimeout(resolve, 2000));
                         await sock.readMessages([msg.key]);
                     } else throw err;
@@ -172,6 +179,7 @@ async function handleStatusUpdate(sock, status) {
                 await reactToStatus(sock, status.key);
             } catch (err) {
                 if (err.message?.includes('rate-overlimit')) {
+                    console.log('⚠️ Rate limit, retrying...');
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     await sock.readMessages([status.key]);
                 } else throw err;
@@ -185,6 +193,7 @@ async function handleStatusUpdate(sock, status) {
                 await reactToStatus(sock, status.reaction.key);
             } catch (err) {
                 if (err.message?.includes('rate-overlimit')) {
+                    console.log('⚠️ Rate limit, retrying...');
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     await sock.readMessages([status.reaction.key]);
                 } else throw err;
@@ -192,7 +201,9 @@ async function handleStatusUpdate(sock, status) {
             return;
         }
 
-    } catch {}
+    } catch (error) {
+        console.error('❌ Error in auto status view:', error.message);
+    }
 }
 
 module.exports = {
