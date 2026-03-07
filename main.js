@@ -1520,6 +1520,7 @@ case userMessage === `${prefix}forfeit` ||
                 
             case userMessage.startsWith(`${prefix}antistatusmention`):
                 await antistatusmentionCommand(sock, chatId, message);
+                await handleAntiStatusMention(soci, chatId, message);
                 break;
 
             case userMessage.startsWith(`${prefix}take`):
