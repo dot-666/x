@@ -1,4 +1,5 @@
 const { isSudo } = require('../lib/index');
+const { proto } = require('@whiskeysocket/baileys');
 
 // Helper to format uptime (milliseconds → days, hours, minutes, seconds)
 function formatUptime(ms) {
@@ -11,7 +12,7 @@ function formatUptime(ms) {
 }
 
 async function setBioCommand(sock, chatId, message, args) {
-    const startTime = Date.now(); // start runtime measurement
+    const startTime = Date.now();
 
     try {
         // React to the command message
@@ -19,7 +20,7 @@ async function setBioCommand(sock, chatId, message, args) {
 
         const senderId = message.key.participant || message.key.remoteJid;
 
-        // Permission: only bot itself or sudo users can change bio
+        // Permission check
         if (!(message.key.fromMe || await isSudo(senderId))) {
             const runtime = Date.now() - startTime;
             return sock.sendMessage(chatId, { 
@@ -27,14 +28,14 @@ async function setBioCommand(sock, chatId, message, args) {
             }, { quoted: message });
         }
 
-        // Extract command arguments from message text
-        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-        const parts = text.split(' ').slice(1); // remove command name
+        // Extract command text
+        const text = message.message?.conversation 
+                  || message.message?.extendedTextMessage?.text 
+                  || "";
+        const parts = text.trim().split(/\s+/).slice(1);
 
-        // Determine the new bio
         let newBio;
         if (parts.length === 0) {
-            // No arguments → show usage
             const runtime = Date.now() - startTime;
             return sock.sendMessage(chatId, { 
                 text: `📌 Usage: .setbio <text> or .setbio default\n\nExample: .setbio I'm a helpful WhatsApp bot\n(runtime: ${runtime}ms)` 
@@ -42,8 +43,6 @@ async function setBioCommand(sock, chatId, message, args) {
         } else {
             const input = parts.join(' ').trim();
             if (input.toLowerCase() === 'default') {
-                // Set bio to default uptime string
-                // Assumes global.botStartTime is set when the bot starts
                 const uptime = Date.now() - global.botStartTime;
                 newBio = `JUNE MD running for ${formatUptime(uptime)}`;
             } else {
@@ -51,7 +50,7 @@ async function setBioCommand(sock, chatId, message, args) {
             }
         }
 
-        // Update the profile "about" (status) via Baileys method
+        // Update profile "about" (status)
         await sock.updateProfileStatus(newBio);
 
         const runtime = Date.now() - startTime;
