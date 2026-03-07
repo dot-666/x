@@ -4,61 +4,16 @@ const isOwnerOrSudo = require('../lib/isOwner');
 
 // Path to store auto status configuration
 const configPath = path.join(__dirname, '../data/autoStatus.json');
-const userSettingsPath = path.join(__dirname, '../data/userSettings.json');
 
-// Initialize config files if they don't exist
+// Initialize config file if it doesn't exist
 if (!fs.existsSync(configPath)) {
     fs.writeFileSync(configPath, JSON.stringify({ 
-        enabled: false,
-        autoView: true,
-        autoLike: false,
-        likeEmoji: '❤️'
+        enabled: false, 
+        reactOn: false 
     }));
 }
 
-if (!fs.existsSync(userSettingsPath)) {
-    fs.writeFileSync(userSettingsPath, JSON.stringify({}));
-}
-
-// Helper to get user settings
-function getUserSettings(userId) {
-    try {
-        const settings = JSON.parse(fs.readFileSync(userSettingsPath));
-        return settings[userId] || {
-            autoView: true,
-            autoLike: false,
-            likeEmoji: '❤️'
-        };
-    } catch {
-        return {
-            autoView: true,
-            autoLike: false,
-            likeEmoji: '❤️'
-        };
-    }
-}
-
-// Helper to save user settings
-function saveUserSettings(userId, settings) {
-    try {
-        const allSettings = JSON.parse(fs.readFileSync(userSettingsPath));
-        allSettings[userId] = settings;
-        fs.writeFileSync(userSettingsPath, JSON.stringify(allSettings, null, 2));
-    } catch (error) {
-        console.error('Error saving user settings:', error);
-    }
-}
-
-// Helper to get global setting (fallback)
-function getGlobalSetting() {
-    try {
-        return JSON.parse(fs.readFileSync(configPath));
-    } catch {
-        return { enabled: false, autoView: true, autoLike: false, likeEmoji: '❤️' };
-    }
-}
-
-// Main command function
+// === Owner Command Handler ===
 async function autoStatusCommand(sock, chatId, msg, args) {
     try {
         const senderId = msg.key.participant || msg.key.remoteJid;
@@ -71,175 +26,131 @@ async function autoStatusCommand(sock, chatId, msg, args) {
             return;
         }
 
-        // Get current config
-        const globalConfig = getGlobalSetting();
-        const userSettings = getUserSettings(senderId);
+        let config = JSON.parse(fs.readFileSync(configPath));
 
-        // If no arguments, show current status
         if (!args || args.length === 0) {
-            const globalStatus = globalConfig.enabled ? 'ON' : 'OFF';
-            const autoViewStatus = userSettings.autoView ? 'ON' : 'OFF';
-            const autoLikeStatus = userSettings.autoLike ? 'ON' : 'OFF';
-            const currentEmoji = userSettings.likeEmoji || '❤️';
-            
+            const status = config.enabled ? 'ON' : 'OFF';
+            const reactStatus = config.reactOn ? 'ON' : 'OFF';
             await sock.sendMessage(chatId, { 
-                text: `🔄 *Auto Status Settings*\n` +
-                      `━━━━━━━━━━━━━━\n` +
-                      `📱 *Global Switch:* ${globalStatus}\n` +
-                      `👁️ *Auto View:* ${autoViewStatus}\n` +
-                      `💫 *Auto Like:* ${autoLikeStatus}\n` +
-                      `😊 *Like Emoji:* ${currentEmoji}\n` +
-                      `━━━━━━━━━━━━━━\n` +
-                      `*Commands:*\n` +
-                      `▸ .autostatus on/off - Global toggle\n` +
-                      `▸ .autostatus view on/off - Toggle auto view\n` +
-                      `▸ .autostatus like on/off - Toggle auto likes\n` +
-                      `▸ .autostatus emoji [emoji] - Set like emoji\n` +
-                      `▸ .autostatus status - Show current settings`
+                text: `🔄 *Auto Status*\n📱 View: ${status}\n💫 React: ${reactStatus}\n\nCommands:\n.autostatus on/off\n.autostatus react on/off`
             }, { quoted: msg });
             return;
         }
 
         const command = args[0].toLowerCase();
         
-        // Global on/off toggle
-        if (command === 'on' || command === 'off') {
-            globalConfig.enabled = (command === 'on');
-            fs.writeFileSync(configPath, JSON.stringify(globalConfig, null, 2));
-            
-            await sock.sendMessage(chatId, { 
-                text: `✅ Auto status ${command === 'on' ? 'enabled' : 'disabled'} globally!`
-            }, { quoted: msg });
-        }
-        
-        // Auto view toggle (per user)
-        else if (command === 'view') {
+        if (command === 'on') {
+            config.enabled = true;
+            fs.writeFileSync(configPath, JSON.stringify(config));
+            await sock.sendMessage(chatId, { text: '✅ Auto status enabled!' }, { quoted: msg });
+        } else if (command === 'off') {
+            config.enabled = false;
+            fs.writeFileSync(configPath, JSON.stringify(config));
+            await sock.sendMessage(chatId, { text: '❌ Auto status disabled!' }, { quoted: msg });
+        } else if (command === 'react') {
             if (!args[1]) {
-                await sock.sendMessage(chatId, { 
-                    text: '❌ Use: .autostatus view on/off'
-                }, { quoted: msg });
+                await sock.sendMessage(chatId, { text: '❌ Use: .autostatus react on/off' }, { quoted: msg });
                 return;
             }
-            
-            const viewCommand = args[1].toLowerCase();
-            if (viewCommand === 'on' || viewCommand === 'off') {
-                userSettings.autoView = (viewCommand === 'on');
-                saveUserSettings(senderId, userSettings);
-                
-                await sock.sendMessage(chatId, { 
-                    text: `👁️ Auto view ${viewCommand === 'on' ? 'enabled' : 'disabled'}!`
-                }, { quoted: msg });
+            const reactCommand = args[1].toLowerCase();
+            if (reactCommand === 'on') {
+                config.reactOn = true;
+                fs.writeFileSync(configPath, JSON.stringify(config));
+                await sock.sendMessage(chatId, { text: '💫 Status reactions ON!' }, { quoted: msg });
+            } else if (reactCommand === 'off') {
+                config.reactOn = false;
+                fs.writeFileSync(configPath, JSON.stringify(config));
+                await sock.sendMessage(chatId, { text: '❌ Status reactions OFF!' }, { quoted: msg });
             } else {
-                await sock.sendMessage(chatId, { 
-                    text: '❌ Invalid! Use: .autostatus view on/off'
-                }, { quoted: msg });
+                await sock.sendMessage(chatId, { text: '❌ Invalid! Use: .autostatus react on/off' }, { quoted: msg });
             }
-        }
-        
-        // Auto like toggle (per user)
-        else if (command === 'like') {
-            if (!args[1]) {
-                await sock.sendMessage(chatId, { 
-                    text: '❌ Use: .autostatus like on/off'
-                }, { quoted: msg });
-                return;
-            }
-            
-            const likeCommand = args[1].toLowerCase();
-            if (likeCommand === 'on' || likeCommand === 'off') {
-                userSettings.autoLike = (likeCommand === 'on');
-                saveUserSettings(senderId, userSettings);
-                
-                await sock.sendMessage(chatId, { 
-                    text: `💫 Auto like ${likeCommand === 'on' ? 'enabled' : 'disabled'}!`
-                }, { quoted: msg });
-            } else {
-                await sock.sendMessage(chatId, { 
-                    text: '❌ Invalid! Use: .autostatus like on/off'
-                }, { quoted: msg });
-            }
-        }
-        
-        // Set like emoji
-        else if (command === 'emoji') {
-            if (!args[1]) {
-                await sock.sendMessage(chatId, { 
-                    text: '❌ Use: .autostatus emoji [emoji]\nExample: .autostatus emoji ❤️'
-                }, { quoted: msg });
-                return;
-            }
-            
-            const newEmoji = args[1];
-            // Simple validation - check if it's a single emoji (can be improved)
-            if (newEmoji.length > 2) {
-                await sock.sendMessage(chatId, { 
-                    text: '❌ Please provide a single emoji!'
-                }, { quoted: msg });
-                return;
-            }
-            
-            userSettings.likeEmoji = newEmoji;
-            saveUserSettings(senderId, userSettings);
-            
+        } else {
             await sock.sendMessage(chatId, { 
-                text: `😊 Like emoji set to: ${newEmoji}`
-            }, { quoted: msg });
-        }
-        
-        // Show status
-        else if (command === 'status') {
-            const globalStatus = globalConfig.enabled ? 'ON' : 'OFF';
-            const autoViewStatus = userSettings.autoView ? 'ON' : 'OFF';
-            const autoLikeStatus = userSettings.autoLike ? 'ON' : 'OFF';
-            const currentEmoji = userSettings.likeEmoji || '❤️';
-            
-            await sock.sendMessage(chatId, { 
-                text: `📊 *Current Auto Status Settings*\n` +
-                      `━━━━━━━━━━━━━━\n` +
-                      `🌐 *Global:* ${globalStatus}\n` +
-                      `👁️ *View:* ${autoViewStatus}\n` +
-                      `💫 *Like:* ${autoLikeStatus}\n` +
-                      `😊 *Emoji:* ${currentEmoji}\n` +
-                      `━━━━━━━━━━━━━━`
-            }, { quoted: msg });
-        }
-        
-        else {
-            await sock.sendMessage(chatId, { 
-                text: '❌ Invalid command! Use:\n' +
-                      '▸ .autostatus on/off\n' +
-                      '▸ .autostatus view on/off\n' +
-                      '▸ .autostatus like on/off\n' +
-                      '▸ .autostatus emoji [emoji]\n' +
-                      '▸ .autostatus status'
+                text: '❌ Invalid! Use:\n.autostatus on/off\n.autostatus react on/off'
             }, { quoted: msg });
         }
 
     } catch (error) {
         console.error('Error in autostatus command:', error);
-        await sock.sendMessage(chatId, { 
-            text: '❌ Error: ' + error.message
-        }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: '❌ Error: ' + error.message }, { quoted: msg });
     }
 }
 
-// Function to check if auto status is enabled (global)
+// === Config Helpers ===
 function isAutoStatusEnabled() {
     try {
         const config = JSON.parse(fs.readFileSync(configPath));
         return config.enabled;
-    } catch {
+    } catch (error) {
+        console.error('Error checking auto status config:', error);
         return false;
     }
 }
 
-// Function to get user-specific settings
-function getUserStatusSettings(userId) {
-    return getUserSettings(userId);
+function isStatusReactionEnabled() {
+    try {
+        const config = JSON.parse(fs.readFileSync(configPath));
+        return config.reactOn;
+    } catch (error) {
+        console.error('Error checking status reaction config:', error);
+        return false;
+    }
+}
+
+// === New LID-aware Handler ===
+async function handleBroadcastStatus(sock, mek, sessionKey, getSetting) {
+    try {
+        if (mek.key && mek.key.remoteJid === 'status@broadcast') {
+            const autoView = getSetting(sessionKey, 'autoView', isAutoStatusEnabled());
+            const autoLike = getSetting(sessionKey, 'autoLike', isStatusReactionEnabled());
+            const likeEmoji = getSetting(sessionKey, 'likeEmoji', '❤️');
+
+            const rawParticipant = mek.key.participant || mek.participant || '';
+            let phoneJid = rawParticipant;
+
+            // Resolve LID → phone JID
+            if (rawParticipant.endsWith('@lid')) {
+                try {
+                    const pn = await sock.signalRepository?.lidMapping?.getPNForLID(rawParticipant);
+                    if (pn) phoneJid = pn;
+                } catch (_) {}
+            }
+
+            // Auto view
+            if (autoView && phoneJid && !phoneJid.endsWith('@lid')) {
+                const readKey = phoneJid !== rawParticipant
+                    ? { ...mek.key, participant: phoneJid }
+                    : mek.key;
+                try { await sock.readMessages([readKey]); } catch (_) {}
+            }
+
+            // Auto like
+            if (autoLike && phoneJid && !phoneJid.endsWith('@lid')) {
+                const reactKey = { ...mek.key, participant: phoneJid };
+                try {
+                    await sock.sendMessage(
+                        'status@broadcast',
+                        { react: { text: likeEmoji, key: reactKey } },
+                        { statusJidList: [phoneJid] }
+                    );
+                } catch (_) {}
+            }
+        }
+    } catch (statusErr) {
+        // Silent — never crash on status
+    }
+}
+
+// === Unified Status Update Entry Point ===
+async function handleStatusUpdate(sock, status, sessionKey, getSetting) {
+    try {
+        await handleBroadcastStatus(sock, status, sessionKey, getSetting);
+    } catch (error) {
+        console.error('❌ Error in auto status view:', error.message);
+    }
 }
 
 module.exports = {
     autoStatusCommand,
-    isAutoStatusEnabled,
-    getUserStatusSettings
+    handleStatusUpdate
 };
