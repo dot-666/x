@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const moment = require("moment-timezone");
+const { isSudo } = require("../lib/index"); // Import isSudo from lib
 
 const readmore = "\n".repeat(4001);
 
@@ -34,16 +35,22 @@ function readAntieditData() {
 
 // Helper function to write antiedit data
 function writeAntieditData(data) {
+    const tempFile = antieditFile + '.tmp';
     try {
-        fs.writeFileSync(antieditFile, JSON.stringify(data, null, 2));
+        fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+        fs.renameSync(tempFile, antieditFile);
     } catch (error) {
         console.error("Error writing to antiedit.json:", error);
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
     }
 }
 
 // Function to store messages
 function storeMessage(chatId, message) {
     try {
+        // Don't store protocol messages (edits, etc.)
+        if (message.message?.protocolMessage) return;
+
         const data = readAntieditData();
         
         if (!data.messages[chatId]) {
@@ -51,13 +58,15 @@ function storeMessage(chatId, message) {
         }
         
         if (message.key?.id) {
-            // Store only necessary message data to save space
+            // Extract sender correctly
+            const sender = message.key.participant || message.key.remoteJid || message.sender;
+            
             data.messages[chatId][message.key.id] = {
                 key: message.key,
                 message: message.message,
                 messageTimestamp: message.messageTimestamp,
                 pushName: message.pushName,
-                sender: message.sender || message.key.participant || message.key.remoteJid,
+                sender: sender,
                 timestamp: Date.now()
             };
             
@@ -112,7 +121,7 @@ async function antieditCommand(sock, chatId, message) {
         // Get bot number
         const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         
-        // Get anti-edit setting from JSON
+        // Get anti-edit setting
         const antieditSetting = getAntieditSetting(botNumber);
         
         if (antieditSetting === 'off') {
@@ -121,7 +130,10 @@ async function antieditCommand(sock, chatId, message) {
 
         // Extract message details
         let messageId = message.message.protocolMessage.key.id;
-        let editedBy = message.sender || message.key.participant || message.key.remoteJid;
+        let editedBy = message.key.participant || message.key.remoteJid || message.sender;
+
+        // Ignore if the bot edited its own message
+        if (editedBy === botNumber) return;
 
         // Get original message from store
         const data = readAntieditData();
@@ -132,7 +144,7 @@ async function antieditCommand(sock, chatId, message) {
             return;
         }
 
-        let sender = originalMsg.key?.participant || originalMsg.key?.remoteJid;
+        let sender = originalMsg.sender;
         
         // Get chat name
         let chatName;
@@ -147,12 +159,12 @@ async function antieditCommand(sock, chatId, message) {
             chatName = originalMsg.pushName || "Private Chat";
         }
 
-        // Get timezone from settings (you can also store this in JSON)
-        const timezones = "Asia/Jakarta"; // Default timezone
+        // Use timezone from settings or default
+        const timezone = "Asia/Jakarta"; // Could be made configurable
 
         // Format timestamps
-        let xtipes = moment(originalMsg.messageTimestamp * 1000).tz(timezones).locale('en').format('HH:mm z');
-        let xdptes = moment(originalMsg.messageTimestamp * 1000).tz(timezones).format("DD/MM/YYYY");
+        let xtipes = moment(originalMsg.messageTimestamp * 1000).tz(timezone).locale('en').format('HH:mm z');
+        let xdptes = moment(originalMsg.messageTimestamp * 1000).tz(timezone).format("DD/MM/YYYY");
 
         // Get original text
         let originalText = originalMsg.message?.conversation || 
@@ -195,9 +207,12 @@ ${readmore}
         // Determine target based on mode
         let targetChat;
         if (antieditSetting === 'private') {
-            // Get owner number from a separate config or JSON
-            const ownerNumber = global.owner || '1234567890'; // Set your owner number
-            targetChat = ownerNumber + '@s.whatsapp.net';
+            // Get owner number from sudo list (first sudo user)
+            // You might want to store this separately; for now we'll use the first sudo user
+            // This requires access to sudo list; you could pass it or define globally
+            // For simplicity, we'll use a config or environment variable
+            const ownerNumber = process.env.OWNER_NUMBER || "1234567890@s.whatsapp.net"; // Replace with your owner
+            targetChat = ownerNumber;
             console.log(`📤 Anti-edit: Sending to owner's inbox`);
         } else if (antieditSetting === 'chat') {
             targetChat = chatId; // Send to same chat
@@ -215,20 +230,28 @@ ${readmore}
 
     } catch (error) {
         console.error("❌ Anti-edit error:", error);
-        // Optionally notify about error in the chat
-        try {
-            await sock.sendMessage(chatId, {
-                text: `🚫 Anti-edit error: ${error.message}`
-            });
-        } catch (e) {
-            // Ignore if error notification fails
+        // Only notify in the chat if we're sending there and it's a critical error
+        if (chatId && antieditSetting === 'chat') {
+            try {
+                await sock.sendMessage(chatId, {
+                    text: `⚠️ Anti-edit error: ${error.message}`
+                });
+            } catch (e) {}
         }
     }
 }
 
-// Command to set anti-edit setting
-async function setAntiEdit(sock, chatId, message) {
+// Command to set anti-edit setting (sudo only)
+async function setAntiEdit(sock, chatId, message, userJid) {
     try {
+        // Check if user is sudo (owner/authorized) or the message is from the bot itself
+        if (!message.key.fromMe && !isSudo(userJid)) {
+            await sock.sendMessage(chatId, { 
+                text: "❌ Only sudo users can change anti-edit settings." 
+            }, { quoted: message });
+            return;
+        }
+
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
         const args = text?.split(" ").slice(1);
         const option = args[0]?.toLowerCase();
@@ -266,9 +289,16 @@ async function setAntiEdit(sock, chatId, message) {
     }
 }
 
-// Function to view stored messages (for debugging)
-async function viewAntieditStats(sock, chatId, message) {
+// Function to view stored messages (sudo only)
+async function viewAntieditStats(sock, chatId, message, userJid) {
     try {
+        if (!message.key.fromMe && !isSudo(userJid)) {
+            await sock.sendMessage(chatId, { 
+                text: "❌ Only sudo users can view anti-edit stats." 
+            }, { quoted: message });
+            return;
+        }
+
         const data = readAntieditData();
         const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         const currentSetting = data.settings[botNumber] || 'off';
