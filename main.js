@@ -1446,7 +1446,7 @@ case userMessage === `${prefix}forfeit` ||
                   break;
 
                 
-        case userMessage.startsWith(`${prefix}setbii`):
+        case userMessage.startsWith(`${prefix}setbio`):
              await setBioCommand(sock, chatId, message);
                   break;
               
@@ -1823,21 +1823,21 @@ case userMessage === `${prefix}forfeit` ||
                 await setProfilePicture(sock, chatId, message);
                 break;
 
-            case userMessage.startsWith(`${prefix}setgdesc`):
+            case userMessage.startsWith(`${prefix}setgroupdesc`):
                 {
-                    const text = rawText.slice((prefix + 'setgdesc').length).trim();
+                    const text = rawText.slice((prefix + 'setgrouodesc').length).trim();
                     await setGroupDescription(sock, chatId, senderId, text, message);
                 }
                 break;
 
-            case userMessage.startsWith(`${prefix}setgname`):
+            case userMessage.startsWith(`${prefix}setgroupname`):
                 {
-                    const text = rawText.slice((prefix + 'setgname').length).trim();
+                    const text = rawText.slice((prefix + 'setgroupname').length).trim();
                     await setGroupName(sock, chatId, senderId, text, message);
                 }
                 break;
 
-            case userMessage.startsWith(`${prefix}setgpp`):
+            case userMessage.startsWith(`${prefix}setgrouppp`):
                 await setGroupPhoto(sock, chatId, senderId, message);
                 break;
 
