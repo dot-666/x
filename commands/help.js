@@ -11,7 +11,7 @@ const { getMenuStyle, getMenuSettings, getMenuImage, MENU_STYLES } = require('./
 const { generateWAMessageFromContent } = require('@whiskeysockets/baileys');
 const { getPrefix, handleSetPrefixCommand } = require('./setprefix');
 const { getOwnerName, handleSetOwnerCommand } = require('./setowner');
-
+const setBotNameCommand = require('./setbotname')
 const more = String.fromCharCode(8206);
 const readmore = more.repeat(4001);
 
@@ -143,10 +143,11 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     const totalMemory = os.totalmem();
     const systemUsedMemory = totalMemory - os.freemem();
     const prefix2 = getPrefix();
+    const bot = setBotNameCommabd();
     let newOwner = getOwnerName();
     const menuSettings = getMenuSettings();
     
-    let menu = `┏❐✦ JUNE-X BOT ✦❐\n`;
+    let menu = `┏❐✦ ${bot} ✦❐\n`;
     menu += `┃✦ Prefix: [${prefix2}]\n`;
     menu += `┃✦ Owner: ${newOwner}\n`;
     menu += `┃✦ Mode: ${currentMode}\n`;
@@ -236,7 +237,7 @@ function createFakeContact(message) {
 // JUNE-X BOT menu style function (restored original branding)
 async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thumbnailBuffer, pushname) {
     const fkontak = createFakeContact(message);
-    const botname = "JUNE-X BOT";
+    const botname = setBotNameCommand();
     const ownername = pushname;
     const tylorkids = thumbnailBuffer;
     const plink = "https://github.com/vinpink2";
