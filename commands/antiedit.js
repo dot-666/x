@@ -1,12 +1,20 @@
 const fs = require('fs');
+const path = require('path');
 
-// File to store settings persistently
-const SETTINGS_FILE = '..data/antiedit_settings.json';
+// ==================== CONFIGURATION ====================
+// Settings file path: one level up from this script, inside a 'data' folder
+const SETTINGS_FILE = path.join(__dirname, '..', 'data', 'antiedit_settings.json');
+
+// Ensure the data directory exists
+const settingsDir = path.dirname(SETTINGS_FILE);
+if (!fs.existsSync(settingsDir)) {
+    fs.mkdirSync(settingsDir, { recursive: true });
+}
 
 // In‑memory store for quick access
 const antieditSettings = new Map();
 
-// Load existing settings from file
+// ==================== PERSISTENCE ====================
 function loadSettings() {
     try {
         if (fs.existsSync(SETTINGS_FILE)) {
@@ -14,18 +22,18 @@ function loadSettings() {
             for (const [chatId, enabled] of Object.entries(data)) {
                 antieditSettings.set(chatId, enabled);
             }
-            console.log('[AntiEdit] Settings loaded.');
+            console.log('[AntiEdit] Settings loaded from', SETTINGS_FILE);
         }
     } catch (err) {
         console.error('[AntiEdit] Failed to load settings:', err);
     }
 }
 
-// Save current settings to file
 function saveSettings() {
     try {
         const obj = Object.fromEntries(antieditSettings);
         fs.writeFileSync(SETTINGS_FILE, JSON.stringify(obj, null, 2));
+        console.log('[AntiEdit] Settings saved.');
     } catch (err) {
         console.error('[AntiEdit] Failed to save settings:', err);
     }
@@ -34,6 +42,7 @@ function saveSettings() {
 // Initialize settings on module load
 loadSettings();
 
+// ==================== COMMAND HANDLER ====================
 /**
  * Command handler for .antiedit
  * Usage: .antiedit on|off  (or no argument to check status)
@@ -57,11 +66,11 @@ async function antieditCommand(sock, chatId, message) {
 
         if (args === 'on') {
             antieditSettings.set(chatId, true);
-            saveSettings(); // persist
+            saveSettings();
             replyText = '✅ Anti‑edit protection **enabled** for this chat. I will now notify when someone edits a message.';
         } else if (args === 'off') {
             antieditSettings.set(chatId, false);
-            saveSettings(); // persist
+            saveSettings();
             replyText = '❌ Anti‑edit protection **disabled** for this chat.';
         } else if (args === '') {
             const status = antieditSettings.get(chatId) ? 'enabled' : 'disabled';
@@ -95,6 +104,7 @@ async function antieditCommand(sock, chatId, message) {
     }
 }
 
+// ==================== EDIT DETECTION LISTENER ====================
 /**
  * Sets up the event listener for edited messages.
  * Call this once after your WhatsApp socket is ready.
@@ -158,6 +168,7 @@ function setupAntiEditListener(sock, store) {
     console.log('[AntiEdit] Listener attached.');
 }
 
+// ==================== EXPORTS ====================
 module.exports = {
     antieditCommand,
     antieditSettings,   // exported in case you need to read settings elsewhere
