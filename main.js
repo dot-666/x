@@ -381,6 +381,7 @@ const magicstudioCommand = require('./commands/magicstudio');
 const gpteditCommand = require('./commands/gptedit');
 const pinterestCommand = require('./commands/pinterest');
 const setBotNameCommand = require('./commands/setbotname');
+const setBioCommand = require('./commands/setbio');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -1442,6 +1443,11 @@ case userMessage === `${prefix}forfeit` ||
                
         case userMessage.startsWith(`${prefix}setbotname`):
              await setBotNameCommand(sock, chatId, message);
+                  break;
+
+                
+        case userMessage.startsWith(`${prefix}setbii`):
+             await setBioCommand(sock, chatId, message);
                   break;
               
         case userMessage.startsWith(`${prefix}league1standings`):  
