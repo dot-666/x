@@ -143,7 +143,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     const totalMemory = os.totalmem();
     const systemUsedMemory = totalMemory - os.freemem();
     const prefix2 = getPrefix();
-    const bot = setBotNameCommabd();
+    const bot = setBotNameCommand();
     let newOwner = getOwnerName();
     const menuSettings = getMenuSettings();
     
