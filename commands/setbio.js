@@ -1,5 +1,5 @@
 const { isSudo } = require('../lib/index');
-const { proto } = require('@whiskeysocket/baileys');
+const { proto } = require('@whiskeysockets/baileys');
 
 // Helper to format uptime (milliseconds → days, hours, minutes, seconds)
 function formatUptime(ms) {
