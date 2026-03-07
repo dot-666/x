@@ -192,7 +192,6 @@ async function reactToStatus(sock, statusKey) {
         if (!isStatusReactionEnabled()) return;
 
         const emojis = getReactionEmojis();
-        // If no emojis configured, fallback to default
         const finalEmojis = emojis.length ? emojis : DEFAULT_EMOJIS;
         const randomEmoji = finalEmojis[Math.floor(Math.random() * finalEmojis.length)];
 
@@ -214,69 +213,105 @@ async function reactToStatus(sock, statusKey) {
                 statusJidList: [statusKey.remoteJid, statusKey.participant || statusKey.remoteJid]
             }
         );
+
+        console.log(`💬 Reacted to ${statusKey.id} with ${randomEmoji}`);
     } catch (error) {
         console.error('❌ Error reacting to status:', error.message);
     }
 }
 
-// Function to handle status updates
+// FIXED: Robust status update handler
 async function handleStatusUpdate(sock, status) {
     try {
-        if (!isAutoStatusEnabled()) return;
+        if (!isAutoStatusEnabled()) {
+            console.log('⏸️ Auto status is disabled, skipping');
+            return;
+        }
 
+        // Small delay to ensure status is fully received
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        if (status.messages && status.messages.length > 0) {
+        // Extract status key from various possible structures
+        let statusKey = null;
+
+        // Structure 1: messages array (common from 'messages.upsert')
+        if (status.messages && Array.isArray(status.messages) && status.messages.length > 0) {
             const msg = status.messages[0];
             if (msg.key && msg.key.remoteJid === 'status@broadcast') {
-                try {
-                    await sock.readMessages([msg.key]);
-                    await reactToStatus(sock, msg.key);
-                } catch (err) {
-                    if (err.message?.includes('rate-overlimit')) {
-                        console.log('⚠️ Rate limit, retrying...');
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        await sock.readMessages([msg.key]);
-                    } else throw err;
-                }
-                return;
+                statusKey = msg.key;
             }
         }
-
-        if (status.key && status.key.remoteJid === 'status@broadcast') {
-            try {
-                await sock.readMessages([status.key]);
-                await reactToStatus(sock, status.key);
-            } catch (err) {
-                if (err.message?.includes('rate-overlimit')) {
-                    console.log('⚠️ Rate limit, retrying...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    await sock.readMessages([status.key]);
-                } else throw err;
-            }
+        // Structure 2: direct key object (from some updates)
+        else if (status.key && status.key.remoteJid === 'status@broadcast') {
+            statusKey = status.key;
+        }
+        // Structure 3: reaction update
+        else if (status.reaction && status.reaction.key && status.reaction.key.remoteJid === 'status@broadcast') {
+            statusKey = status.reaction.key;
+        }
+        // Structure 4: status update as a single message object
+        else if (status.key && status.key.remoteJid === 'status@broadcast') {
+            statusKey = status.key;
+        }
+        else {
+            // Not a status update, ignore
             return;
         }
 
-        if (status.reaction && status.reaction.key.remoteJid === 'status@broadcast') {
-            try {
-                await sock.readMessages([status.reaction.key]);
-                await reactToStatus(sock, status.reaction.key);
-            } catch (err) {
-                if (err.message?.includes('rate-overlimit')) {
-                    console.log('⚠️ Rate limit, retrying...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    await sock.readMessages([status.reaction.key]);
-                } else throw err;
-            }
+        // Validate we have a key
+        if (!statusKey || !statusKey.id) {
+            console.log('⚠️ Status update without valid key:', JSON.stringify(status));
             return;
         }
+
+        // Skip own statuses (fromMe = true)
+        if (statusKey.fromMe) {
+            console.log('⏭️ Skipping own status:', statusKey.id);
+            return;
+        }
+
+        // Mark as read
+        try {
+            await sock.readMessages([statusKey]);
+            console.log('✅ Status viewed:', statusKey.id);
+        } catch (err) {
+            if (err.message?.includes('rate-overlimit')) {
+                console.log('⚠️ Rate limit hit, retrying in 2s...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                await sock.readMessages([statusKey]);
+                console.log('✅ Status viewed on retry:', statusKey.id);
+            } else {
+                console.error('❌ Failed to read status:', err.message);
+                return; // Don't attempt reaction if read failed
+            }
+        }
+
+        // React if enabled
+        await reactToStatus(sock, statusKey);
 
     } catch (error) {
         console.error('❌ Error in auto status view:', error.message);
     }
 }
 
+/**
+ * Initialize auto-status listener
+ * Call this function after creating the socket connection
+ * @param {Object} sock - Baileys socket instance
+ */
+function initAutoStatus(sock) {
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        for (const msg of messages) {
+            if (msg.key?.remoteJid === 'status@broadcast') {
+                await handleStatusUpdate(sock, msg);
+            }
+        }
+    });
+    console.log('🤖 Auto-status listener initialized');
+}
+
 module.exports = {
     autoStatusCommand,
-    handleStatusUpdate
+    handleStatusUpdate,
+    initAutoStatus
 };
