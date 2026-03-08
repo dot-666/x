@@ -294,19 +294,14 @@ function isBotMentioned(message, botId) {
     }
 }
 
-// Check if message is a reply to bot's message
-function isReplyToBot(message, botId) {
+// Check if message is a reply to ANY message (not just bot)
+function isReplyToAnyMessage(message) {
     try {
         const contextInfo = message.message?.extendedTextMessage?.contextInfo;
         if (!contextInfo) return false;
-
-        const quotedParticipant = contextInfo.participant;
-        if (!quotedParticipant) return false;
-
-        const botNumber = botId.split(':')[0].split('@')[0];
-        const cleanQuoted = quotedParticipant.split(':')[0].split('@')[0];
         
-        return cleanQuoted === botNumber;
+        // Check if there's a quoted message (stanzaId or quotedMessage)
+        return !!(contextInfo.stanzaId || contextInfo.quotedMessage);
     } catch (error) {
         return false;
     }
@@ -442,12 +437,12 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
         const isChatbotEnabled = data.chatbot[chatId] || false;
         if (!isChatbotEnabled) return;
 
-        // ONLY respond when someone replies (quotes) the bot's message
-        const botId = sock.user.id;
-        const isReplied = isReplyToBot(message, botId);
+        // UPDATED: Respond when someone replies to ANY message (not just bot's messages)
+        const isReplied = isReplyToAnyMessage(message);
         if (!isReplied) return;
 
         // Don't respond to own messages
+        const botId = sock.user.id;
         const botNumber = botId.split(':')[0];
         const senderNum = (senderId || '').split('@')[0].split(':')[0];
         
@@ -512,6 +507,24 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
             return;
         }
 
+        // Check if message is a download request (song or video) - ENHANCED DETECTION
+        const dlRequest = detectDownloadRequest(cleanedMessage);
+        if (dlRequest) {
+            try {
+                if (dlRequest.type === 'song') {
+                    await downloadSongForChat(sock, chatId, message, dlRequest.query, senderId);
+                } else {
+                    await downloadVideoForChat(sock, chatId, message, dlRequest.query, senderId);
+                }
+            } catch (dlErr) {
+                console.error('Chatbot download error:', dlErr);
+                await sock.sendMessage(chatId, {
+                    text: '❌ Sorry, I had trouble downloading that. Please try again.'
+                }, { quoted: createFakeContact(message) });
+            }
+            return;
+        }
+
         // Store in memory
         if (!chatMemory.messages.has(senderId)) {
             chatMemory.messages.set(senderId, []);
@@ -534,24 +547,6 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
             messages.shift();
         }
         chatMemory.messages.set(senderId, messages);
-
-        // Check if message is a download request (song or video)
-        const dlRequest = detectDownloadRequest(cleanedMessage);
-        if (dlRequest) {
-            try {
-                if (dlRequest.type === 'song') {
-                    await downloadSongForChat(sock, chatId, message, dlRequest.query);
-                } else {
-                    await downloadVideoForChat(sock, chatId, message, dlRequest.query);
-                }
-            } catch (dlErr) {
-                console.error('Chatbot download error:', dlErr);
-                await sock.sendMessage(chatId, {
-                    text: '❌ Sorry, I had trouble downloading that. Please try again.'
-                }, { quoted: createFakeContact(message) });
-            }
-            return;
-        }
 
         // Show typing indicator
         try {
@@ -784,96 +779,278 @@ Previous chat: ${recentMessages}`;
 
 // ==================== DOWNLOAD HELPERS ====================
 
+// Enhanced download request detection with more patterns
 function detectDownloadRequest(text) {
     const lower = text.toLowerCase().trim();
 
+    // More comprehensive patterns for song detection
     const songPatterns = [
-        /^(?:play|send|download|get|give me|find)\s+(?:song|audio|music|track)?\s*(?:of|called|named|by)?\s+(.+)/i,
-        /^(?:song|audio|music|mp3)\s+(?:of|called|named|for|by)?\s+(.+)/i,
-        /^(?:play|send me|download)\s+(.+?)\s+(?:song|audio|music|mp3)$/i
+        // "play song name", "download song name", etc
+        /^(?:play|download|get|give me|find|send me|i want)\s+(?:the\s+)?(?:song|audio|music|track|mp3)?\s*(?:of|for|called|named|by)?\s+(.+?)(?:\s+(?:song|audio|music|track|mp3))?$/i,
+        
+        // "song song name", "music name", etc
+        /^(?:song|audio|music|track|mp3)\s+(?:of|for|called|named)?\s+(.+)$/i,
+        
+        // "play name song"
+        /^(?:play|send me|download)\s+(.+?)\s+(?:song|audio|music|mp3)$/i,
+        
+        // Direct YouTube links or queries
+        /^(?:yt|youtube)\s+(?:song|audio|music)?\s*(.+)$/i,
+        
+        // "can you play name"
+        /^(?:can you|could you|please)\s+(?:play|download|get)\s+(.+)$/i,
+        
+        // "I want to hear name"
+        /^(?:i want to|i'd like to)\s+(?:hear|listen to|download)\s+(.+)$/i
     ];
 
+    // Patterns for video detection
     const videoPatterns = [
-        /^(?:play|send|download|get|give me|find)\s+(?:video|clip|mv)\s*(?:of|called|named|for|by)?\s+(.+)/i,
-        /^(?:video|clip|mv)\s+(?:of|called|named|for|by)?\s+(.+)/i,
-        /^(?:play|send me|download)\s+(.+?)\s+(?:video|clip|mv)$/i
+        /^(?:play|download|get|give me|find|send me|watch)\s+(?:the\s+)?(?:video|clip|mv|youtube)\s*(?:of|for|called|named)?\s+(.+?)(?:\s+(?:video|clip|mv))?$/i,
+        /^(?:video|clip|mv)\s+(?:of|for|called|named)?\s+(.+)$/i,
+        /^(?:play|send me|download)\s+(.+?)\s+(?:video|clip|mv)$/i,
+        /^(?:yt|youtube)\s+video\s+(.+)$/i,
+        /^(?:can you|could you|please)\s+(?:play|show|download)\s+(?:a\s+)?video\s+(?:of|for)?\s+(.+)$/i
     ];
 
+    // Check for video first (more specific)
     for (const pattern of videoPatterns) {
         const m = lower.match(pattern);
-        if (m) return { type: 'video', query: m[1].trim() };
+        if (m && m[1] && m[1].length > 2) {
+            return { type: 'video', query: m[1].trim() };
+        }
     }
+    
+    // Then check for songs
     for (const pattern of songPatterns) {
         const m = lower.match(pattern);
-        if (m) return { type: 'song', query: m[1].trim() };
+        if (m && m[1] && m[1].length > 2) {
+            // Filter out common false positives
+            const query = m[1].trim();
+            const ignoreList = ['hello', 'hi', 'hey', 'thanks', 'thank you', 'bye', 'goodbye'];
+            if (!ignoreList.includes(query.toLowerCase())) {
+                return { type: 'song', query: query };
+            }
+        }
     }
+    
     return null;
 }
 
-async function downloadSongForChat(sock, chatId, message, query) {
+// Enhanced download function with multiple API sources
+async function downloadSongForChat(sock, chatId, message, query, senderId) {
+    const loadingMsg = await sock.sendMessage(chatId, { 
+        text: `🔍 Searching for *"${query}"*...` 
+    }, { quoted: createFakeContact(message) });
+    
     await sock.sendMessage(chatId, { react: { text: '🎵', key: message.key } });
+    
     const tempDir = path.join(os.tmpdir(), 'june-x-temp');
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    const searchResult = (await yts(query + ' official')).videos[0];
-    if (!searchResult) {
-        return sock.sendMessage(chatId, { text: `😕 Couldn't find a song for: _${query}_` }, { quoted: createFakeContact(message) });
-    }
+    try {
+        // Search for the song
+        const searchResult = (await yts(query + ' song official audio')).videos[0];
+        if (!searchResult) {
+            await sock.sendMessage(chatId, { 
+                text: `😕 Couldn't find a song for: *${query}*`, 
+                edit: loadingMsg.key 
+            }, { quoted: createFakeContact(message) });
+            return;
+        }
 
-    let downloadUrl, videoTitle;
-    const apis = [
-        `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(searchResult.url)}`,
-        `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${encodeURIComponent(searchResult.url)}`,
-        `https://api.giftedtech.co.ke/api/download/ytmp3?apikey=gifted&url=${encodeURIComponent(searchResult.url)}`
-    ];
+        await sock.sendMessage(chatId, { 
+            text: `📥 Found: *${searchResult.title}*\nDuration: ${searchResult.timestamp}\nDownloading...`, 
+            edit: loadingMsg.key 
+        });
 
-    for (const api of apis) {
-        try {
-            const res = await axios.get(api, { timeout: 30000 });
-            if (api.includes('keith') && res.data?.status) {
-                downloadUrl = res.data.result; videoTitle = res.data.title || searchResult.title; break;
-            } else if (api.includes('ryzendesu') && res.data?.status && res.data?.url) {
-                downloadUrl = res.data.url; videoTitle = res.data.title || searchResult.title; break;
-            } else if (api.includes('gifted') && res.data?.status && res.data?.result?.download_url) {
-                downloadUrl = res.data.result.download_url; videoTitle = res.data.result.title || searchResult.title; break;
+        // Try multiple download APIs
+        let downloadUrl = null;
+        let videoTitle = searchResult.title;
+        
+        const apis = [
+            {
+                url: `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(searchResult.url)}`,
+                handler: (res) => res.data?.result ? { url: res.data.result, title: res.data.title } : null
+            },
+            {
+                url: `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${encodeURIComponent(searchResult.url)}`,
+                handler: (res) => res.data?.url ? { url: res.data.url, title: res.data.title } : null
+            },
+            {
+                url: `https://api.giftedtech.co.ke/api/download/ytmp3?apikey=gifted&url=${encodeURIComponent(searchResult.url)}`,
+                handler: (res) => res.data?.result?.download_url ? { url: res.data.result.download_url, title: res.data.result.title } : null
+            },
+            {
+                url: `https://pikabotzapi.vercel.app/api/downloader/ytmp3?url=${encodeURIComponent(searchResult.url)}`,
+                handler: (res) => res.data?.result?.download ? { url: res.data.result.download, title: res.data.result.title } : null
+            },
+            {
+                url: `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(searchResult.url)}`,
+                handler: (res) => res.data?.downloadUrl ? { url: res.data.downloadUrl, title: res.data.title } : null
             }
-        } catch (_) { continue; }
+        ];
+
+        for (const api of apis) {
+            try {
+                const res = await axios.get(api.url, { timeout: 30000 });
+                const result = api.handler(res);
+                if (result?.url) {
+                    downloadUrl = result.url;
+                    videoTitle = result.title || searchResult.title;
+                    break;
+                }
+            } catch (_) { continue; }
+        }
+
+        if (!downloadUrl) {
+            // Fallback to direct YouTube download attempt
+            try {
+                const directRes = await axios.get(`https://youtube-mp3.downloader.now/api?url=${encodeURIComponent(searchResult.url)}`, { timeout: 30000 });
+                if (directRes.data?.link) {
+                    downloadUrl = directRes.data.link;
+                }
+            } catch (_) {}
+        }
+
+        if (!downloadUrl) {
+            await sock.sendMessage(chatId, { 
+                text: '❌ Could not download that song right now. Try again later.',
+                edit: loadingMsg.key 
+            }, { quoted: createFakeContact(message) });
+            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
+            return;
+        }
+
+        // Download the file
+        const filePath = path.join(tempDir, `song_${Date.now()}.mp3`);
+        const writer = fs.createWriteStream(filePath);
+        
+        const audioRes = await axios({ 
+            method: 'get', 
+            url: downloadUrl, 
+            responseType: 'stream', 
+            timeout: 120000, 
+            maxContentLength: 50 * 1024 * 1024 // 50MB limit
+        });
+        
+        audioRes.data.pipe(writer);
+        
+        await new Promise((resolve, reject) => { 
+            writer.on('finish', resolve); 
+            writer.on('error', reject);
+        });
+
+        // Send the audio
+        await sock.sendMessage(chatId, { 
+            text: `🎵 *${videoTitle || searchResult.title}*\n_Song requested by @${senderId.split('@')[0]}_`, 
+            mentions: [senderId],
+            edit: loadingMsg.key 
+        });
+
+        await sock.sendMessage(chatId, { 
+            audio: { url: filePath }, 
+            mimetype: 'audio/mpeg', 
+            fileName: `${(videoTitle || searchResult.title).substring(0, 80)}.mp3`, 
+            ptt: false 
+        }, { quoted: createFakeContact(message) });
+
+        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
+
+        // Cleanup
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    } catch (error) {
+        console.error('Download error:', error);
+        await sock.sendMessage(chatId, { 
+            text: '❌ Error downloading song. Please try again.',
+            edit: loadingMsg.key 
+        }, { quoted: createFakeContact(message) });
+        await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
     }
-
-    if (!downloadUrl) {
-        return sock.sendMessage(chatId, { text: '❌ Could not download that song right now. Try again later.' }, { quoted: createFakeContact(message) });
-    }
-
-    const filePath = path.join(tempDir, `song_${Date.now()}.mp3`);
-    const writer = fs.createWriteStream(filePath);
-    const audioRes = await axios({ method: 'get', url: downloadUrl, responseType: 'stream', timeout: 120000, maxContentLength: Infinity });
-    audioRes.data.pipe(writer);
-    await new Promise((resolve, reject) => { writer.on('finish', resolve); writer.on('error', reject); });
-
-    await sock.sendMessage(chatId, { text: `🎶 _${videoTitle || searchResult.title}_` }, { quoted: createFakeContact(message) });
-    await sock.sendMessage(chatId, { audio: { url: filePath }, mimetype: 'audio/mpeg', fileName: `${(videoTitle || searchResult.title).substring(0, 80)}.mp3`, ptt: false }, { quoted: createFakeContact(message) });
-    await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
-
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
-async function downloadVideoForChat(sock, chatId, message, query) {
+async function downloadVideoForChat(sock, chatId, message, query, senderId) {
+    const loadingMsg = await sock.sendMessage(chatId, { 
+        text: `🔍 Searching for video: *"${query}"*...` 
+    }, { quoted: createFakeContact(message) });
+    
     await sock.sendMessage(chatId, { react: { text: '🎬', key: message.key } });
 
-    const searchResult = (await yts(query)).videos[0];
-    if (!searchResult) {
-        return sock.sendMessage(chatId, { text: `😕 Couldn't find a video for: _${query}_` }, { quoted: createFakeContact(message) });
-    }
-
     try {
-        const res = await axios.get(`https://iamtkm.vercel.app/downloaders/ytmp4?apikey=tkm&url=${searchResult.url}`, { timeout: 30000 });
-        const dl = res.data?.data?.url;
-        if (!dl) throw new Error('No URL');
+        const searchResult = (await yts(query + ' video')).videos[0];
+        if (!searchResult) {
+            await sock.sendMessage(chatId, { 
+                text: `😕 Couldn't find a video for: *${query}*`,
+                edit: loadingMsg.key 
+            }, { quoted: createFakeContact(message) });
+            return;
+        }
 
-        await sock.sendMessage(chatId, { video: { url: dl }, mimetype: 'video/mp4', caption: `🎬 ${searchResult.title}` }, { quoted: createFakeContact(message) });
+        await sock.sendMessage(chatId, { 
+            text: `📥 Found: *${searchResult.title}*\nDuration: ${searchResult.timestamp}\nDownloading video...`, 
+            edit: loadingMsg.key 
+        });
+
+        // Try multiple video download APIs
+        let downloadUrl = null;
+        
+        const apis = [
+            `https://iamtkm.vercel.app/downloaders/ytmp4?apikey=tkm&url=${searchResult.url}`,
+            `https://api.davidcyriltech.my.id/download/ytmp4?url=${encodeURIComponent(searchResult.url)}`,
+            `https://pikabotzapi.vercel.app/api/downloader/ytmp4?url=${encodeURIComponent(searchResult.url)}`,
+            `https://api.giftedtech.co.ke/api/download/ytmp4?apikey=gifted&url=${encodeURIComponent(searchResult.url)}`
+        ];
+
+        for (const api of apis) {
+            try {
+                const res = await axios.get(api, { timeout: 30000 });
+                
+                if (api.includes('iamtkm') && res.data?.data?.url) {
+                    downloadUrl = res.data.data.url;
+                    break;
+                } else if (api.includes('davidcyriltech') && res.data?.downloadUrl) {
+                    downloadUrl = res.data.downloadUrl;
+                    break;
+                } else if (api.includes('pikabotzapi') && res.data?.result?.download) {
+                    downloadUrl = res.data.result.download;
+                    break;
+                } else if (api.includes('gifted') && res.data?.result?.download_url) {
+                    downloadUrl = res.data.result.download_url;
+                    break;
+                }
+            } catch (_) { continue; }
+        }
+
+        if (!downloadUrl) {
+            await sock.sendMessage(chatId, { 
+                text: '❌ Could not download that video right now. Try again later.',
+                edit: loadingMsg.key 
+            }, { quoted: createFakeContact(message) });
+            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
+            return;
+        }
+
+        await sock.sendMessage(chatId, { 
+            text: `🎬 *${searchResult.title}*\n_Video requested by @${senderId.split('@')[0]}_`, 
+            mentions: [senderId],
+            edit: loadingMsg.key 
+        });
+
+        await sock.sendMessage(chatId, { 
+            video: { url: downloadUrl }, 
+            mimetype: 'video/mp4', 
+            caption: `🎬 ${searchResult.title}`
+        }, { quoted: createFakeContact(message) });
+
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
-    } catch (_) {
-        await sock.sendMessage(chatId, { text: '❌ Could not download that video right now. Try again later.' }, { quoted: createFakeContact(message) });
+
+    } catch (error) {
+        console.error('Video download error:', error);
+        await sock.sendMessage(chatId, { 
+            text: '❌ Error downloading video. Please try again.',
+            edit: loadingMsg.key 
+        }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
     }
 }
