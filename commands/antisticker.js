@@ -1,7 +1,6 @@
 const { setAntisticker, getAntisticker, removeAntisticker } = require('../lib/database');
 const isAdmin = require('../lib/isAdmin');
 
-const { createFakeContact } = require('../lib/fakeContact');
 async function antistickerCommand(sock, chatId, msg, senderId) {
   const fakeContact = (m) => {
     const id = m?.key?.participant?.split('@')[0] || m?.key?.remoteJid?.split('@')[0] || '0';
@@ -90,7 +89,7 @@ async function handleStickerDetection(sock, chatId, msg, senderId) {
     const type = isSticker ? 'Stickers' : 'GIFs';
 
     const quoted = fakeContact(msg);
-    try { await sock.sendMessage(chatId, { delete: msg.key }, { quoted: createFakeContact(message) }); } catch (e) { console.error('Delete fail:', e); }
+    try { await sock.sendMessage(chatId, { delete: msg.key }); } catch (e) { console.error('Delete fail:', e); }
 
     if (cfg.action === 'warn')
       await sock.sendMessage(chatId, { text: `⚠️ @${senderId.split('@')[0]} ${type} not allowed`, mentions: [senderId] }, { quoted });
