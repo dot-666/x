@@ -43,10 +43,14 @@ async function vcfCommand(sock, chatId, message) {
             if (decodedId.endsWith('@lid')) {
                 const numOnly = decodedId.split('@')[0];
                 const resolved = resolvePhoneFromLid(numOnly);
-                if (resolved) number = resolved.replace(/\D/g, '');
+                if (resolved) {
+                    number = resolved.replace(/\D/g, '');
+                } else {
+                    continue;
+                }
             }
 
-            if (!number) continue;
+            if (!number || number.length < 7) continue;
 
             if (seenNumbers.has(number)) continue;
             seenNumbers.add(number);
