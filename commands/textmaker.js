@@ -25,6 +25,7 @@ const messageTemplates = {
     })
 };
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function textmakerCommand(sock, chatId, message, q, type) {
     try {
         if (!q) {

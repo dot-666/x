@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function rosedayCommand(sock, chatId, message) {
     try {
         
@@ -13,10 +14,10 @@ async function rosedayCommand(sock, chatId, message) {
         const rosedayMessage = json.result;
 
         // Send the roseday message
-        await sock.sendMessage(chatId, { text: rosedayMessage }, { quoted: message });
+        await sock.sendMessage(chatId, { text: rosedayMessage }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error in roseday command:', error);
-        await sock.sendMessage(chatId, { text: '❌ Failed to get roseday quote. Please try again later!' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ Failed to get roseday quote. Please try again later!' }, { quoted: createFakeContact(message) });
     }
 }
 

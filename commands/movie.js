@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function movieCommand(sock, chatId, message) {
     try {
         // Initial reaction
@@ -20,7 +21,7 @@ async function movieCommand(sock, chatId, message) {
                 {
                     text: '🎬 *Movie Information Search*\n\n❌ Please provide a movie title!\n\n📝 *Usage:*\n.movie Inception\n.moviesearch The Dark Knight\n.movie Avengers Endgame\n\n🔍 *Examples:*\n• .movie Titanic\n• .movie Interstellar\n• .movie Spider-Man: No Way Home'
                 },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
         }
 
@@ -33,7 +34,7 @@ async function movieCommand(sock, chatId, message) {
                 {
                     text: '🎬 *Movie Information Search*\n\n❌ Please provide a movie title!\n\n📝 *Example:*\n.movie The Matrix'
                 },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
         }
 
@@ -43,7 +44,7 @@ async function movieCommand(sock, chatId, message) {
                 {
                     text: '🎬 *Movie Information Search*\n\n📝 Movie title too long! Max 100 characters.\n\n💡 Try a shorter movie title.'
                 },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
         }
 
@@ -114,7 +115,7 @@ async function movieCommand(sock, chatId, message) {
             msgPayload.image = { url: movie.Poster };
         }
 
-        await sock.sendMessage(chatId, msgPayload, { quoted: message });
+        await sock.sendMessage(chatId, msgPayload, { quoted: createFakeContact(message) });
 
         // Final reaction
         await sock.sendMessage(chatId, {
@@ -155,7 +156,7 @@ async function movieCommand(sock, chatId, message) {
             {
                 text: `🎬 *Movie Information Search*\n\n🚫 ${errorMessage}\n\n *Tips:*\n• Check the movie title spelling\n• Try the full movie title\n• Use English movie titles\n• Wait a few minutes and try again`
             },
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
     }
 }

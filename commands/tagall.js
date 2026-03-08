@@ -1,5 +1,6 @@
 const isAdmin = require('../lib/isAdmin');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function tagAllCommand(sock, chatId, senderId) {
     try {
         const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
@@ -7,7 +8,7 @@ async function tagAllCommand(sock, chatId, senderId) {
         if (!isSenderAdmin && !isBotAdmin) {
             await sock.sendMessage(chatId, {
                 text: '❌ Only admins can use the .tagall command.'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -16,7 +17,7 @@ async function tagAllCommand(sock, chatId, senderId) {
         const participants = groupMetadata.participants;
 
         if (!participants || participants.length === 0) {
-            await sock.sendMessage(chatId, { text: '❌ No participants found in the group.' });
+            await sock.sendMessage(chatId, { text: '❌ No participants found in the group.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -63,7 +64,7 @@ async function tagAllCommand(sock, chatId, senderId) {
                     image: { url: profilePictureUrl },
                     caption: message,
                     mentions: participants.map(p => p.id)
-                });
+                }, { quoted: createFakeContact(message) });
                 return;
             } catch (imageError) {
                 console.log('Failed to send with image, sending text only:', imageError.message);
@@ -79,7 +80,7 @@ async function tagAllCommand(sock, chatId, senderId) {
         console.error('Error in tagall command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Failed to tag all members. Please try again later.' 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

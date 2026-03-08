@@ -4,6 +4,7 @@ const path = require('path');
 const dataFilePath = path.join(__dirname, '..', 'data', 'messageCount.json');
 
 // Ensure data directory exists
+const { createFakeContact } = require('../lib/fakeContact');
 function ensureDataDirectory() {
     const dataDir = path.dirname(dataFilePath);
     if (!fs.existsSync(dataDir)) {
@@ -61,7 +62,7 @@ function incrementMessageCount(groupId, userId) {
 function topMembers(sock, chatId, isGroup, count = 5) {
     try {
         if (!isGroup) {
-            sock.sendMessage(chatId, { text: 'This command is only available in group chats.' });
+            sock.sendMessage(chatId, { text: 'This command is only available in group chats.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -73,7 +74,7 @@ function topMembers(sock, chatId, isGroup, count = 5) {
             .slice(0, count);
 
         if (sortedMembers.length === 0) {
-            sock.sendMessage(chatId, { text: 'No message activity recorded yet.' });
+            sock.sendMessage(chatId, { text: 'No message activity recorded yet.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -95,10 +96,10 @@ function topMembers(sock, chatId, isGroup, count = 5) {
         sock.sendMessage(chatId, { 
             text: message, 
             mentions: mentions 
-        });
+        }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error in topMembers command:', error);
-        sock.sendMessage(chatId, { text: 'An error occurred while fetching top members.' });
+        sock.sendMessage(chatId, { text: 'An error occurred while fetching top members.' }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -106,7 +107,7 @@ function topMembers(sock, chatId, isGroup, count = 5) {
 function getUserRank(sock, chatId, isGroup, userId) {
     try {
         if (!isGroup) {
-            sock.sendMessage(chatId, { text: 'This command is only available in group chats.' });
+            sock.sendMessage(chatId, { text: 'This command is only available in group chats.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -114,7 +115,7 @@ function getUserRank(sock, chatId, isGroup, userId) {
         const groupCounts = messageCounts[chatId] || {};
 
         if (!groupCounts[userId]) {
-            sock.sendMessage(chatId, { text: 'No messages recorded for this user yet.' });
+            sock.sendMessage(chatId, { text: 'No messages recorded for this user yet.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -130,10 +131,10 @@ function getUserRank(sock, chatId, isGroup, userId) {
                        `💬 Messages: ${userMessageCount}\n` +
                        `📈 Top ${Math.round((userRank / totalMembers) * 100)}% of active members`;
 
-        sock.sendMessage(chatId, { text: message, mentions: [userId] });
+        sock.sendMessage(chatId, { text: message, mentions: [userId] }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error in getUserRank command:', error);
-        sock.sendMessage(chatId, { text: 'An error occurred while fetching user rank.' });
+        sock.sendMessage(chatId, { text: 'An error occurred while fetching user rank.' }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -157,7 +158,7 @@ function resetMessageCounts(groupId) {
 function getGroupStats(sock, chatId, isGroup) {
     try {
         if (!isGroup) {
-            sock.sendMessage(chatId, { text: 'This command is only available in group chats.' });
+            sock.sendMessage(chatId, { text: 'This command is only available in group chats.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -176,10 +177,10 @@ function getGroupStats(sock, chatId, isGroup) {
                      `📈 Average per Member: ${averageMessages}\n` +
                      `🔥 Most Active: ${sortedCounts[0] || 0} messages`;
 
-        sock.sendMessage(chatId, { text: message });
+        sock.sendMessage(chatId, { text: message }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error in getGroupStats command:', error);
-        sock.sendMessage(chatId, { text: 'An error occurred while fetching group statistics.' });
+        sock.sendMessage(chatId, { text: 'An error occurred while fetching group statistics.' }, { quoted: createFakeContact(message) });
     }
 }
 

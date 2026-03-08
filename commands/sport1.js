@@ -1,27 +1,7 @@
 const axios = require("axios");
 
-// Create fake contact for quoting
-function createFakeContact(message) {
-    const participantId = message?.key?.participant?.split('@')[0] || 
-                          message?.key?.remoteJid?.split('@')[0] || '0';
-
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "0@s.whatsapp.net",
-            fromMe: false
-        },
-        message: {
-            contactMessage: {
-                displayName: "DAVE-X",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DAVE-X\nitem1.TEL;waid=${participantId}:${participantId}\nitem1.X-ABLabel:Phone\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
-
 // Generic helper for sending reactions
+const { createFakeContact } = require('../lib/fakeContact');
 async function sendReaction(sock, chatId, key, emoji) {
     await sock.sendMessage(chatId, { react: { text: emoji, key } });
 }
@@ -38,20 +18,20 @@ async function fetchStandings(sock, chatId, message, leagueCode, leagueName) {
         if (!response.data?.data) {
             await sock.sendMessage(chatId, { 
                 text: `❌ Unable to fetch ${leagueName} standings. Please try again later.` 
-            }, { quoted: fake });
+            }, { quoted: createFakeContact(message) });
             await sendReaction(sock, chatId, message.key, '❌');
             return;
         }
 
         const standingsList = `⚽ *${leagueName.toUpperCase()} TABLE STANDINGS* ⚽\n\n${response.data.data}`;
-        await sock.sendMessage(chatId, { text: standingsList }, { quoted: fake });
+        await sock.sendMessage(chatId, { text: standingsList }, { quoted: createFakeContact(message) });
 
         await sendReaction(sock, chatId, message.key, '✅');
     } catch (error) {
         console.error(`Error fetching ${leagueName} standings:`, error);
         await sock.sendMessage(chatId, { 
             text: `❌ Something went wrong. Unable to fetch ${leagueName} standings.` 
-        }, { quoted: fake });
+        }, { quoted: createFakeContact(message) });
         await sendReaction(sock, chatId, message.key, '❌');
     }
 }
@@ -115,12 +95,12 @@ async function matchesCommand(sock, chatId, message) {
             }
             if (currentChunk) chunks.push(currentChunk);
 
-            await sock.sendMessage(chatId, { text: chunks[0] }, { quoted: fake });
+            await sock.sendMessage(chatId, { text: chunks[0] }, { quoted: createFakeContact(message) });
             for (let i = 1; i < chunks.length; i++) {
-                await sock.sendMessage(chatId, { text: chunks[i] });
+                await sock.sendMessage(chatId, { text: chunks[i] }, { quoted: createFakeContact(message) });
             }
         } else {
-            await sock.sendMessage(chatId, { text: messageText }, { quoted: fake });
+            await sock.sendMessage(chatId, { text: messageText }, { quoted: createFakeContact(message) });
         }
 
         await sendReaction(sock, chatId, message.key, '✅');
@@ -128,7 +108,7 @@ async function matchesCommand(sock, chatId, message) {
         console.error('Error fetching matches:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Something went wrong. Unable to fetch matches.' 
-        }, { quoted: fake });
+        }, { quoted: createFakeContact(message) });
         await sendReaction(sock, chatId, message.key, '❌');
     }
 }

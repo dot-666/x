@@ -1,3 +1,4 @@
+const { createFakeContact } = require('../lib/fakeContact');
 async function staffCommand(sock, chatId, msg) {
     try {
         // Get group metadata
@@ -55,13 +56,13 @@ ${groupDesc}
             image: { url: pp },
             caption: text,
             mentions: [...groupAdmins.map(v => v.id), owner]
-        });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error in staff command:', error);
         await sock.sendMessage(chatId, { 
             text: 'Failed to get admin list! Error: ' + error.message 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

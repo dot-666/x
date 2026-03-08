@@ -1,9 +1,9 @@
-
 const fs = require("fs");
 const axios = require("axios");
 const yts = require("yt-search");
 const path = require("path");
 const os = require("os");
+const { createFakeContact } = require('../lib/fakeContact');
 
 async function songCommand(sock, chatId, message) {
     try {
@@ -13,27 +13,6 @@ async function songCommand(sock, chatId, message) {
 
         // Define sender with fallback chain
         const sender = message.key || message.key?.fromMe || message;
-        
-        // Create fake contact for enhanced replies
-        function createFakeContact(sender) {
-            return {
-                key: {
-                    participants: "0@s.whatsapp.net",
-                    remoteJid: "status@broadcast",
-                    fromMe: false,
-                    id: "JUNE-X-MENU"
-                },
-                message: {
-                    contactMessage: {
-                        displayName: "JUNE X",
-                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:;JUNE X;;;\nFN:JUNE X\nORG:JUNE X Bot\nTEL;type=CELL;type=VOICE;waid=${sender.split('@')[0]}:${sender.split('@')[0]}\nEND:VCARD`
-                    }
-                },
-                participant: "0@s.whatsapp.net"
-            };
-        }
-
-        const fakeQuoted = createFakeContact(message.key?.participant || chatId);
 
         // Use system temp directory to avoid ENOTDIR errors
         const tempDir = path.join(os.tmpdir(), "june-x-temp");
@@ -60,7 +39,7 @@ async function songCommand(sock, chatId, message) {
                     audio: quoted.audioMessage,
                     mimetype: "audio/mpeg",
                     fileName: "quoted_audio.mp3"
-                }, { quoted: fakeQuoted });
+                }, { quoted: createFakeContact(message) });
             } else if (quoted.videoMessage) {
                 const caption = quoted.videoMessage.caption || "";
                 if (caption) query = caption.trim();
@@ -69,7 +48,7 @@ async function songCommand(sock, chatId, message) {
                         video: quoted.videoMessage,
                         mimetype: "video/mp4",
                         fileName: "quoted_video.mp4"
-                    }, { quoted: fakeQuoted });
+                    }, { quoted: createFakeContact(message) });
                 }
             }
         }
@@ -77,13 +56,13 @@ async function songCommand(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: "🎵 Provide a song name or reply to a message with .song\nExample: .song Not Like Us"
-            }, { quoted: fakeQuoted });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 100) {
             return await sock.sendMessage(chatId, {
                 text: "📝 Song name too long! Max 100 chars."
-            }, { quoted: fakeQuoted });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Search YouTube
@@ -91,7 +70,7 @@ async function songCommand(sock, chatId, message) {
         if (!searchResult) {
             return sock.sendMessage(chatId, {
                 text: "😕 Couldn't find that song. Try another one!"
-            }, { quoted: fakeQuoted });
+            }, { quoted: createFakeContact(message) });
         }
 
         const video = searchResult;
@@ -145,7 +124,7 @@ async function songCommand(sock, chatId, message) {
             method: "get",
             url: downloadUrl,
             responseType: "stream",
-            timeout: 900000, // 15 minutes for large files
+            timeout: 900000,
             maxContentLength: Infinity,
             maxBodyLength: Infinity,
             headers: {
@@ -158,7 +137,7 @@ async function songCommand(sock, chatId, message) {
         await new Promise((resolve, reject) => {
             writer.on("finish", resolve);
             writer.on("error", (err) => {
-                if (fs.existsSync(filePath)) fs.unlinkSync(filePath); // cleanup partial file
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                 reject(err);
             });
         });
@@ -169,31 +148,28 @@ async function songCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             text: `_🎶 Playing:_\n_${videoTitle || video.title}_`
-        }, { quoted: fakeQuoted });
+        }, { quoted: createFakeContact(message) });
 
-        // Send audio
         await sock.sendMessage(chatId, {
             audio: { url: filePath },
             mimetype: "audio/mpeg",
             fileName: `${video.title}.mp3`,
             ptt: false
-        }, { quoted: fakeQuoted });
+        }, { quoted: createFakeContact(message) });
 
-        // Send as document too
         await sock.sendMessage(chatId, {
             document: { url: filePath },
             mimetype: "audio/mpeg",
             fileName: `${(videoTitle || video.title).substring(0, 100)}.mp3`
-        }, { quoted: fakeQuoted });
+        }, { quoted: createFakeContact(message) });
 
-        // Cleanup
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
     } catch (error) {
         console.error("Song command error:", error);
         return await sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
-        }, { quoted: message.key?.fromMe ? createFakeContact(message.key?.participant || chatId) : message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

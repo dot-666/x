@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function wormgptCommand(sock, chatId, message) {
     try {
         const rawText = message.message?.conversation?.trim() ||
@@ -14,7 +15,7 @@ async function wormgptCommand(sock, chatId, message) {
         if (!query) {
             await sock.sendMessage(chatId, { 
                 text: 'Usage: .wormgpt <your query>'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -45,7 +46,7 @@ async function wormgptCommand(sock, chatId, message) {
         // Send only the result
         await sock.sendMessage(chatId, { 
             text: data.result 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Success reaction
         await sock.sendMessage(chatId, {
@@ -64,7 +65,7 @@ async function wormgptCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, { 
             text: `❌ Failed to get WormGPT response\n\nError: ${errorMsg}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

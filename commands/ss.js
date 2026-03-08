@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function handleSsCommand(sock, chatId, message, match) {
     if (!match) {
         await sock.sendMessage(chatId, {
@@ -46,9 +47,7 @@ async function handleSsCommand(sock, chatId, message, match) {
         await sock.sendMessage(chatId, {
             image: imageBuffer,
             caption: `🖥️ *Screenshot of:* ${url}`
-        }, {
-            quoted: message
-        });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('❌ Error in ssweb command:', error);

@@ -1,14 +1,15 @@
 const isAdmin = require('../lib/isAdmin');
 const activeMuteTimers = new Map();
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function muteCommand(sock, chatId, senderId, message, durationInMinutes) {
     const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
 
     if (!isBotAdmin) {
-        return sock.sendMessage(chatId, { text: '⚠️ Please make the bot an admin first.' }, { quoted: message });
+        return sock.sendMessage(chatId, { text: '⚠️ Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
     }
     if (!isSenderAdmin) {
-        return sock.sendMessage(chatId, { text: '🚫 Only group admins can use the mute command.' }, { quoted: message });
+        return sock.sendMessage(chatId, { text: '🚫 Only group admins can use the mute command.' }, { quoted: createFakeContact(message) });
     }
 
     try {
@@ -22,7 +23,7 @@ async function muteCommand(sock, chatId, senderId, message, durationInMinutes) {
 
         // Apply mute
         await sock.groupSettingUpdate(chatId, 'announcement');
-        await sock.sendMessage(chatId, { text: `🔇 ${groupName} muted${durationInMinutes ? ` for ${durationInMinutes} minutes` : ''}.` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: `🔇 ${groupName} muted${durationInMinutes ? ` for ${durationInMinutes} minutes` : ''}.` }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, { react: { text: '🔇', key: message.key } });
 
         if (durationInMinutes && durationInMinutes > 0) {
@@ -37,14 +38,14 @@ async function muteCommand(sock, chatId, senderId, message, durationInMinutes) {
                 try {
                     const { isBotAdmin: stillAdmin } = await isAdmin(sock, chatId, senderId);
                     if (!stillAdmin) {
-                        return sock.sendMessage(chatId, { text: `❌ Bot is no longer admin. Please unmute ${groupName} manually.` });
+                        return sock.sendMessage(chatId, { text: `❌ Bot is no longer admin. Please unmute ${groupName} manually.` }, { quoted: createFakeContact(message) });
                     }
                     await sock.groupSettingUpdate(chatId, 'not_announcement');
-                    await sock.sendMessage(chatId, { text: `🔊 ${groupName} has been automatically unmuted.` });
+                    await sock.sendMessage(chatId, { text: `🔊 ${groupName} has been automatically unmuted.` }, { quoted: createFakeContact(message) });
                     await sock.sendMessage(chatId, { react: { text: '🔊', key: message.key } });
                 } catch (err) {
                     console.error('[UNMUTE] Error:', err);
-                    await sock.sendMessage(chatId, { text: `❌ Failed to unmute ${groupName}. Please unmute manually.` });
+                    await sock.sendMessage(chatId, { text: `❌ Failed to unmute ${groupName}. Please unmute manually.` }, { quoted: createFakeContact(message) });
                 } finally {
                     activeMuteTimers.delete(chatId);
                 }
@@ -55,7 +56,7 @@ async function muteCommand(sock, chatId, senderId, message, durationInMinutes) {
         }
     } catch (error) {
         console.error('[MUTE] Error:', error);
-        await sock.sendMessage(chatId, { text: '❌ An error occurred while muting the group. Please try again.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ An error occurred while muting the group. Please try again.' }, { quoted: createFakeContact(message) });
     }
 }
 

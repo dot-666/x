@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function teraboxCommand(sock, chatId, message) {
     try {
         // React to command
@@ -19,7 +20,7 @@ async function teraboxCommand(sock, chatId, message) {
         if (!url) {
             return sock.sendMessage(chatId, {
                 text: "📦 *TeraBox Downloader*\n\nUsage:\n.terabox <terabox link>\n\nExample:\n.terabox https://1024terabox.com/s/xxxxx"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const isValidTeraBoxUrl = (link) =>
@@ -31,10 +32,10 @@ async function teraboxCommand(sock, chatId, message) {
         if (!isValidTeraBoxUrl(url)) {
             return sock.sendMessage(chatId, {
                 text: "❌ Invalid TeraBox link!\nPlease provide a valid TeraBox URL."
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
-        await sock.sendMessage(chatId, { text: "⏳ Processing TeraBox link...\nFetching file info..." }, { quoted: message });
+        await sock.sendMessage(chatId, { text: "⏳ Processing TeraBox link...\nFetching file info..." }, { quoted: createFakeContact(message) });
 
         // API call
         const apiUrl = `https://api.qasimdev.dpdns.org/api/terabox/download?apiKey=qasim-dev&url=${encodeURIComponent(url)}`;
@@ -43,7 +44,7 @@ async function teraboxCommand(sock, chatId, message) {
         if (!apiResponse.data?.success || !apiResponse.data?.data?.files?.length) {
             return sock.sendMessage(chatId, {
                 text: "❌ Download failed!\nNo files found or invalid link."
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const fileData = apiResponse.data.data;
@@ -52,7 +53,7 @@ async function teraboxCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             text: `📦 *TeraBox File*\n\n📄 Name: ${title}\n📊 Size: ${size}\n📁 Type: ${type}\n📂 Total Files: ${fileData.totalFiles}\n\n⏳ Downloading...`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // File setup
         const sanitizedTitle = title.replace(/[^a-z0-9.]/gi, "_").substring(0, 100);
@@ -76,7 +77,7 @@ async function teraboxCommand(sock, chatId, message) {
             fs.unlinkSync(filePath);
             return sock.sendMessage(chatId, {
                 text: `❌ File too large!\nWhatsApp limit is 100MB.\nThis file is ${fileSizeInMB.toFixed(2)}MB.`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Determine type
@@ -93,25 +94,25 @@ async function teraboxCommand(sock, chatId, message) {
                 mimetype: "video/mp4",
                 fileName: title,
                 caption: `✅ Download Complete!\n📄 ${title}\n📊 ${size}`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } else if (audioExt.includes(ext)) {
             await sock.sendMessage(chatId, {
                 audio: buffer,
                 mimetype: "audio/mpeg",
                 fileName: title
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } else if (imageExt.includes(ext)) {
             await sock.sendMessage(chatId, {
                 image: buffer,
                 caption: `✅ Download Complete!\n📄 ${title}\n📊 ${size}`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } else {
             await sock.sendMessage(chatId, {
                 document: buffer,
                 mimetype: "application/octet-stream",
                 fileName: title,
                 caption: `✅ Download Complete!\n📄 ${title}\n📊 ${size}`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Cleanup
@@ -120,14 +121,14 @@ async function teraboxCommand(sock, chatId, message) {
         if (fileData.totalFiles > 1) {
             await sock.sendMessage(chatId, {
                 text: `ℹ️ Note: This link contains ${fileData.totalFiles} files.\nOnly the first file was downloaded.`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
     } catch (error) {
         console.error("TeraBox command error:", error);
         return sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

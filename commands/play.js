@@ -4,31 +4,14 @@ const yts = require("yt-search");
 const path = require("path");
 const os = require("os");
 
-// Create fake contact for enhanced replies
-function createFakeContact(message) {
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "JUNE-X-MENU"
-        },
-        message: {
-            contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
-
+const { createFakeContact } = require('../lib/fakeContact');
 async function playCommand(sock, chatId, message) {
     try {
         const fkontak = createFakeContact(message);
 
         await sock.sendMessage(chatId, {
             react: { text: "🎼", key: message.key }
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
 
         // Use system temp directory
         const tempDir = path.join(os.tmpdir(), "june-x-temp");
@@ -41,13 +24,13 @@ async function playCommand(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: "🎵 Provide a song name!\nExample: .play Not Like Us"
-            }, { quoted: fkontak });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 100) {
             return await sock.sendMessage(chatId, {
                 text: "📝 Song name too long! Max 100 chars."
-            }, { quoted: fkontak });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Search YouTube
@@ -55,7 +38,7 @@ async function playCommand(sock, chatId, message) {
         if (!searchResult) {
             return sock.sendMessage(chatId, {
                 text: "😕 Couldn't find that song. Try another one!"
-            }, { quoted: fkontak });
+            }, { quoted: createFakeContact(message) });
         }
 
         const video = searchResult;
@@ -123,13 +106,13 @@ async function playCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             text: `_🎶 Track ready:_\n_${title}_`
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
 
         await sock.sendMessage(chatId, {
             document: { url: filePath },
             mimetype: "audio/mpeg",
             fileName: `${title}.mp3`
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
 
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
@@ -138,7 +121,7 @@ async function playCommand(sock, chatId, message) {
         const fkontak = createFakeContact(message);
         return await sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

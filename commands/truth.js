@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function truthCommand(sock, chatId, message) {
     try {
         const truths = [
@@ -118,26 +119,26 @@ async function truthCommand(sock, chatId, message) {
                     image: { url: imagePath },
                     caption: truthMessage,
                     mentions: [message.key.participant || message.key.remoteJid]
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             } else {
                 // If no image found, try to use a colorful message with emojis
                 await sock.sendMessage(chatId, { 
                     text: `✨🎯✨\n${truthMessage}\n✨🎯✨`
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             }
         } catch (imageError) {
             console.error('Image error, sending text only:', imageError);
             // Fallback to text only if image fails
             await sock.sendMessage(chatId, { 
                 text: truthMessage 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
     } catch (error) {
         console.error('Error in truth command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Failed to get truth. Please try again later!' 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

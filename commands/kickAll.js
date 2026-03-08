@@ -1,3 +1,4 @@
+const { createFakeContact } = require('../lib/fakeContact');
 function normaliseJid(jid) {
     if (!jid) return jid;
     let [user, domain] = jid.split('@');
@@ -8,7 +9,7 @@ function normaliseJid(jid) {
 async function kickAllCommand(sock, chatId, message, senderId) {
     try {
         if (!chatId.endsWith('@g.us')) {
-            await sock.sendMessage(chatId, { text: '🚫 This command only works in groups.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '🚫 This command only works in groups.' }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
             return;
         }
@@ -23,13 +24,13 @@ async function kickAllCommand(sock, chatId, message, senderId) {
         const isSenderAdmin = participants.some(p => normaliseJid(p.id) === senderNormalised && (p.admin === 'admin' || p.admin === 'superadmin'));
 
         if (!isBotAdmin) {
-            await sock.sendMessage(chatId, { text: '🚫 I need to be an admin to kick members.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '🚫 I need to be an admin to kick members.' }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
             return;
         }
 
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: '🚫 Only group admins can use the .kickall command.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '🚫 Only group admins can use the .kickall command.' }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
             return;
         }
@@ -45,12 +46,12 @@ async function kickAllCommand(sock, chatId, message, senderId) {
             .map(p => p.id);
 
         if (targets.length === 0) {
-            await sock.sendMessage(chatId, { text: '⚠️ No non-admin members to kick.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '⚠️ No non-admin members to kick.' }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
             return;
         }
 
-        await sock.sendMessage(chatId, { text: `🔄 Kicking ${targets.length} member(s)...` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: `🔄 Kicking ${targets.length} member(s)...` }, { quoted: createFakeContact(message) });
 
         for (let i = 0; i < targets.length; i += 5) {
             const batch = targets.slice(i, i + 5);
@@ -61,11 +62,11 @@ async function kickAllCommand(sock, chatId, message, senderId) {
             }
         }
 
-        await sock.sendMessage(chatId, { text: `✅ Successfully kicked ${targets.length} member(s).` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: `✅ Successfully kicked ${targets.length} member(s).` }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
     } catch (err) {
         console.error('Error in kickAllCommand:', err);
-        await sock.sendMessage(chatId, { text: '❌ An unexpected error occurred.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ An unexpected error occurred.' }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
     }
 }

@@ -10,6 +10,7 @@ const GOODBYE_FILE = path.join(__dirname, '..', 'data', 'goodbye.json');
 let welcomeState = { onGroups: [], customMessages: {} };
 let goodbyeState = { onGroups: [], customMessages: {} };
 
+const { createFakeContact } = require('../lib/fakeContact');
 /**
  * Load welcome data from file
  */
@@ -136,26 +137,26 @@ async function handleWelcome(sock, chatId, message) {
             welcomeState.onGroups.push(chatId);
             await saveWelcomeData();
         }
-        await sock.sendMessage(chatId, { text: '✅ Welcome messages enabled for this group.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '✅ Welcome messages enabled for this group.' }, { quoted: createFakeContact(message) });
     } else if (command === 'off') {
         welcomeState.onGroups = welcomeState.onGroups.filter(id => id !== chatId);
         await saveWelcomeData();
-        await sock.sendMessage(chatId, { text: '✅ Welcome messages disabled for this group.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '✅ Welcome messages disabled for this group.' }, { quoted: createFakeContact(message) });
     } else if (command.startsWith('set ')) {
         const customMsg = matchText.slice(4).trim();
         
         if (customMsg.length > 1000) {
-            await sock.sendMessage(chatId, { text: '❌ Custom message too long. Maximum 1000 characters.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Custom message too long. Maximum 1000 characters.' }, { quoted: createFakeContact(message) });
             return;
         }
         
         welcomeState.customMessages[chatId] = customMsg;
         await saveWelcomeData();
-        await sock.sendMessage(chatId, { text: '✅ Custom welcome message set successfully.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '✅ Custom welcome message set successfully.' }, { quoted: createFakeContact(message) });
     } else {
         await sock.sendMessage(chatId, {
             text: '📋 *Welcome Commands:*\n\n• `welcome on` - Enable welcome messages\n• `welcome off` - Disable welcome messages\n• `welcome set [text]` - Set custom message\n\n*Available variables:*\n{user} - Mentions the new member\n{group} - Group name\n{description} - Group description\n\n*Example:*\n`welcome set Welcome @{user} to {group}! 🎉`'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -164,7 +165,7 @@ async function handleWelcome(sock, chatId, message) {
  */
 async function welcomeCommand(sock, chatId, message) {
     if (!chatId.endsWith('@g.us')) {
-        await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -249,26 +250,26 @@ async function handleGoodbye(sock, chatId, message, matchText) {
             goodbyeState.onGroups.push(chatId);
             await saveGoodbyeData();
         }
-        await sock.sendMessage(chatId, { text: '✅ Goodbye messages enabled for this group.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '✅ Goodbye messages enabled for this group.' }, { quoted: createFakeContact(message) });
     } else if (command === 'off') {
         goodbyeState.onGroups = goodbyeState.onGroups.filter(id => id !== chatId);
         await saveGoodbyeData();
-        await sock.sendMessage(chatId, { text: '✅ Goodbye messages disabled for this group.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '✅ Goodbye messages disabled for this group.' }, { quoted: createFakeContact(message) });
     } else if (command.startsWith('set ')) {
         const customMsg = matchText.slice(4).trim();
         
         if (customMsg.length > 1000) {
-            await sock.sendMessage(chatId, { text: '❌ Custom message too long. Maximum 1000 characters.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Custom message too long. Maximum 1000 characters.' }, { quoted: createFakeContact(message) });
             return;
         }
         
         goodbyeState.customMessages[chatId] = customMsg;
         await saveGoodbyeData();
-        await sock.sendMessage(chatId, { text: '✅ Custom goodbye message set successfully.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '✅ Custom goodbye message set successfully.' }, { quoted: createFakeContact(message) });
     } else {
         await sock.sendMessage(chatId, {
             text: '📋 *Goodbye Commands:*\n\n• `goodbye on` - Enable goodbye messages\n• `goodbye off` - Disable goodbye messages\n• `goodbye set [text]` - Set custom message\n\n*Available variables:*\n{user} - Mentions the leaving member\n{group} - Group name\n{description} - Group description\n\n*Example:*\n`goodbye set Goodbye @{user}, we\'ll miss you in {group}! 👋`'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -277,7 +278,7 @@ async function handleGoodbye(sock, chatId, message, matchText) {
  */
 async function goodbyeCommand(sock, chatId, message) {
     if (!chatId.endsWith('@g.us')) {
-        await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: createFakeContact(message) });
         return;
     }
 

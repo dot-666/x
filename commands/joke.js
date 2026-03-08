@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 module.exports = async function (sock, chatId, message) {
     try {
         // Fetch joke from API
@@ -36,7 +37,7 @@ module.exports = async function (sock, chatId, message) {
             caption: `😂 *Dad Joke Alert!* 😂\n\n"${joke}"\n\n_😆 Hope that made you smile!_`,
             buttons: buttons,
             headerType: 1
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error fetching joke:', error);
@@ -59,6 +60,6 @@ module.exports = async function (sock, chatId, message) {
             buttons: [
                 { buttonId: '.joke', buttonText: { displayText: 'Try Again 🔄' }, type: 1 }
             ]
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 };

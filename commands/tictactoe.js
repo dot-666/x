@@ -3,6 +3,7 @@ const TicTacToe = require('../lib/tictactoe');
 // Store games globally
 const games = {};
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function tictactoeCommand(sock, chatId, senderId, text) {
     try {
         // Check if player is already in a game
@@ -14,7 +15,7 @@ async function tictactoeCommand(sock, chatId, senderId, text) {
         if (existingGame) {
             await sock.sendMessage(chatId, { 
                 text: '❌ You are still in a game. Type *surrender* to quit.' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -80,13 +81,13 @@ ${arr.slice(6).join('')}
             await sock.sendMessage(room.x, { 
                 text: str,
                 mentions: [room.game.playerX, room.game.playerO]
-            });
+            }, { quoted: createFakeContact(message) });
 
             if (room.x !== room.o) {
                 await sock.sendMessage(room.o, { 
                     text: str,
                     mentions: [room.game.playerX, room.game.playerO]
-                });
+                }, { quoted: createFakeContact(message) });
             }
 
         } else {
@@ -120,7 +121,7 @@ ${arr.slice(6).join('')}
         console.error('Error in tictactoe command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Error starting game. Please try again.' 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -143,7 +144,7 @@ async function handleTicTacToeMove(sock, chatId, senderId, text) {
         if (senderId !== room.game.currentTurn && !isSurrender) {
             await sock.sendMessage(chatId, { 
                 text: '❌ Not your turn!' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -160,7 +161,7 @@ async function handleTicTacToeMove(sock, chatId, senderId, text) {
         if (!ok && !isSurrender) {
             await sock.sendMessage(chatId, { 
                 text: '❌ Invalid move! That position is already taken.' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -191,13 +192,13 @@ async function handleTicTacToeMove(sock, chatId, senderId, text) {
             await sock.sendMessage(room.x, { 
                 text: surrenderMsg,
                 mentions: [senderId, winner]
-            });
+            }, { quoted: createFakeContact(message) });
             
             if (room.x !== room.o) {
                 await sock.sendMessage(room.o, { 
                     text: surrenderMsg,
                     mentions: [senderId, winner]
-                });
+                }, { quoted: createFakeContact(message) });
             }
             
             // Delete the game
@@ -236,13 +237,13 @@ ${!winner && !isTie ? '• Type a number (1-9) to make your move\n• Type *surr
         await sock.sendMessage(room.x, { 
             text: str,
             mentions: mentions
-        });
+        }, { quoted: createFakeContact(message) });
 
         if (room.x !== room.o) {
             await sock.sendMessage(room.o, { 
                 text: str,
                 mentions: mentions
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (winner || isTie) {
@@ -255,7 +256,7 @@ ${!winner && !isTie ? '• Type a number (1-9) to make your move\n• Type *surr
         try {
             await sock.sendMessage(chatId, { 
                 text: '❌ An error occurred during the move.' 
-            });
+            }, { quoted: createFakeContact(message) });
         } catch (e) {
             console.error('Failed to send error message:', e);
         }

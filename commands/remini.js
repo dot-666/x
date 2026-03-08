@@ -2,6 +2,7 @@ const axios = require('axios');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { uploadImage } = require('../lib/uploadImage');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function getQuotedOrOwnImageUrl(sock, message) {
     // 1) Quoted image (highest priority)
     const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -37,7 +38,7 @@ async function reminiCommand(sock, chatId, message, args) {
             } else {
                 return sock.sendMessage(chatId, { 
                     text: '❌ Invalid URL provided.\n\nUsage: `.remini https://example.com/image.jpg`' 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             }
         } else {
             // Try to get image from message or quoted message
@@ -46,7 +47,7 @@ async function reminiCommand(sock, chatId, message, args) {
             if (!imageUrl) {
                 return sock.sendMessage(chatId, { 
                     text: '📸 *Remini AI Enhancement Command*\n\nUsage:\n• `.remini <image_url>`\n• Reply to an image with `.remini`\n• Send image with `.remini`\n\nExample: `.remini https://example.com/image.jpg`' 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             }
         }
 
@@ -76,7 +77,7 @@ async function reminiCommand(sock, chatId, message, args) {
                     await sock.sendMessage(chatId, {
                         image: imageResponse.data,
                         caption: '✨ *Image enhanced successfully!*\n\n𝗘𝗡𝗛𝗔𝗡𝗖𝗘𝗗 𝗕𝗬 𝗞𝗡𝗜𝗚𝗛𝗧-𝗕𝗢𝗧'
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 } else {
                     throw new Error('Failed to download enhanced image');
                 }
@@ -108,7 +109,7 @@ async function reminiCommand(sock, chatId, message, args) {
         
         await sock.sendMessage(chatId, { 
             text: errorMessage 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

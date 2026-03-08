@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function metaaiCommand(sock, chatId, message) {
     try {
         // Send reaction
@@ -14,13 +15,13 @@ async function metaaiCommand(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Please provide a question to ask Meta AI!\n\nExample: .metaai What is artificial intelligence?'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 1000) {
             return await sock.sendMessage(chatId, {
                 text: '📝 Question too long! Max 1000 characters.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update presence to "typing"
@@ -45,7 +46,7 @@ async function metaaiCommand(sock, chatId, message) {
         
         await sock.sendMessage(chatId, {
             text: `🤖 *Meta AI*\n\n📝 *Question:* ${query}\n\n💬 *Response:* ${aiResponse}\n\n📊 *Powered by Meta AI*`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("Meta AI command error:", error);
@@ -65,7 +66,7 @@ async function metaaiCommand(sock, chatId, message) {
             
         await sock.sendMessage(chatId, {
             text: `🚫 ${errorMessage}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

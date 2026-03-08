@@ -1,5 +1,6 @@
 const { isAdmin } = require('../lib/isAdmin');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function promoteCommand(sock, chatId, mentionedJids, message, args) {
     let userToPromote = [];
 
@@ -23,7 +24,7 @@ async function promoteCommand(sock, chatId, mentionedJids, message, args) {
     if (userToPromote.length === 0) {
         await sock.sendMessage(chatId, { 
             text: 'Please mention, reply, or provide a number to promote!'
-        });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -37,10 +38,10 @@ async function promoteCommand(sock, chatId, mentionedJids, message, args) {
         await sock.sendMessage(chatId, { 
             text: promotionMessage,
             mentions: userToPromote
-        });
+        }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error in promote command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to promote user(s)!'});
+        await sock.sendMessage(chatId, { text: 'Failed to promote user(s)!'}, { quoted: createFakeContact(message) });
     }
 }
 
@@ -67,7 +68,7 @@ async function handlePromotionEvent(sock, groupId, participants, author) {
         await sock.sendMessage(groupId, {
             text: promotionMessage,
             mentions: mentionList
-        });
+        }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error handling promotion event:', error);
     }

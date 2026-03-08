@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const { tmpdir } = require('os');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function toVoiceNoteCommand(sock, chatId, message) {
   let inputPath = '';
   let outputPath = '';
@@ -24,7 +25,7 @@ async function toVoiceNoteCommand(sock, chatId, message) {
     if (!msg) {
       await sock.sendMessage(chatId, { 
         text: "🎧 Reply to a *video* or *audio* to convert it to a voice note!" 
-      },{ quoted: message });
+      },{ quoted: createFakeContact(message) });
       return;
     }
 
@@ -42,11 +43,11 @@ async function toVoiceNoteCommand(sock, chatId, message) {
     if (!isVideo && !isAudio && !isDocument) {
       await sock.sendMessage(chatId, { 
         text: "⚠️ Only works on *video* or *audio* messages!" 
-      },{ quoted: message });
+      },{ quoted: createFakeContact(message) });
       return;
     }
 
-    await sock.sendMessage(chatId, { text: "🔊 Converting to voice note..." },{ quoted: message });
+    await sock.sendMessage(chatId, { text: "🔊 Converting to voice note..." },{ quoted: createFakeContact(message) });
 
     // Determine file type for download
     const fileType = isVideo ? 'video' : 'audio';
@@ -163,7 +164,7 @@ async function toVoiceNoteCommand(sock, chatId, message) {
       mimetype: 'audio/ogg; codecs=opus',
       ptt: true, // This makes it a voice note
       fileName: `voice_note_${timestamp}.opus`
-    }, { quoted: message });
+    }, { quoted: createFakeContact(message) });
 
   } catch (err) {
     console.error("❌ toVoiceNote error:", {
@@ -191,7 +192,7 @@ async function toVoiceNoteCommand(sock, chatId, message) {
       errorMessage += `Error: ${err.message}`;
     }
     
-    await sock.sendMessage(chatId, { text: errorMessage },{ quoted: message });
+    await sock.sendMessage(chatId, { text: errorMessage },{ quoted: createFakeContact(message) });
     
   } finally {
     // Cleanup temp files with better error handling

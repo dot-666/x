@@ -6,6 +6,7 @@ const settings = require('../settings');
 const webp = require('node-webpmux');
 const crypto = require('crypto');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function stickercropCommand(sock, chatId, message) {
     // The message that will be quoted in the reply.
     const messageToQuote = message;

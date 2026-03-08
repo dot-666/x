@@ -1,6 +1,7 @@
 const fs = require('fs');
 const { isSudo } = require('../lib/index');
 
+const { createFakeContact } = require('../lib/fakeContact');
 function readJsonSafe(path, fallback) {
     try {
         const txt = fs.readFileSync(path, 'utf8');
@@ -14,7 +15,7 @@ async function settingsCommand(sock, chatId, message) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;
         if (!message.key.fromMe && !(await isSudo(senderId))) {
-            await sock.sendMessage(chatId, { text: 'Only bot owner can use this command!' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: 'Only bot owner can use this command!' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -79,14 +80,14 @@ async function settingsCommand(sock, chatId, message) {
             lines.push('> _Thanks for choosing June md_.');
         }
 
-        await sock.sendMessage(chatId, { text: lines.join('\n') }, { quoted: message });
+        await sock.sendMessage(chatId, { text: lines.join('\n') }, { quoted: createFakeContact(message) });
                 //successful react 
             await sock.sendMessage(chatId, {
             react: { text: '☑️', key: message.key }
         });
     } catch (error) {
         console.error('Error in settings command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to read settings.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: 'Failed to read settings.' }, { quoted: createFakeContact(message) });
     }
 }
 

@@ -9,6 +9,7 @@ const FormData = require('form-data');
 // =======================
 
 // Upload to Catbox (primary)
+const { createFakeContact } = require('../lib/fakeContact');
 async function uploadToCatbox(filePath) {
     const form = new FormData();
     form.append("reqtype", "fileupload");
@@ -121,7 +122,7 @@ async function visionCommand(sock, chatId, message) {
             return sock.sendMessage(
                 chatId,
                 { text: '𝗤𝘂𝗼𝘁𝗲 𝗮𝗻 𝗶𝗺𝗮𝗴𝗲 𝗮𝗻𝗱 𝗴𝗶𝘃𝗲 𝘀𝗼𝗺𝗲 𝗶𝗻𝘀𝘁𝗿𝘂𝗰𝘁𝗶𝗼𝗻𝘀 𝗲𝗵. 𝗜\'𝗺 𝗣𝗘𝗔𝗖𝗘 𝗔𝗶, 𝗶 𝘂𝘀𝗲 𝗕𝗮𝗿𝗱 𝘁𝗼 𝗮𝗻𝗮𝗹𝘆𝘇𝗲 𝗶𝗺𝗮𝗴𝗲𝘀.' },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
         }
 
@@ -132,7 +133,7 @@ async function visionCommand(sock, chatId, message) {
             return sock.sendMessage(
                 chatId,
                 { text: '𝗛𝘂𝗵, 𝗧𝗵𝗮𝘁\'𝘀 𝗻𝗼𝘁 𝗮𝗻 𝗶𝗺𝗮𝗴𝗲, 𝗦𝗲𝗻𝗱 𝗮𝗻 𝗶𝗺𝗮𝗴𝗲 𝘁𝗵𝗲𝗻 𝘁𝗮𝗴 𝗶𝘁 𝘄𝗶𝘁𝗵 𝘁𝗵𝗲 𝗶𝗻𝘀𝘁𝗿𝘂𝗰𝘁𝗶𝗼𝗻𝘀 !' },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
         }
 
@@ -142,7 +143,7 @@ async function visionCommand(sock, chatId, message) {
             return sock.sendMessage(
                 chatId,
                 { text: '𝗛𝘂𝗵, 𝗧𝗵𝗮𝘁\'𝘀 𝗻𝗼𝘁 𝗮𝗻 𝗶𝗺𝗮𝗴𝗲, 𝗦𝗲𝗻𝗱 𝗮𝗻 𝗶𝗺𝗮𝗴𝗲 𝘁𝗵𝗲𝗻 𝘁𝗮𝗴 𝗶𝘁 𝘄𝗶𝘁𝗵 𝘁𝗵𝗲 𝗶𝗻𝘀𝘁𝗿𝘂𝗰𝘁𝗶𝗼𝗻𝘀 !' },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
         }
 
@@ -162,7 +163,7 @@ async function visionCommand(sock, chatId, message) {
             await sock.sendMessage(
                 chatId,
                 { text: '𝗔 𝗺𝗼𝗺𝗲𝗻𝘁, 𝗟𝗲𝗺𝗺𝗲 𝗮𝗻𝗮𝗹𝘆𝘇𝗲 𝘁𝗵𝗲 𝗰𝗼𝗻𝘁𝗲𝗻𝘁𝘀 𝗼𝗳 𝘁𝗵𝗲 𝗶𝗺𝗮𝗴𝗲. . .' },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
             
             // Call the Gemini Vision API
@@ -179,7 +180,7 @@ async function visionCommand(sock, chatId, message) {
             await sock.sendMessage(
                 chatId,
                 { text: data.BK9 },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
             
         } catch (apiError) {
@@ -197,7 +198,7 @@ async function visionCommand(sock, chatId, message) {
             await sock.sendMessage(
                 chatId,
                 { text: errorMsg },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
         } finally {
             // Cleanup temp file
@@ -218,7 +219,7 @@ async function visionCommand(sock, chatId, message) {
         await sock.sendMessage(
             chatId,
             { text: `❌ An error occurred while analyzing the image:\n${error.message}` },
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
     }
 }

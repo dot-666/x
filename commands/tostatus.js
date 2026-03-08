@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function tostatusCommand(sock, chatId, message) {
     try {
         // Send reaction
@@ -39,7 +40,7 @@ async function tostatusCommand(sock, chatId, message) {
         if (!query && !quoted) {
             return await sock.sendMessage(chatId, { 
                 text: `*Usage:*\n- Reply to an image, video, or audio\n- Send a text to post it as a status\n\nExample: .tostatus Hello everyone!` 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Handle media
@@ -63,7 +64,7 @@ async function tostatusCommand(sock, chatId, message) {
                     );
 
                     fs.unlinkSync(mediaPath);
-                    return await sock.sendMessage(chatId, { text: "✅ Image posted to status." }, { quoted: message });
+                    return await sock.sendMessage(chatId, { text: "✅ Image posted to status." }, { quoted: createFakeContact(message) });
                 }
 
                 if (quoted.videoMessage) {
@@ -83,7 +84,7 @@ async function tostatusCommand(sock, chatId, message) {
                     );
 
                     fs.unlinkSync(mediaPath);
-                    return await sock.sendMessage(chatId, { text: "✅ Video posted to status." }, { quoted: message });
+                    return await sock.sendMessage(chatId, { text: "✅ Video posted to status." }, { quoted: createFakeContact(message) });
                 }
 
                 if (quoted.audioMessage) {
@@ -103,10 +104,10 @@ async function tostatusCommand(sock, chatId, message) {
                     );
 
                     fs.unlinkSync(mediaPath);
-                    return await sock.sendMessage(chatId, { text: "✅ Audio posted to status." }, { quoted: message });
+                    return await sock.sendMessage(chatId, { text: "✅ Audio posted to status." }, { quoted: createFakeContact(message) });
                 }
 
-                return await sock.sendMessage(chatId, { text: "⚠️ Unsupported media type. Reply to an image, video, or audio." }, { quoted: message });
+                return await sock.sendMessage(chatId, { text: "⚠️ Unsupported media type. Reply to an image, video, or audio." }, { quoted: createFakeContact(message) });
 
             } catch (mediaError) {
                 console.error("Media processing error:", mediaError);
@@ -117,12 +118,12 @@ async function tostatusCommand(sock, chatId, message) {
         // Handle text status
         if (query) {
             await sock.sendMessage("status@broadcast", { text: query }, statusOptions);
-            return await sock.sendMessage(chatId, { text: "✅ Text status posted." }, { quoted: message });
+            return await sock.sendMessage(chatId, { text: "✅ Text status posted." }, { quoted: createFakeContact(message) });
         }
 
     } catch (error) {
         console.error("Tostatus command error:", error);
-        return await sock.sendMessage(chatId, { text: `🚫 Error: ${error.message || "Failed to post status"}` }, { quoted: message });
+        return await sock.sendMessage(chatId, { text: `🚫 Error: ${error.message || "Failed to post status"}` }, { quoted: createFakeContact(message) });
     }
 }
 

@@ -3,6 +3,7 @@ const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { isSudo } = require('../lib/index');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function setProfilePicture(sock, chatId, msg) {
     try {
         const senderId = msg.key.participant || msg.key.remoteJid;
@@ -10,7 +11,7 @@ async function setProfilePicture(sock, chatId, msg) {
         if (!isOwner) {
             await sock.sendMessage(chatId, { 
                 text: '❌ This command is only available for the owner!' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -19,7 +20,7 @@ async function setProfilePicture(sock, chatId, msg) {
         if (!quotedMessage) {
             await sock.sendMessage(chatId, { 
                 text: '⚠️ Please reply to an image with the .setpp command!' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -28,7 +29,7 @@ async function setProfilePicture(sock, chatId, msg) {
         if (!imageMessage) {
             await sock.sendMessage(chatId, { 
                 text: '❌ The replied message must contain an image!' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -59,13 +60,13 @@ async function setProfilePicture(sock, chatId, msg) {
 
         await sock.sendMessage(chatId, { 
             text: '✅ Successfully updated bot profile picture!' 
-        });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error in setpp command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Failed to update profile picture!' 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

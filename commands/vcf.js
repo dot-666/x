@@ -3,6 +3,7 @@ const path = require('path');
 const { jidDecode } = require('@whiskeysockets/baileys');
 const { resolvePhoneFromLid } = require('../lib/jid');
 
+const { createFakeContact } = require('../lib/fakeContact');
 function decodeJid(jid) {
     if (!jid) return jid;
     if (/:\d+@/gi.test(jid)) {
@@ -17,7 +18,7 @@ async function vcfCommand(sock, chatId, message) {
         if (!chatId.endsWith('@g.us')) {
             return await sock.sendMessage(chatId, {
                 text: '❌ This command only works in groups!'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const groupMetadata = await sock.groupMetadata(chatId);
@@ -26,7 +27,7 @@ async function vcfCommand(sock, chatId, message) {
         if (participants.length < 2) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Group must have at least 2 members'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         let vcfContent = '';
@@ -70,7 +71,7 @@ END:VCARD
         if (validCount === 0) {
             return await sock.sendMessage(chatId, {
                 text: '❌ No valid phone numbers found in this group!'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const tempDir = path.join(__dirname, '../tmp');
@@ -85,7 +86,7 @@ END:VCARD
             document: fs.readFileSync(filePath),
             mimetype: 'text/vcard',
             fileName: `${safeName}_contacts.vcf`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         fs.unlinkSync(filePath);
 
@@ -93,7 +94,7 @@ END:VCARD
         console.error('VCF COMMAND ERROR:', err);
         await sock.sendMessage(chatId, {
             text: '❌ Failed to generate VCF file!'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

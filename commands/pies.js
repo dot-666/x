@@ -3,6 +3,7 @@ const fetch = require('node-fetch');
 const BASE = 'https://shizoapi.onrender.com/api/pies';
 const VALID_COUNTRIES = ['china', 'indonesia', 'japan', 'korea', 'hijab'];
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function fetchPiesImageBuffer(country) {
 	const url = `${BASE}/${country}?apikey=shizo`;
 	const res = await fetch(url);
@@ -15,11 +16,11 @@ async function fetchPiesImageBuffer(country) {
 async function piesCommand(sock, chatId, message, args) {
 	const sub = (args && args[0] ? args[0] : '').toLowerCase();
 	if (!sub) {
-		await sock.sendMessage(chatId, { text: `Usage: .pies <country>\nCountries: ${VALID_COUNTRIES.join(', ')}` }, { quoted: message });
+		await sock.sendMessage(chatId, { text: `Usage: .pies <country>\nCountries: ${VALID_COUNTRIES.join(', ')}` }, { quoted: createFakeContact(message) });
 		return;
 	}
 	if (!VALID_COUNTRIES.includes(sub)) {
-		await sock.sendMessage(chatId, { text: `❌ Unsupported country: ${sub}. Try one of: ${VALID_COUNTRIES.join(', ')}` }, { quoted: message });
+		await sock.sendMessage(chatId, { text: `❌ Unsupported country: ${sub}. Try one of: ${VALID_COUNTRIES.join(', ')}` }, { quoted: createFakeContact(message) });
 		return;
 	}
 	try {
@@ -27,11 +28,11 @@ async function piesCommand(sock, chatId, message, args) {
 		await sock.sendMessage(
 			chatId,
 			{ image: imageBuffer, caption: `pies: ${sub}` },
-			{ quoted: message }
+			{ quoted: createFakeContact(message) }
 		);
 	} catch (err) {
 		console.error('Error in pies command:', err);
-		await sock.sendMessage(chatId, { text: '❌ Failed to fetch image. Please try again.' }, { quoted: message });
+		await sock.sendMessage(chatId, { text: '❌ Failed to fetch image. Please try again.' }, { quoted: createFakeContact(message) });
 	}
 }
 
@@ -41,11 +42,11 @@ async function piesAlias(sock, chatId, message, country) {
 		await sock.sendMessage(
 			chatId,
 			{ image: imageBuffer, caption: `pies: ${country}` },
-			{ quoted: message }
+			{ quoted: createFakeContact(message) }
 		);
 	} catch (err) {
 		console.error(`Error in pies alias (${country}) command:`, err);
-		await sock.sendMessage(chatId, { text: '❌ Failed to fetch image. Please try again.' }, { quoted: message });
+		await sock.sendMessage(chatId, { text: '❌ Failed to fetch image. Please try again.' }, { quoted: createFakeContact(message) });
 	}
 }
 

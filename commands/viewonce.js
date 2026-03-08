@@ -1,5 +1,6 @@
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function viewonceCommand(sock, chatId, message) {
     const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     const quotedImage = quoted?.imageMessage;
@@ -23,7 +24,7 @@ async function viewonceCommand(sock, chatId, message) {
                 fileName: 'media.jpg', 
                 caption: quotedImage.caption || '📸 View-once image retrieved!' 
             }, 
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
@@ -36,7 +37,7 @@ async function viewonceCommand(sock, chatId, message) {
                 fileName: 'media.mp4', 
                 caption: quotedVideo.caption || '🎥 View-once video retrieved!' 
             }, 
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
@@ -50,12 +51,12 @@ async function viewonceCommand(sock, chatId, message) {
                 mimetype: quotedAudio.mimetype || 'audio/mp4', 
                 caption: '🎵 View-once audio retrieved!' 
             }, 
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
     } else {
-        await sock.sendMessage(chatId, { text: '❌ Please reply to a view-once image, video, or audio.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ Please reply to a view-once image, video, or audio.' }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
     }
 }

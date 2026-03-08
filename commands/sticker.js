@@ -6,6 +6,7 @@ const settings = require('../settings');
 const webp = require('node-webpmux');
 const crypto = require('crypto');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function stickerCommand(sock, chatId, message) {
 const pushname= message.pushName || "Unknown User"
     // The message that will be quoted in the reply.

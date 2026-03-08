@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { sleep } = require('../lib/myfunc');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function pairCommand(sock, chatId, message) {
     try {
         // Extract text from incoming message
@@ -16,7 +17,7 @@ async function pairCommand(sock, chatId, message) {
             await sock.sendMessage(chatId, {
                 text: "⚠️ *Oops!* You forgot the number 😅\n\n👉 Example:\n.pair 25678467XXXX",
                 contextInfo: { forwardingScore: 1, isForwarded: false }
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: "⚠️", key: message.key } });
             return;
         }
@@ -30,7 +31,7 @@ async function pairCommand(sock, chatId, message) {
             await sock.sendMessage(chatId, {
                 text: "❌ *Invalid number format!* 🚫\n\n👉 Please use digits only (6–20 digits).",
                 contextInfo: { forwardingScore: 1, isForwarded: true }
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: "❌", key: message.key } });
             return;
         }
@@ -51,7 +52,7 @@ async function pairCommand(sock, chatId, message) {
             await sock.sendMessage(chatId, {
                 text: `⏳ Generating code for: *${number}* 🔐`,
                 contextInfo: { forwardingScore: 1, isForwarded: false }
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: "⏳", key: message.key } });
 
             try {
@@ -69,14 +70,14 @@ async function pairCommand(sock, chatId, message) {
                 await sock.sendMessage(chatId, {
                     text: `${code}`,
                     contextInfo: { forwardingScore: 1, isForwarded: true }
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 await sock.sendMessage(chatId, { react: { text: "✅", key: message.key } });
 
                 // Fancy help message
                 await sock.sendMessage(chatId, {
                     text: `📌 *How to Link ${number}*\n\n1️⃣ Copy the code above 🔝\n2️⃣ Open WhatsApp 📱\n3️⃣ Go to *Settings > Linked Devices* ⚙️\n4️⃣ Tap *Link a Device* 🔗\n5️⃣ Enter the code 🔑\n6️⃣ Wait for it to load ⏳\n7️⃣ Done! 🎉 Your device is now linked.\n\n💡 Use the *session_id* in your DM to deploy 🚀`,
                     contextInfo: { forwardingScore: 1, isForwarded: false }
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
 
             } catch (apiError) {
                 console.error("API Error:", apiError.message);
@@ -88,7 +89,7 @@ async function pairCommand(sock, chatId, message) {
                 await sock.sendMessage(chatId, {
                     text: errorMessage,
                     contextInfo: { forwardingScore: 1, isForwarded: true }
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 await sock.sendMessage(chatId, { react: { text: "⚠️", key: message.key } });
             }
         }
@@ -97,7 +98,7 @@ async function pairCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, {
             text: "💥 Unexpected error occurred 😵\n\nPlease try again later 🙏",
             contextInfo: { forwardingScore: 1, isForwarded: true }
-        });
+        }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, { react: { text: "💥", key: message.key } });
     }
 }

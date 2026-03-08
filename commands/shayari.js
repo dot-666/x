@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function shayariCommand(sock, chatId, message) {
     try {
         // Fetch English Shayari from API
@@ -33,7 +34,7 @@ async function shayariCommand(sock, chatId, message) {
             caption: `💫 *Shayari for You* 💫\n\n${data.shayari}\n\n_✨ Let the words touch your heart ✨_`,
             buttons: buttons,
             headerType: 1
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error in shayari command:', error);
@@ -54,7 +55,7 @@ async function shayariCommand(sock, chatId, message) {
                 { buttonId: '.shayari', buttonText: { displayText: 'Try Again 🔄' }, type: 1 },
                 { buttonId: '.roseday', buttonText: { displayText: '🌹 RoseDay' }, type: 1 }
             ]
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

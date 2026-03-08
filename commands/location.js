@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function locationCommand(sock, chatId, message) {
     try {
         // Send initial reaction
@@ -15,7 +16,7 @@ async function locationCommand(sock, chatId, message) {
         if (!text.includes(' ')) {
             return await sock.sendMessage(chatId, {
                 text: '📍 *Location Finder*\n\n❌ Please provide a location name!\n\n📌 *Usage:*\n.location Nairobi, Kenya\n.location New York\n.location Paris, France\n\nYou can also use:\n.pinlocation [name]\n.getlocation [name]'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const parts = text.split(' ');
@@ -24,13 +25,13 @@ async function locationCommand(sock, chatId, message) {
         if (!locationQuery) {
             return await sock.sendMessage(chatId, {
                 text: '📍 *Location Finder*\n\n❌ Please provide a location name!\n\n📌 *Example:*\n.location Nairobi, Kenya'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (locationQuery.length > 100) {
             return await sock.sendMessage(chatId, {
                 text: '📍 *Location Finder*\n\n📝 Location name too long! Max 100 characters.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update presence to "recording" (searching)
@@ -62,7 +63,7 @@ async function locationCommand(sock, chatId, message) {
                 name: formattedName,
                 address: formattedName
             }
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
 
         // Send final reaction
@@ -97,7 +98,7 @@ async function locationCommand(sock, chatId, message) {
             
         await sock.sendMessage(chatId, {
             text: `🚫 ${errorMessage}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

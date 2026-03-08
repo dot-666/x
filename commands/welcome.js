@@ -1,12 +1,14 @@
-const { isWelcomeOn, getWelcome, handleWelcome } = require('../lib/welcome');
+const { isWelcomeOn, getWelcome, handleWelcome, isWelcomeNoPic } = require('../lib/welcome');
 const { channelInfo } = require('../lib/messageConfig');
 const fetch = require('node-fetch');
 const { normalizeJid, findParticipant } = require('../lib/jid');
+const { getBotName } = require('../lib/botConfig');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function welcomeCommand(sock, chatId, message) {
     // Check if it's a group
     if (!chatId.endsWith('@g.us')) {
-        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -48,21 +50,26 @@ async function handleJoinEvent(sock, id, participants) {
                 console.log('Could not fetch display name, using phone number');
             }
 
-            // Get user profile picture
+            // Check nopic setting for this group
+            const noPic = await isWelcomeNoPic(id);
+
+            // Get user profile picture (only when nopic is off)
             let profilePicUrl = '';
             let profilePicBuffer = null;
-            try {
-                profilePicUrl = await sock.profilePictureUrl(participantString, 'image');
-                const picResponse = await fetch(profilePicUrl);
-                if (picResponse.ok) {
-                    profilePicBuffer = await picResponse.buffer();
-                }
-            } catch {
-                console.log('No profile picture available for user:', displayName);
-                profilePicUrl = 'https://img.pyrocdn.com/dbKUgahg.png';
-                const defaultResponse = await fetch(profilePicUrl);
-                if (defaultResponse.ok) {
-                    profilePicBuffer = await defaultResponse.buffer();
+            if (!noPic) {
+                try {
+                    profilePicUrl = await sock.profilePictureUrl(participantString, 'image');
+                    const picResponse = await fetch(profilePicUrl);
+                    if (picResponse.ok) {
+                        profilePicBuffer = await picResponse.buffer();
+                    }
+                } catch {
+                    console.log('No profile picture available for user:', displayName);
+                    profilePicUrl = 'https://img.pyrocdn.com/dbKUgahg.png';
+                    const defaultResponse = await fetch(profilePicUrl);
+                    if (defaultResponse.ok) {
+                        profilePicBuffer = await defaultResponse.buffer();
+                    }
                 }
             }
             
@@ -73,12 +80,13 @@ async function handleJoinEvent(sock, id, participants) {
                     .replace(/{user}/g, `@${displayName}`)
                     .replace(/{group}/g, groupName)
                     .replace(/{description}/g, groupDesc)
-                    .replace(/{bot}/g, 'June X Bot')
+                    .replace(/{bot}/g, getBotName())
                     .replace(/{members}/g, membersCount.toString());
             } else {
                 // Default message if no custom message is set
                 const now = new Date();
                 const timeString = now.toLocaleString('en-US', {
+                    timeZone: 'Africa/Nairobi',
                     month: '2-digit',
                     day: '2-digit', 
                     year: 'numeric',
@@ -98,41 +106,49 @@ async function handleJoinEvent(sock, id, participants) {
 *𝙳𝙴𝚂𝙲𝙸𝙿𝚃𝙸𝙾𝙽*
 ${groupDesc}
 
-🤖 Powered by June X Bot`;
+🤖 Powered by ${getBotName()}`;
             }
             
-            // Try to send with image first
-            try {
-                if (profilePicBuffer) {
-                    await sock.sendMessage(id, {
-                        image: profilePicBuffer,
-                        caption: finalMessage,
-                        mentions: [participantString],
-                        ...channelInfo
-                    });
-                } else {
-                    const apiUrl = `https://api.some-random-api.com/welcome/img/2/gaming3?type=join&textcolor=green&username=${encodeURIComponent(displayName)}&guildName=${encodeURIComponent(groupName)}&memberCount=${membersCount}&avatar=${encodeURIComponent(profilePicUrl || 'https://img.pyrocdn.com/dbKUgahg.png')}`;
-                    
-                    const response = await fetch(apiUrl);
-                    if (response.ok) {
-                        const imageBuffer = await response.buffer();
-                        await sock.sendMessage(id, {
-                            image: imageBuffer,
-                            caption: finalMessage,
-                            mentions: [participantString],
-                            ...channelInfo
-                        });
-                    } else {
-                        throw new Error('API image generation failed');
-                    }
-                }
-            } catch {
-                console.log('Image sending failed, falling back to text');
+            // Send message — text only if nopic is on, otherwise try with image
+            if (noPic) {
                 await sock.sendMessage(id, {
                     text: finalMessage,
                     mentions: [participantString],
                     ...channelInfo
-                });
+                }, { quoted: createFakeContact(message) });
+            } else {
+                try {
+                    if (profilePicBuffer) {
+                        await sock.sendMessage(id, {
+                            image: profilePicBuffer,
+                            caption: finalMessage,
+                            mentions: [participantString],
+                            ...channelInfo
+                        }, { quoted: createFakeContact(message) });
+                    } else {
+                        const apiUrl = `https://api.some-random-api.com/welcome/img/2/gaming3?type=join&textcolor=green&username=${encodeURIComponent(displayName)}&guildName=${encodeURIComponent(groupName)}&memberCount=${membersCount}&avatar=${encodeURIComponent(profilePicUrl || 'https://img.pyrocdn.com/dbKUgahg.png')}`;
+                        
+                        const response = await fetch(apiUrl);
+                        if (response.ok) {
+                            const imageBuffer = await response.buffer();
+                            await sock.sendMessage(id, {
+                                image: imageBuffer,
+                                caption: finalMessage,
+                                mentions: [participantString],
+                                ...channelInfo
+                            }, { quoted: createFakeContact(message) });
+                        } else {
+                            throw new Error('API image generation failed');
+                        }
+                    }
+                } catch {
+                    console.log('Image sending failed, falling back to text');
+                    await sock.sendMessage(id, {
+                        text: finalMessage,
+                        mentions: [participantString],
+                        ...channelInfo
+                    }, { quoted: createFakeContact(message) });
+                }
             }
         } catch (error) {
             console.error('Error sending welcome message:', error);
@@ -145,17 +161,17 @@ ${groupDesc}
                     .replace(/{user}/g, `@${user}`)
                     .replace(/{group}/g, groupName)
                     .replace(/{description}/g, groupDesc)
-                    .replace(/{bot}/g, 'June X Bot')
+                    .replace(/{bot}/g, getBotName())
                     .replace(/{members}/g, membersCount.toString());
             } else {
-                fallbackMessage = `Welcome @${user} to ${groupName}! 🎉 Powered by June X Bot. We now have ${membersCount} members.`;
+                fallbackMessage = `Welcome @${user} to ${groupName}! 🎉 Powered by ${getBotName()}. We now have ${membersCount} members.`;
             }
             
             await sock.sendMessage(id, {
                 text: fallbackMessage,
                 mentions: [participantString],
                 ...channelInfo
-            });
+            }, { quoted: createFakeContact(message) });
         }
     }
 }

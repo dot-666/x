@@ -1,18 +1,19 @@
 const isAdmin = require('../lib/isAdmin');
 const { isSudo } = require('../lib/index');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function kickCommand(sock, chatId, senderId, mentionedJids, message) {
     const isOwner = message.key.fromMe || await isSudo(senderId);
     if (!isOwner) {
         const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
 
         if (!isBotAdmin) {
-            await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
             return;
         }
 
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: 'Only group admins can use the kick command.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: 'Only group admins can use the kick command.' }, { quoted: createFakeContact(message) });
             return;
         }
     }
@@ -32,7 +33,7 @@ async function kickCommand(sock, chatId, senderId, mentionedJids, message) {
     if (usersToKick.length === 0) {
         await sock.sendMessage(chatId, { 
             text: 'Please mention the user or reply to their message to kick!'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -43,7 +44,7 @@ async function kickCommand(sock, chatId, senderId, mentionedJids, message) {
     if (usersToKick.includes(botId)) {
         await sock.sendMessage(chatId, { 
             text: "I can't kick myself! 🤖"
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -58,12 +59,12 @@ async function kickCommand(sock, chatId, senderId, mentionedJids, message) {
         await sock.sendMessage(chatId, { 
             text: `${usernames.join(', ')} has been kicked successfully!`,
             mentions: usersToKick
-        });
+        }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error in kick command:', error);
         await sock.sendMessage(chatId, { 
             text: 'Failed to kick user(s)!'
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

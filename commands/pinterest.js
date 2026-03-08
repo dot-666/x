@@ -4,6 +4,7 @@ const path = require("path");
 const os = require("os");
 const config = require("../config");
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function pinterestCommand(sock, chatId, message) {
     try {
         // React to command
@@ -18,7 +19,7 @@ async function pinterestCommand(sock, chatId, message) {
         if (!text) {
             return sock.sendMessage(chatId, {
                 text: `📌 *Pinterest Downloader*\n\nUsage:\n${config.prefix}pinterest <Pinterest URL>\n\nExample:\n${config.prefix}pinterest https://in.pinterest.com/pin/1109363320773690068/`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Match Pinterest URLs
@@ -29,12 +30,12 @@ async function pinterestCommand(sock, chatId, message) {
         if (!urlMatch) {
             return sock.sendMessage(chatId, {
                 text: "❌ Please provide a valid Pinterest pin URL!\n\nExamples:\n• https://in.pinterest.com/pin/1109363320773690068/\n• https://pin.it/dddddd"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const pinterestUrl = urlMatch[0];
 
-        await sock.sendMessage(chatId, { text: "⏳ Fetching Pinterest content..." }, { quoted: message });
+        await sock.sendMessage(chatId, { text: "⏳ Fetching Pinterest content..." }, { quoted: createFakeContact(message) });
 
         // Call API
         const apiUrl = `https://api.nexray.web.id/downloader/pinterest?url=${encodeURIComponent(pinterestUrl)}`;
@@ -46,11 +47,11 @@ async function pinterestCommand(sock, chatId, message) {
             });
         } catch (err) {
             console.error("Pinterest API Error:", err);
-            return sock.sendMessage(chatId, { text: "❌ Failed to fetch Pinterest content. Try again later." }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "❌ Failed to fetch Pinterest content. Try again later." }, { quoted: createFakeContact(message) });
         }
 
         if (!response.data?.status || !response.data?.result) {
-            return sock.sendMessage(chatId, { text: "❌ Invalid response from API. Pin might not exist or be private." }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "❌ Invalid response from API. Pin might not exist or be private." }, { quoted: createFakeContact(message) });
         }
 
         const pinData = response.data.result;
@@ -60,7 +61,7 @@ async function pinterestCommand(sock, chatId, message) {
         const author = pinData.author || "Unknown";
 
         if (!mediaUrl) {
-            return sock.sendMessage(chatId, { text: "❌ No media URL found in API response." }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "❌ No media URL found in API response." }, { quoted: createFakeContact(message) });
         }
 
         // Build caption
@@ -80,19 +81,19 @@ async function pinterestCommand(sock, chatId, message) {
                 const videoBuffer = Buffer.from(videoResponse.data);
                 if (!videoBuffer || videoBuffer.length < 100) throw new Error("Invalid video buffer");
 
-                await sock.sendMessage(chatId, { video: videoBuffer, caption }, { quoted: message });
+                await sock.sendMessage(chatId, { video: videoBuffer, caption }, { quoted: createFakeContact(message) });
             } catch (err) {
                 console.error("Video download error:", err);
-                return sock.sendMessage(chatId, { text: "❌ Failed to download or send video." }, { quoted: message });
+                return sock.sendMessage(chatId, { text: "❌ Failed to download or send video." }, { quoted: createFakeContact(message) });
             }
         } else {
             // Handle image
-            await sock.sendMessage(chatId, { image: { url: mediaUrl }, caption }, { quoted: message });
+            await sock.sendMessage(chatId, { image: { url: mediaUrl }, caption }, { quoted: createFakeContact(message) });
         }
 
     } catch (error) {
         console.error("Pinterest command error:", error);
-        return sock.sendMessage(chatId, { text: `🚫 Error: ${error.message}` }, { quoted: message });
+        return sock.sendMessage(chatId, { text: `🚫 Error: ${error.message}` }, { quoted: createFakeContact(message) });
     }
 }
 

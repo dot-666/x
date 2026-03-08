@@ -1,5 +1,6 @@
 const settings = require('../settings');
 
+const { createFakeContact } = require('../lib/fakeContact');
 /**
  * Sends the owner's contact card to a given chat.
  * @param {object} sock - The WhatsApp socket instance.

@@ -2,6 +2,7 @@ const axios = require('axios');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { uploadImage } = require('../lib/uploadImage');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function getQuotedOrOwnImageUrl(sock, message) {
     // 1) Quoted image (highest priority)
     const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -43,7 +44,7 @@ module.exports = {
                 } else {
                     return sock.sendMessage(chatId, { 
                         text: '❌ Invalid URL provided.\n\nUsage: `.removebg https://example.com/image.jpg`' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 }
             } else {
                 // Try to get image from message or quoted message
@@ -52,7 +53,7 @@ module.exports = {
                 if (!imageUrl) {
                     return sock.sendMessage(chatId, { 
                         text: '📸 *Remove Background Command*\n\nUsage:\n• `.removebg <image_url>`\n• Reply to an image with `.removebg`\n• Send image with `.removebg`\n\nExample: `.removebg https://example.com/image.jpg`' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 }
             }
 
@@ -73,7 +74,7 @@ module.exports = {
                 await sock.sendMessage(chatId, {
                     image: response.data,
                     caption: '✨ *Background removed successfully!*\n\n𝗣𝗥𝗢𝗖𝗘𝗦𝗦𝗘𝗗 𝗕𝗬 𝗞𝗡𝗜𝗚𝗛𝗧-𝗕𝗢𝗧'
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             } else {
                 throw new Error('Failed to process image');
             }
@@ -97,7 +98,7 @@ module.exports = {
             
             await sock.sendMessage(chatId, { 
                 text: errorMessage 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
     }
 };

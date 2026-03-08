@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const { tmpdir } = require('os');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function toAudioCommand(sock, chatId, message) {
   let inputPath = '';
   let outputPath = '';
@@ -24,7 +25,7 @@ async function toAudioCommand(sock, chatId, message) {
     if (!msg) {
       await sock.sendMessage(chatId, { 
         text: "🎧 Reply to a *video* or *audio* file to convert it to audio!" 
-      },{ quoted: message });
+      },{ quoted: createFakeContact(message) });
       return;
     }
 
@@ -42,11 +43,11 @@ async function toAudioCommand(sock, chatId, message) {
     if (!isVideo && !isAudio && !isDocument) {
       await sock.sendMessage(chatId, { 
         text: "⚠️ Only works on *video* or *audio* messages!" 
-      },{ quoted: message });
+      },{ quoted: createFakeContact(message) });
       return;
     }
 
-    await sock.sendMessage(chatId, { text: "🎶 Converting to audio..." },{ quoted: message });
+    await sock.sendMessage(chatId, { text: "🎶 Converting to audio..." },{ quoted: createFakeContact(message) });
 
     // Determine file type for download
     const fileType = isVideo ? 'video' : 'audio';
@@ -162,7 +163,7 @@ async function toAudioCommand(sock, chatId, message) {
       mimetype: 'audio/mpeg',
       ptt: false,
       fileName: `converted_${timestamp}.mp3`
-    }, { quoted: message });
+    }, { quoted: createFakeContact(message) });
 
   } catch (err) {
     console.error("❌ toAudio error:", {
@@ -189,7 +190,7 @@ async function toAudioCommand(sock, chatId, message) {
       errorMessage += `Error: ${err.message}`;
     }
     
-    await sock.sendMessage(chatId, { text: errorMessage },{ quoted: message });
+    await sock.sendMessage(chatId, { text: errorMessage },{ quoted: createFakeContact(message) });
     
   } finally {
     // Cleanup temp files with better error handling

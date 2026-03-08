@@ -3,6 +3,7 @@ const path = require('path');
 const { channelInfo } = require('../lib/messageConfig');
 const { isSudo } = require('../lib/index');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function unbanCommand(sock, chatId, message) {
     // Only bot owner/sudo can use this command
     const senderId = message.key.participant || message.key.remoteJid;
@@ -42,7 +43,7 @@ async function unbanCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, { 
             text: 'Please mention the user, reply to their message, or provide their JID/phone number!\nExample: .unban @user or .unban 6281234567890', 
             ...channelInfo 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -57,17 +58,17 @@ async function unbanCommand(sock, chatId, message) {
                 text: `✅ Successfully unbanned ${userToUnban.split('@')[0]}!`,
                 mentions: [userToUnban],
                 ...channelInfo 
-            });
+            }, { quoted: createFakeContact(message) });
         } else {
             await sock.sendMessage(chatId, { 
                 text: `❌ ${userToUnban.split('@')[0]} is not banned!`,
                 mentions: [userToUnban],
                 ...channelInfo 
-            });
+            }, { quoted: createFakeContact(message) });
         }
     } catch (error) {
         console.error('Error in unban command:', error);
-        await sock.sendMessage(chatId, { text: '❌ Failed to unban user!', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ Failed to unban user!', ...channelInfo }, { quoted: createFakeContact(message) });
     }
 }
 

@@ -2,6 +2,7 @@ const settings = require('../settings');
 const { addSudo, removeSudo, getSudoList } = require('../lib/index');
 const { compareJids, toUserJid, extractNumber } = require('../lib/jid');
 
+const { createFakeContact } = require('../lib/fakeContact');
 function extractMentionedJid(message) {
     try {
         const mentioned = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
@@ -37,19 +38,19 @@ async function sudoCommand(sock, chatId, message) {
                     '🔹 .sudo del <@user|number>',
                     '🔹 .sudo list'
                 ].join('\n')
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
         if (sub === 'list') {
             const list = await getSudoList();
             if (!list || list.length === 0) {
-                await sock.sendMessage(chatId, { text: '📭 No sudo users set.' }, { quoted: message });
+                await sock.sendMessage(chatId, { text: '📭 No sudo users set.' }, { quoted: createFakeContact(message) });
                 return;
             }
             const text = list.map((j, i) => `${i + 1}. @${extractNumber(j)}`).join('\n');
             const mentions = list.map(j => j);
-            await sock.sendMessage(chatId, { text: `👑 *Sudo Users:*\n${text}`, mentions }, { quoted: message });
+            await sock.sendMessage(chatId, { text: `👑 *Sudo Users:*\n${text}`, mentions }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -57,14 +58,14 @@ async function sudoCommand(sock, chatId, message) {
         if (!isOwner) {
             await sock.sendMessage(chatId, {
                 text: '❌ Only the *owner* can add/remove sudo users.\nUse `.sudo list` to view current sudo users.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
         // ✅ Extract target JID
         const targetJid = extractMentionedJid(message);
         if (!targetJid) {
-            await sock.sendMessage(chatId, { text: '⚠️ Please *mention a user* or provide a valid number.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '⚠️ Please *mention a user* or provide a valid number.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -73,25 +74,25 @@ async function sudoCommand(sock, chatId, message) {
             await sock.sendMessage(chatId, {
                 text: ok ? `✅ Added sudo: @${extractNumber(targetJid)}` : '❌ Failed to add sudo.',
                 mentions: ok ? [targetJid] : []
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
         if (sub === 'del' || sub === 'remove') {
             if (compareJids(targetJid, ownerJid)) {
-                await sock.sendMessage(chatId, { text: '⚠️ Owner cannot be removed from sudo list.' }, { quoted: message });
+                await sock.sendMessage(chatId, { text: '⚠️ Owner cannot be removed from sudo list.' }, { quoted: createFakeContact(message) });
                 return;
             }
             const ok = await removeSudo(targetJid);
             await sock.sendMessage(chatId, {
                 text: ok ? `✅ Removed sudo: @${extractNumber(targetJid)}` : '❌ Failed to remove sudo.',
                 mentions: ok ? [targetJid] : []
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
     } catch (err) {
         console.error('sudoCommand error:', err);
-        await sock.sendMessage(chatId, { text: '⚠️ An unexpected error occurred while processing sudo command.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '⚠️ An unexpected error occurred while processing sudo command.' }, { quoted: createFakeContact(message) });
     }
 }
 

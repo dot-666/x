@@ -3,6 +3,7 @@ const path = require("path");
 const os = require("os");
 const { exec } = require("child_process");
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function trimCommand(sock, chatId, message) {
     try {
         // React to command
@@ -19,14 +20,14 @@ async function trimCommand(sock, chatId, message) {
         if (!args || args.length < 2) {
             return sock.sendMessage(chatId, {
                 text: "❌ Reply to an audio or video file with start and end time.\n\nExample: `trim 0:10 0:30`"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const [startTime, endTime] = args;
         if (!startTime || !endTime) {
             return sock.sendMessage(chatId, {
                 text: "⚠️ Invalid format.\n\nExample: `trim 0:10 0:30`"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Check quoted media
@@ -37,7 +38,7 @@ async function trimCommand(sock, chatId, message) {
         if (!audioMsg && !videoMsg) {
             return sock.sendMessage(chatId, {
                 text: "❌ Unsupported media type. Quote an audio or video file."
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Download media
@@ -60,7 +61,7 @@ async function trimCommand(sock, chatId, message) {
         }
 
         // Notify user
-        await sock.sendMessage(chatId, { text: `_✂️ Trimmed clip ready!_` });
+        await sock.sendMessage(chatId, { text: `_✂️ Trimmed clip ready!_` }, { quoted: createFakeContact(message) });
 
         // Send trimmed media
         const buffer = fs.readFileSync(outputPath);
@@ -68,7 +69,7 @@ async function trimCommand(sock, chatId, message) {
             ? { audio: buffer, mimetype: "audio/mpeg", fileName: "trimmed.mp3" }
             : { video: buffer, mimetype: "video/mp4", fileName: "trimmed.mp4" };
 
-        await sock.sendMessage(chatId, messageContent, { quoted: message });
+        await sock.sendMessage(chatId, messageContent, { quoted: createFakeContact(message) });
 
         // Cleanup
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
@@ -77,7 +78,7 @@ async function trimCommand(sock, chatId, message) {
         console.error("Trim command error:", error);
         return sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

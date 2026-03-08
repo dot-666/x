@@ -1,5 +1,6 @@
 const axios = require("axios");
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function joinCommand(sock, chatId, message) {
     try {
         // Initial reaction
@@ -17,11 +18,11 @@ async function joinCommand(sock, chatId, message) {
         if (!query) {
             return sock.sendMessage(chatId, {
                 text: "🔗 Please provide a WhatsApp group invite link!\n\nExample: .join https://chat.whatsapp.com/IxMbtAN4lhVEhmbb6BfAsk\nOr quote a message containing the link"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 200) {
-            return sock.sendMessage(chatId, { text: "📝 Link too long! Max 200 chars." }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "📝 Link too long! Max 200 chars." }, { quoted: createFakeContact(message) });
         }
 
         // Extract invite code
@@ -33,11 +34,11 @@ async function joinCommand(sock, chatId, message) {
         } else {
             return sock.sendMessage(chatId, {
                 text: "❌ Invalid WhatsApp group link format!\n\nProvide a link like: https://chat.whatsapp.com/IxMbtAN4lhVEhmbb6BfAsk\nOr just the code: IxMbtAN4lhVEhmbb6BfAsk"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (inviteCode.length !== 22) {
-            return sock.sendMessage(chatId, { text: "❌ Invalid invite code length! WhatsApp codes should be 22 characters." }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "❌ Invalid invite code length! WhatsApp codes should be 22 characters." }, { quoted: createFakeContact(message) });
         }
 
         // Fetch group info and accept invite with timeout
@@ -59,12 +60,12 @@ async function joinCommand(sock, chatId, message) {
             const ppUrl = await sock.profilePictureUrl(`${groupInfo.id}@g.us`, "image");
             if (ppUrl) {
                 const ppResponse = await axios.get(ppUrl, { responseType: "arraybuffer", timeout: 10000 });
-                await sock.sendMessage(chatId, { image: Buffer.from(ppResponse.data), caption: groupInfoMessage }, { quoted: message });
+                await sock.sendMessage(chatId, { image: Buffer.from(ppResponse.data), caption: groupInfoMessage }, { quoted: createFakeContact(message) });
             } else {
-                await sock.sendMessage(chatId, { text: groupInfoMessage }, { quoted: message });
+                await sock.sendMessage(chatId, { text: groupInfoMessage }, { quoted: createFakeContact(message) });
             }
         } catch {
-            await sock.sendMessage(chatId, { text: `${groupInfoMessage}` }, { quoted: message });
+            await sock.sendMessage(chatId, { text: `${groupInfoMessage}` }, { quoted: createFakeContact(message) });
         }
 
         // Final success reaction
@@ -82,7 +83,7 @@ async function joinCommand(sock, chatId, message) {
         else if (/401|unauthorized/i.test(error.message)) errorMessage = "❌ Unauthorized access to group information.";
         else if (/500/i.test(error.message)) errorMessage = "❌ Server error. Please try again later.";
 
-        return sock.sendMessage(chatId, { text: errorMessage }, { quoted: message });
+        return sock.sendMessage(chatId, { text: errorMessage }, { quoted: createFakeContact(message) });
     }
 }
 

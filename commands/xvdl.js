@@ -3,6 +3,7 @@ const axios = require('axios');
 const yts = require('yt-search');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function xvdlCommand(sock, chatId, message) {
     try {
         await sock.sendMessage(chatId, {
@@ -18,11 +19,11 @@ async function xvdlCommand(sock, chatId, message) {
 
         if (!query) return await sock.sendMessage(chatId, {
             text: '🎬 Provid a link or Name\nExample:\n\n xvdl sexy Red \nxvdl red One '
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         if (query.length > 100) return await sock.sendMessage(chatId, {
             text: `📝 Video name too long! Max 100 chars.`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
 
         const video = searchResult;
@@ -69,7 +70,7 @@ async function xvdlCommand(sock, chatId, message) {
             mimetype: "video/mp4",
             fileName: `${title}.mp4`,
             caption:  ` *🎞️ Video Downloaded*\n\n *Title:* ${title}\n *Size:* ${fileSizeMB} MB`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Cleanup
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -90,7 +91,7 @@ async function xvdlCommand(sock, chatId, message) {
         
         return await sock.sendMessage(chatId, {
             text: errorMessage
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

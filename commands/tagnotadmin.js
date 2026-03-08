@@ -1,16 +1,17 @@
 const isAdmin = require('../lib/isAdmin');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function tagNotAdminCommand(sock, chatId, senderId, message) {
     try {
         const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
 
         if (!isBotAdmin) {
-            await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
             return;
         }
 
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: 'Only admins can use the .tagnotadmin command.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: 'Only admins can use the .tagnotadmin command.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -19,7 +20,7 @@ async function tagNotAdminCommand(sock, chatId, senderId, message) {
 
         const nonAdmins = participants.filter(p => !p.admin).map(p => p.id);
         if (nonAdmins.length === 0) {
-            await sock.sendMessage(chatId, { text: 'No non-admin members to tag.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: 'No non-admin members to tag.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -45,16 +46,16 @@ async function tagNotAdminCommand(sock, chatId, senderId, message) {
                 image: { url: profilePicUrl },
                 caption: text,
                 mentions: nonAdmins
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } else {
             await sock.sendMessage(chatId, { 
                 text, 
                 mentions: nonAdmins 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
     } catch (error) {
         console.error('Error in tagnotadmin command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to tag non-admin members.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: 'Failed to tag non-admin members.' }, { quoted: createFakeContact(message) });
     }
 }
 

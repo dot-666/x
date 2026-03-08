@@ -7,6 +7,7 @@ const axios = require("axios");
 
 const BASE = "https://api.siputzx.my.id/api/ai/magicstudio";
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function magicstudioCommand(sock, chatId, message) {
     try {
         // React to command
@@ -20,11 +21,11 @@ async function magicstudioCommand(sock, chatId, message) {
         if (!prompt) {
             return sock.sendMessage(chatId, {
                 text: "❌ Usage: `.magicstudio <prompt>`\n\nExample: `.magicstudio a cyberpunk city`"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Notify user
-        await sock.sendMessage(chatId, { text: `_🎨 Generating art... please wait_` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: `_🎨 Generating art... please wait_` }, { quoted: createFakeContact(message) });
 
         // Fetch image from API
         const url = `${BASE}?prompt=${encodeURIComponent(prompt)}`;
@@ -51,7 +52,7 @@ async function magicstudioCommand(sock, chatId, message) {
         }
 
         // Send generated image
-        await sock.sendMessage(chatId, { image: imageBuffer }, { quoted: message });
+        await sock.sendMessage(chatId, { image: imageBuffer }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("MagicStudio command error:", error);
@@ -70,7 +71,7 @@ async function magicstudioCommand(sock, chatId, message) {
             errorMsg = `🚫 Error: ${error.message}`;
         }
 
-        return sock.sendMessage(chatId, { text: errorMsg }, { quoted: message });
+        return sock.sendMessage(chatId, { text: errorMsg }, { quoted: createFakeContact(message) });
     }
 }
 

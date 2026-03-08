@@ -10,6 +10,7 @@ const { TelegraPh } = require('../lib/uploader');
 // =======================
 
 // 1. Catbox upload (permanent for any file)
+const { createFakeContact } = require('../lib/fakeContact');
 async function uploadToCatbox(filePath, filename) {
     try {
         const form = new FormData();
@@ -225,7 +226,7 @@ async function urlCommand(sock, chatId, message) {
             return sock.sendMessage(
                 chatId,
                 { text: 'Send or reply to a media (image, video, audio, sticker, document) to get a URL.' },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
         }
 
@@ -278,7 +279,7 @@ async function urlCommand(sock, chatId, message) {
                     showAboveText: false 
                 }
             },
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
 
     } catch (error) {
@@ -299,7 +300,7 @@ async function urlCommand(sock, chatId, message) {
         await sock.sendMessage(
             chatId, 
             { text: errorMessage }, 
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
     }
 }

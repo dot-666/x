@@ -5,6 +5,7 @@ const https = require('https');
 const settings = require('../settings');
 const isOwnerOrSudo = require('../lib/isOwner');
 
+const { createFakeContact } = require('../lib/fakeContact');
 function run(cmd) {
     return new Promise((resolve, reject) => {
         exec(cmd, { windowsHide: true }, (err, stdout, stderr) => {
@@ -26,7 +27,7 @@ async function updateProgress(sock, chatId, message, text) {
             });
         } else {
             // Send new message and store reference
-            const sent = await sock.sendMessage(chatId, { text: text }, { quoted: message });
+            const sent = await sock.sendMessage(chatId, { text: text }, { quoted: createFakeContact(message) });
             progressMsg = sent;
         }
     } catch (e) {
@@ -266,7 +267,7 @@ async function updateCommand(sock, chatId, message, zipOverride) {
     if (!message.key.fromMe && !isOwner) {
         await sock.sendMessage(chatId, { 
             text: '❌ Only bot owner can use .update' 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
     

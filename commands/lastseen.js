@@ -1,3 +1,4 @@
+const { createFakeContact } = require('../lib/fakeContact');
 async function lastseenCommand(sock, chatId, message) {
     try {
         // Initial reaction
@@ -18,7 +19,7 @@ async function lastseenCommand(sock, chatId, message) {
                       '• contacts - Only your contacts can see your last seen\n' +
                       '• none - No one can see your last seen\n\n' +
                       'Example: .lastseen contacts'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Validate option
@@ -33,7 +34,7 @@ async function lastseenCommand(sock, chatId, message) {
                 text: '❌ Invalid option!\n\n' +
                       'Valid options: all, contacts, none\n' +
                       'Example: .lastseen contacts'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update last seen privacy
@@ -50,7 +51,7 @@ async function lastseenCommand(sock, chatId, message) {
                   `Your last seen privacy has been set to: *${query}*\n` +
                   `📝 ${validOptions[query]}\n\n` +
                   `⚡ Changes may take a few moments to apply.`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("Lastseen command error:", error);
@@ -60,7 +61,7 @@ async function lastseenCommand(sock, chatId, message) {
         else if (error.message.includes('timeout') || error.code === 'ECONNABORTED') errorMessage = 'Request timed out! Try again.';
         else if (error.code === 'ENOTFOUND') errorMessage = 'Cannot connect to WhatsApp service!';
 
-        return sock.sendMessage(chatId, { text: `🚫 ${errorMessage}` }, { quoted: message });
+        return sock.sendMessage(chatId, { text: `🚫 ${errorMessage}` }, { quoted: createFakeContact(message) });
     }
 }
 

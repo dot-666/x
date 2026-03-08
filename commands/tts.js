@@ -2,6 +2,7 @@ const gTTS = require('gtts');
 const fs = require('fs');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function ttsCommand(sock, chatId, text, message, language = 'en') {
     // If no text provided, try to get it from quoted or mentioned message
     if (!text) {
@@ -20,7 +21,7 @@ async function ttsCommand(sock, chatId, text, message, language = 'en') {
     }
 
     if (!text) {
-        await sock.sendMessage(chatId, { text: 'Please provide the text for TTS conversion or reply/mention a message.' });
+        await sock.sendMessage(chatId, { text: 'Please provide the text for TTS conversion or reply/mention a message.' }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -30,14 +31,14 @@ async function ttsCommand(sock, chatId, text, message, language = 'en') {
     const gtts = new gTTS(text, language);
     gtts.save(filePath, async function (err) {
         if (err) {
-            await sock.sendMessage(chatId, { text: 'Error generating TTS audio.' });
+            await sock.sendMessage(chatId, { text: 'Error generating TTS audio.' }, { quoted: createFakeContact(message) });
             return;
         }
 
         await sock.sendMessage(chatId, {
             audio: { url: filePath },
             mimetype: 'audio/mpeg'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         fs.unlinkSync(filePath);
     });

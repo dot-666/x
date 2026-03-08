@@ -3,6 +3,7 @@ const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function downloadMediaMessage(message, mediaType) {
     const stream = await downloadContentFromMessage(message, mediaType);
     let buffer = Buffer.from([]);
@@ -17,14 +18,14 @@ async function downloadMediaMessage(message, mediaType) {
 async function tagCommand(sock, chatId, senderId, messageText, replyMessage) {
     // ✅ Restrict to groups only
     if (!chatId.endsWith('@g.us')) {
-        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' });
+        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: createFakeContact(message) });
         return;
     }
 
     const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
 
     if (!isBotAdmin) {
-        await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' });
+        await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -32,7 +33,7 @@ async function tagCommand(sock, chatId, senderId, messageText, replyMessage) {
         const stickerPath = './assets/sticktag.webp';  // Path to your sticker
         if (fs.existsSync(stickerPath)) {
             const stickerBuffer = fs.readFileSync(stickerPath);
-            await sock.sendMessage(chatId, { sticker: stickerBuffer });
+            await sock.sendMessage(chatId, { sticker: stickerBuffer }, { quoted: createFakeContact(message) });
         }
         return;
     }
@@ -80,7 +81,7 @@ async function tagCommand(sock, chatId, senderId, messageText, replyMessage) {
         await sock.sendMessage(chatId, {
             text: messageText || "Tagged message",
             mentions: mentionedJidList
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

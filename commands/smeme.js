@@ -6,6 +6,7 @@ const settings = require('../settings');
 const webp = require('node-webpmux');
 const crypto = require('crypto');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function smemeCommand(sock, chatId, message) {
     const messageToQuote = message;
     let text = '';
@@ -54,7 +55,7 @@ async function smemeCommand(sock, chatId, message) {
         });
 
         if (!mediaBuffer) {
-            await sock.sendMessage(chatId, { text: 'Failed to download media. Please try again.' });
+            await sock.sendMessage(chatId, { text: 'Failed to download media. Please try again.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -180,7 +181,7 @@ async function smemeCommand(sock, chatId, message) {
         let errorMessage = 'Failed to create meme sticker! ';
         if (error.message.includes('ffmpeg')) errorMessage += 'Make sure ffmpeg is installed. ';
         errorMessage += '\n\nError: ' + error.message;
-        await sock.sendMessage(chatId, { text: errorMessage });
+        await sock.sendMessage(chatId, { text: errorMessage }, { quoted: createFakeContact(message) });
     }
 }
 

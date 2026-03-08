@@ -1,26 +1,9 @@
 /*by supreme*/
 
 const os = require('os');
-const settings = require('../settings.js');
+const { getBotName } = require('../lib/botConfig');
 
-// fakeQuoted function
-function createFakeContact(message) {
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "JUNE-X"
-        },
-        message: {
-            contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE MD\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
-
+const { createFakeContact } = require('../lib/fakeContact');
 async function pingCommand(sock, chatId, message) {
   try {
     // Create fake quoted contact
@@ -28,7 +11,7 @@ async function pingCommand(sock, chatId, message) {
     
     const start = Date.now();
     const sentMsg = await sock.sendMessage(chatId, {
-      text: '*🔹pong!...*'}, { quoted: fake }
+      text: '*🔹pong!...*'}, { quoted: createFakeContact(message) }
     );
 
     const ping = Date.now() - start;
@@ -36,12 +19,12 @@ async function pingCommand(sock, chatId, message) {
     // Generate highly accurate and detailed 3-decimal ping
     const detailedPing = generatePrecisePing(ping);
     
-    const response = `*🔸 June-X Speed: ${detailedPing} ms*`;
+    const response = `*🔸 ${getBotName()} Speed: ${detailedPing} ms*`;
 
     await sock.sendMessage(chatId, {
       text: response,
       edit: sentMsg.key // Edit the original message
-    }, { quoted: fake });   
+    }, { quoted: createFakeContact(message) });   
     
   } catch (error) {
     console.error('Ping error:', error);

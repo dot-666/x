@@ -2,6 +2,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function transcribeCommand(sock, chatId, message) {
     try {
         // Initial reaction
@@ -14,7 +15,7 @@ async function transcribeCommand(sock, chatId, message) {
         if (!quotedMsg) {
             return await sock.sendMessage(chatId, {
                 text: '🎤 *Audio/Video Transcription*\n\n❌ Please reply to an audio or video message!\n\n📝 *Usage:*\n• Reply to audio with: .transcribe\n• Reply to video with: .speech\n\n🔊 *Supported formats:*\n• Audio (MP3, OGG, voice notes)\n• Video (with audio track)\n\n💡 *Tips:*\n• Clear audio works best\n• Keep clips under 5 minutes'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Detect media type
@@ -26,7 +27,7 @@ async function transcribeCommand(sock, chatId, message) {
         } else {
             return await sock.sendMessage(chatId, {
                 text: '🎤 *Audio/Video Transcription*\n\n❌ Unsupported media type!\n\n📌 Please reply to:\n• Audio message\n• Video message\n• Voice note\n\n❌ Not supported:\n• Images\n• Documents\n• Text messages'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Show "recording" presence
@@ -78,7 +79,7 @@ async function transcribeCommand(sock, chatId, message) {
             text: isClean 
                 ? transcription 
                 : `🎤 *Transcription Result*\n\n📝 ${transcription}\n\n🔊 Media Type: ${mediaType.toUpperCase()}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Final reaction
         await sock.sendMessage(chatId, {
@@ -113,7 +114,7 @@ async function transcribeCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             text: `🎤 *Transcription Error*\n\n🚫 ${errorMessage}\n\n💡 Tips:\n• Ensure audio is clear\n• Keep clips under 5 minutes\n• Check your internet\n• Retry later`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

@@ -1,10 +1,11 @@
+const { createFakeContact } = require('../lib/fakeContact');
 async function onlineCommand(sock, chatId, message) {
     try {
         // Only works in groups
         if (!chatId.endsWith('@g.us')) {
             return await sock.sendMessage(chatId, {
                 text: '❌ This command can only be used in a group chat!'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Get group metadata
@@ -18,7 +19,7 @@ async function onlineCommand(sock, chatId, message) {
         if (!isAdmin) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Only group admins can use this command!'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const onlineMembers = new Set();
@@ -75,13 +76,13 @@ async function onlineCommand(sock, chatId, message) {
         });
 
         const resultMessage = `🟢 Online Members (${onlineCount}/${totalMembers}):\n\n${onlineList.join('\n')}`;
-        await sock.sendMessage(chatId, { text: resultMessage, mentions }, { quoted: message });
+        await sock.sendMessage(chatId, { text: resultMessage, mentions }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("Online command error:", error);
         await sock.sendMessage(chatId, {
             text: `❌ Online check failed: ${error.message || 'Unexpected error'}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

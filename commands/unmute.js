@@ -1,3 +1,4 @@
+const { createFakeContact } = require('../lib/fakeContact');
 /**
  * Unmute a WhatsApp group by updating its settings
  * @param {object} sock - WhatsApp socket instance
@@ -16,7 +17,7 @@ async function unmuteCommand(sock, chatId) {
         // Send confirmation message
         await sock.sendMessage(chatId, { 
             text: `✅ ${groupName} has been unmuted. Members can now chat freely!` 
-        });
+        }, { quoted: createFakeContact(message) });
 
         // Return success status
         return { success: true, message: `${groupName} unmuted successfully` };
@@ -27,7 +28,7 @@ async function unmuteCommand(sock, chatId) {
         // Send error message to group
         await sock.sendMessage(chatId, { 
             text: `⚠️ Failed to unmute the group. Please try again later.` 
-        });
+        }, { quoted: createFakeContact(message) });
 
         // Return failure status
         return { success: false, message: 'Failed to unmute group', error };

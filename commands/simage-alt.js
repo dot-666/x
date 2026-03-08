@@ -3,10 +3,11 @@ var { exec } = require('child_process');
 var fs = require('fs');
 const ffmpeg = require('ffmpeg-static');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function simageCommand(sock, quotedMessage, chatId) {
     try {
         if (!quotedMessage?.stickerMessage) {
-            await sock.sendMessage(chatId, { text: 'Please reply to a sticker!' });
+            await sock.sendMessage(chatId, { text: 'Please reply to a sticker!' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -32,7 +33,7 @@ async function simageCommand(sock, quotedMessage, chatId) {
         await sock.sendMessage(chatId, { 
             image: fs.readFileSync(tempOutput),
             caption: '✨ Here\'s your image!' 
-        });
+        }, { quoted: createFakeContact(message) });
 
         // Cleanup
         fs.unlinkSync(tempSticker);
@@ -40,7 +41,7 @@ async function simageCommand(sock, quotedMessage, chatId) {
 
     } catch (error) {
         console.error('Error in simage command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to convert sticker to image!' });
+        await sock.sendMessage(chatId, { text: 'Failed to convert sticker to image!' }, { quoted: createFakeContact(message) });
     }
 }
 

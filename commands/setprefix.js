@@ -22,6 +22,7 @@ if (!fs.existsSync(PREFIX_FILE)) {
     fs.writeFileSync(PREFIX_FILE, JSON.stringify({ prefix: DEFAULT_PREFIX }, null, 2));
 }
 
+const { createFakeContact } = require('../lib/fakeContact');
 /**
  * Get the current prefix
  * @returns {string} The current prefix (empty string for no prefix)
@@ -112,7 +113,7 @@ async function handleSetPrefixCommand(sock, chatId, senderId, message, userMessa
         await sock.sendMessage(chatId, { 
             text: '❌ Only bot owner can change the prefix!',
             contextInfo: { forwardingScore: 1 }
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -124,7 +125,7 @@ async function handleSetPrefixCommand(sock, chatId, senderId, message, userMessa
         await sock.sendMessage(chatId, { 
             text: `👑 Current prefix: *${displayPrefix}*\n\nUsage: ${usagePrefix}setprefix <new_prefix|none|reset>\nExamples:\n• ${usagePrefix}setprefix !\n• ${usagePrefix}setprefix none (for prefixless mode)\n• ${usagePrefix}setprefix reset`,
             contextInfo: { forwardingScore: 1 }
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -135,12 +136,12 @@ async function handleSetPrefixCommand(sock, chatId, senderId, message, userMessa
             await sock.sendMessage(chatId, { 
                 text: `✅ Prefix reset to default: *${defaultPrefix}*`,
                 contextInfo: { forwardingScore: 1 }
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } else {
             await sock.sendMessage(chatId, { 
                 text: '❌ Failed to reset prefix!',
                 contextInfo: { forwardingScore: 1 }
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
         return;
     }
@@ -151,12 +152,12 @@ async function handleSetPrefixCommand(sock, chatId, senderId, message, userMessa
             await sock.sendMessage(chatId, { 
                 text: 'Bot set to *prefixless mode* successfully!',
                 contextInfo: { forwardingScore: 1 }
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } else {
             await sock.sendMessage(chatId, { 
                 text: '❌ Failed to set prefixless mode!',
                 contextInfo: { forwardingScore: 1 }
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
         return;
     }
@@ -165,7 +166,7 @@ async function handleSetPrefixCommand(sock, chatId, senderId, message, userMessa
         await sock.sendMessage(chatId, { 
             text: '❌ Prefix must be 1-3 characters long! Use "none" for prefixless mode.',
             contextInfo: { forwardingScore: 1 }
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -174,12 +175,12 @@ async function handleSetPrefixCommand(sock, chatId, senderId, message, userMessa
         await sock.sendMessage(chatId, { 
             text: `✅ Prefix successfully set to: *${newPrefix}*`,
             contextInfo: { forwardingScore: 1 }
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     } else {
         await sock.sendMessage(chatId, { 
             text: '❌ Failed to set prefix!',
             contextInfo: { forwardingScore: 1 }
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function memeCommand(sock, chatId, message) {
     try {
         const response = await fetch('https://shizoapi.onrender.com/api/memes/cheems?apikey=shizo');
@@ -19,7 +20,7 @@ async function memeCommand(sock, chatId, message) {
                 caption: "_Here's your  meme! 💀_",
                 buttons: buttons,
                 headerType: 1
-            },{ quoted: message});
+            },{ quoted: createFakeContact(message) });
         } else {
             throw new Error('Invalid response type from API');
         }
@@ -27,7 +28,7 @@ async function memeCommand(sock, chatId, message) {
         console.error('Error in meme command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Failed to fetch meme. Please try again later.'
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

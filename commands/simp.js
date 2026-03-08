@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function simpCommand(sock, chatId, quotedMsg, mentionedJid, sender) {
     try {
         // Determine the target user

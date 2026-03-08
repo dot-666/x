@@ -17,6 +17,7 @@ if (!fs.existsSync(OWNER_FILE)) {
     fs.writeFileSync(OWNER_FILE, JSON.stringify({ ownerName: DEFAULT_OWNER_NAME }, null, 2));
 }
 
+const { createFakeContact } = require('../lib/fakeContact');
 /**
  * Get the current owner name
  */
@@ -74,25 +75,6 @@ function validateOwnerName(name) {
     return { isValid: true, message: 'Valid owner name' };
 }
 
-// Create fake contact for enhanced replies
-function createFakeContact(message) {
-    const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "JUNE-MD-MENU"
-        },
-        message: {
-            contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE MD\nitem1.TEL;waid=${phone}:${phone}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
-
 // Common message context
 const messageContext = {
     forwardingScore: 1,
@@ -112,7 +94,7 @@ async function handleSetOwnerCommand(sock, chatId, senderId, message, userMessag
     if (!message.key.fromMe && !(await isSudo(senderId))) {
         await sock.sendMessage(chatId, { 
             text: '❌ Only bot owner can change the owner name!'
-        }, { quoted: fake });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -120,7 +102,7 @@ async function handleSetOwnerCommand(sock, chatId, senderId, message, userMessag
         const current = getOwnerName();
         await sock.sendMessage(chatId, { 
             text: `👑 Current Owner Name: *${current}*\n\nUsage: ${currentPrefix}setowner <new_name>\nExample: ${currentPrefix}setowner Supreme\nExample: ${currentPrefix}setowner john doe\n\nTo reset: ${currentPrefix}setowner reset`
-        }, { quoted: fake });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -129,13 +111,13 @@ async function handleSetOwnerCommand(sock, chatId, senderId, message, userMessag
         const response = success ? 
             `✅ Owner name reset to default: *${DEFAULT_OWNER_NAME}*` : 
             '❌ Failed to reset owner name!';
-        await sock.sendMessage(chatId, { text: response }, { quoted: fake });
+        await sock.sendMessage(chatId, { text: response }, { quoted: createFakeContact(message) });
         return;
     }
 
     const validation = validateOwnerName(input);
     if (!validation.isValid) {
-        await sock.sendMessage(chatId, { text: `❌ ${validation.message}` }, { quoted: fake });
+        await sock.sendMessage(chatId, { text: `❌ ${validation.message}` }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -144,7 +126,7 @@ async function handleSetOwnerCommand(sock, chatId, senderId, message, userMessag
         `✅ Owner name successfully set to: *${input.trim()}*` : 
         '❌ Failed to set owner name!';
     
-    await sock.sendMessage(chatId, { text: response }, { quoted: fake });
+    await sock.sendMessage(chatId, { text: response }, { quoted: createFakeContact(message) });
 }
 
 /**

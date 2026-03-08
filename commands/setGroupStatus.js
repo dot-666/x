@@ -7,6 +7,7 @@ const fetch = require('node-fetch');
 //================================================
 // Sticker conversion (simple fallback)
 //================================================
+const { createFakeContact } = require('../lib/fakeContact');
 async function convertStickerToImageSimple(stickerBuffer) {
     if (stickerBuffer.slice(0, 12).toString('hex').includes('52494646')) { // RIFF header
         console.log('Detected WebP sticker, using fallback conversion');
@@ -93,7 +94,7 @@ async function setGroupStatusCommand(sock, chatId, msg) {
 
     } catch (error) {
         console.error('Error in group status command:', error);
-        await sock.sendMessage(chatId, { text: `❌ Error: ${error.message}` });
+        await sock.sendMessage(chatId, { text: `❌ Error: ${error.message}` }, { quoted: createFakeContact(message) });
     }
 }
 

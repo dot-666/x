@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 /**
  * Weather Command Handler
  * @param {object} sock - WhatsApp socket
@@ -58,7 +59,7 @@ async function sendPromptMessage(sock, chatId, message) {
     const promptText = "Please provide a city name after .weather or .cuaca\n\n" +
                       "Example: .weather Nairobi";
     
-    return await sock.sendMessage(chatId, { text: promptText }, { quoted: message });
+    return await sock.sendMessage(chatId, { text: promptText }, { quoted: createFakeContact(message) });
 }
 
 /**
@@ -67,7 +68,7 @@ async function sendPromptMessage(sock, chatId, message) {
 async function sendEmptyQueryMessage(sock, chatId, message) {
     return await sock.sendMessage(chatId, { 
         text: "⚠️ Please provide a city name!\nExample: .weather Nairobi" 
-    }, { quoted: message });
+    }, { quoted: createFakeContact(message) });
 }
 
 /**
@@ -80,7 +81,7 @@ async function sendErrorMessage(sock, chatId, message) {
             mentionedJid: [message.key.participant || message.key.remoteJid],
             quotedMessage: message.message
         }
-    }, { quoted: message });
+    }, { quoted: createFakeContact(message) });
 }
 
 /**
@@ -120,7 +121,7 @@ async function handleWeatherAPIRequest(sock, chatId, message, cityQuery) {
     
     await sock.sendMessage(chatId, {
         text: weatherMsg
-    }, { quoted: message });
+    }, { quoted: createFakeContact(message) });
 }
 
 /**
@@ -155,7 +156,7 @@ async function sendAPIErrorMessage(sock, chatId, message, error) {
             mentionedJid: [message.key.participant || message.key.remoteJid],
             quotedMessage: message.message
         }
-    }, { quoted: message });
+    }, { quoted: createFakeContact(message) });
 }
 
 module.exports = weatherCommand;

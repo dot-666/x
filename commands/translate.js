@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function handleTranslateCommand(sock, chatId, message, match) {
     try {
         // Show typing indicator
@@ -96,9 +97,7 @@ async function handleTranslateCommand(sock, chatId, message, match) {
         // Send translation
         await sock.sendMessage(chatId, {
             text: `${translatedText}`,
-        }, {
-            quoted: message
-        });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('❌ Error in translate command:', error);

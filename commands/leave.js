@@ -1,5 +1,6 @@
 const { isSudo } = require('../lib/index');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function leaveGroupCommand(sock, chatId, message) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;

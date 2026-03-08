@@ -3,6 +3,7 @@ const axios = require("axios");
 const path = require("path");
 const fetch = require("node-fetch");
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function moviesCommand(sock, chatId, message) {
     const tempDir = path.join(__dirname, "temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
@@ -30,13 +31,13 @@ async function moviesCommand(sock, chatId, message) {
         if (!query) {
             return sock.sendMessage(chatId, {
                 text: "🎬 Provide a movie name to search\nExample: .movies Avatar"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 100) {
             return sock.sendMessage(chatId, {
                 text: "📝 Movie name too long! Max 100 chars."
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Search movie
@@ -49,7 +50,7 @@ async function moviesCommand(sock, chatId, message) {
         if (!searchResult.data?.length) {
             return sock.sendMessage(chatId, {
                 text: "😕 Couldn't find that movie. Try another one!"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const movie = searchResult.data[0];
@@ -64,7 +65,7 @@ async function moviesCommand(sock, chatId, message) {
         if (!streamResult.data?.links?.length) {
             return sock.sendMessage(chatId, {
                 text: "🚫 No streaming links available for this movie!"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Build result text
@@ -100,15 +101,15 @@ async function moviesCommand(sock, chatId, message) {
                 await sock.sendMessage(chatId, {
                     image: { url: posterPath },
                     caption: resultText
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
 
                 fs.unlinkSync(posterPath);
             } catch (err) {
                 console.error("\x1b[35mPoster download error:\x1b[0m", err);
-                await sock.sendMessage(chatId, { text: resultText }, { quoted: message });
+                await sock.sendMessage(chatId, { text: resultText }, { quoted: createFakeContact(message) });
             }
         } else {
-            await sock.sendMessage(chatId, { text: resultText }, { quoted: message });
+            await sock.sendMessage(chatId, { text: resultText }, { quoted: createFakeContact(message) });
         }
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: message.key } });
@@ -117,7 +118,7 @@ async function moviesCommand(sock, chatId, message) {
         console.error("\x1b[35mMovies command error:\x1b[0m", error);
         await sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
