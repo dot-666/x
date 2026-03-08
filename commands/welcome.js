@@ -4,11 +4,10 @@ const fetch = require('node-fetch');
 const { normalizeJid, findParticipant } = require('../lib/jid');
 const { getBotName } = require('../lib/botConfig');
 
-const { createFakeContact } = require('../lib/fakeContact');
 async function welcomeCommand(sock, chatId, message) {
     // Check if it's a group
     if (!chatId.endsWith('@g.us')) {
-        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: createFakeContact(message) });
+        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: message });
         return;
     }
 
@@ -20,7 +19,7 @@ async function welcomeCommand(sock, chatId, message) {
     await handleWelcome(sock, chatId, message, matchText);
 }
 
-async function handleJoinEvent(sock, id, participants) {
+async function handleJoinEvent(sock, id, participants, message) {
     // Check if welcome is enabled for this group
     const isWelcomeEnabled = await isWelcomeOn(id);
     if (!isWelcomeEnabled) return;
@@ -83,7 +82,6 @@ async function handleJoinEvent(sock, id, participants) {
                     .replace(/{bot}/g, getBotName())
                     .replace(/{members}/g, membersCount.toString());
             } else {
-                // Default message if no custom message is set
                 const now = new Date();
                 const timeString = now.toLocaleString('en-US', {
                     timeZone: 'Africa/Nairobi',
@@ -115,7 +113,7 @@ ${groupDesc}
                     text: finalMessage,
                     mentions: [participantString],
                     ...channelInfo
-                }, { quoted: createFakeContact(message) });
+                }, { quoted: message });
             } else {
                 try {
                     if (profilePicBuffer) {
@@ -124,7 +122,7 @@ ${groupDesc}
                             caption: finalMessage,
                             mentions: [participantString],
                             ...channelInfo
-                        }, { quoted: createFakeContact(message) });
+                        }, { quoted: message });
                     } else {
                         const apiUrl = `https://api.some-random-api.com/welcome/img/2/gaming3?type=join&textcolor=green&username=${encodeURIComponent(displayName)}&guildName=${encodeURIComponent(groupName)}&memberCount=${membersCount}&avatar=${encodeURIComponent(profilePicUrl || 'https://img.pyrocdn.com/dbKUgahg.png')}`;
                         
@@ -136,7 +134,7 @@ ${groupDesc}
                                 caption: finalMessage,
                                 mentions: [participantString],
                                 ...channelInfo
-                            }, { quoted: createFakeContact(message) });
+                            }, { quoted: message });
                         } else {
                             throw new Error('API image generation failed');
                         }
@@ -147,7 +145,7 @@ ${groupDesc}
                         text: finalMessage,
                         mentions: [participantString],
                         ...channelInfo
-                    }, { quoted: createFakeContact(message) });
+                    }, { quoted: message });
                 }
             }
         } catch (error) {
@@ -171,7 +169,7 @@ ${groupDesc}
                 text: fallbackMessage,
                 mentions: [participantString],
                 ...channelInfo
-            }, { quoted: createFakeContact(message) });
+            }, { quoted: message });
         }
     }
 }
