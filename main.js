@@ -199,7 +199,8 @@ const {
 } = require('./commands/pmblocker');
  
 const {
- addCommandReaction, 
+ addCommandReaction,
+ addMessageReaction,
  handleAreactCommand 
 } = require('./lib/reactions');
 
@@ -382,6 +383,8 @@ const gpteditCommand = require('./commands/gptedit');
 const pinterestCommand = require('./commands/pinterest');
 const setBotNameCommand = require('./commands/setbotname');
 const setBioCommand = require('./commands/setbio');
+const { autofontCommand } = require('./commands/autofont');
+const { applyFont } = require('./lib/autoFont');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -419,7 +422,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
         await Promise.allSettled([
             handleAutoread(sock, message),
             handleDevReact(sock, message),
-            handleAntiStatusMention(sock, message)
+            handleAntiStatusMention(sock, message),
+            addMessageReaction(sock, message)
         ]);
 
         if (!sock._callListenerBound) {
@@ -429,9 +433,29 @@ async function handleMessages(sock, messageUpdate, printLog) {
             sock._callListenerBound = true;
         }
 
+        if (!sock._fontPatched) {
+            const _origSend = sock.sendMessage.bind(sock);
+            sock.sendMessage = async (jid, content, options) => {
+                if (content && typeof content.text === 'string') {
+                    content = { ...content, text: applyFont(content.text) };
+                }
+                if (content && typeof content.caption === 'string') {
+                    content = { ...content, caption: applyFont(content.caption) };
+                }
+                return _origSend(jid, content, options);
+            };
+            sock._fontPatched = true;
+        }
+
         // Store message for antidelete feature
         if (message.message) {
             storeMessage(sock, message);
+        }
+
+        // Route status@broadcast messages to the status handler and stop
+        if (message.key.remoteJid === 'status@broadcast') {
+            await handleStatusUpdate(sock, { messages: [message] });
+            return;
         }
 
         // Handle message revocation
@@ -647,7 +671,9 @@ return;
             `${prefix}setgname`, 
             `${prefix}setgpp`
         ];
-        const isAdminCommand = adminCommands.some(cmd => userMessage.startsWith(cmd));
+        const isAdminCommand = adminCommands.some(cmd =>
+            userMessage === cmd || userMessage.startsWith(cmd + ' ')
+        );
 
         // List of owner commands
         const ownerCommands = [
@@ -663,7 +689,9 @@ return;
             `${prefix}autoread`, 
             `${prefix}pmblocker`
         ];
-        const isOwnerCommand = ownerCommands.some(cmd => userMessage.startsWith(cmd));
+        const isOwnerCommand = ownerCommands.some(cmd =>
+            userMessage === cmd || userMessage.startsWith(cmd + ' ')
+        );
 
         let isSenderAdmin = false;
         let isBotAdmin = false;
@@ -776,7 +804,7 @@ return;
                 await gpteditCommand(sock, chatId, message);
                 break;
                 
-            case userMessage.startsWith(`${prefix}ai`):
+            case userMessage === `${prefix}ai` || userMessage.startsWith(`${prefix}ai `):
                 await gpt4Command(sock, chatId, message);
                 break;
 
@@ -886,7 +914,7 @@ return;
                 break;
 
                 
-            case userMessage.startsWith(`${prefix}in`) || 
+            case (userMessage === `${prefix}in` || userMessage.startsWith(`${prefix}in `)) ||
                  userMessage.startsWith(`${prefix}join`):
                 await joinCommand(sock, chatId, message);
                 break;
@@ -1250,7 +1278,7 @@ case userMessage === `${prefix}forfeit` ||
             /*━━━━━━━━━━━━━━━━━━━━*/
             // Game commands
             /*━━━━━━━━━━━━━━━━━━━━*/
-            case userMessage.startsWith(`${prefix}simp`):
+            case userMessage === `${prefix}simp` || userMessage.startsWith(`${prefix}simp `):
                 const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
                 const mentionedJid = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
                 await simpCommand(sock, chatId, quotedMsg, mentionedJid, senderId);
@@ -1526,7 +1554,6 @@ case userMessage === `${prefix}forfeit` ||
                 
             case userMessage.startsWith(`${prefix}antistatusmention`):
                 await antistatusmentionCommand(sock, chatId, message);
-                await handleAntiStatusMention(soci, chatId, message);
                 break;
 
             case userMessage.startsWith(`${prefix}take`):
@@ -1961,6 +1988,10 @@ case userMessage === `${prefix}forfeit` ||
                 commandExecuted = true;
                 break;
 
+            case userMessage.startsWith(`${prefix}autofont`):
+                await autofontCommand(sock, chatId, message, message.key.fromMe || senderIsSudo);
+                break;
+
             case userMessage.startsWith(`${prefix}heart`):
                 await handleHeart(sock, chatId, message);
                 break;
@@ -2196,10 +2227,7 @@ case userMessage === `${prefix}forfeit` ||
             });
         }
 
-        if (userMessage.startsWith(`${prefix}`)) {
-            // After command is processed successfully
-            await addCommandReaction(sock, message);
-        }
+        
     } catch (error) {
         console.error('❌ Error in message handler:', error.message);
         // Only try to send error message if we have a valid chatId

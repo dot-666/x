@@ -19,6 +19,7 @@ const settings = {
   updateBranch: 'main',
   updateZipToken: '',
   updateZipUrl: "https://github.com/dot-666/x/archive/refs/heads/main.zip",
+  timezone: 'Africa/Nairobi',
 };
 
 module.exports = settings;
