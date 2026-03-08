@@ -1,6 +1,11 @@
 const path = require('path');
 const fetch = require('node-fetch');
 const fs = require('fs');
+const os = require('os');
+const axios = require('axios');
+const FormData = require('form-data');
+const yts = require('yt-search');
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { getBotName } = require('../lib/botConfig');
 
 // ==================== DATA MANAGEMENT ====================
@@ -260,10 +265,27 @@ function isBotMentioned(message, botId) {
             });
         }
 
-        // Check for @mention in conversation text
-        if (message.message?.conversation) {
-            const text = message.message.conversation;
-            return text.includes(`@${botNumber}`);
+        // Check for @mention in conversation text or media captions
+        const textSources = [
+            message.message?.conversation,
+            message.message?.imageMessage?.caption,
+            message.message?.videoMessage?.caption,
+            message.message?.extendedTextMessage?.text
+        ];
+        for (const text of textSources) {
+            if (text && text.includes(`@${botNumber}`)) return true;
+        }
+
+        // Check mentionedJid in image/video/audio messages
+        const mediaMentions =
+            message.message?.imageMessage?.contextInfo?.mentionedJid ||
+            message.message?.videoMessage?.contextInfo?.mentionedJid ||
+            message.message?.audioMessage?.contextInfo?.mentionedJid;
+        if (mediaMentions) {
+            return mediaMentions.some(jid => {
+                const cleanJid = jid.split(':')[0].split('@')[0];
+                return cleanJid === botNumber;
+            });
         }
 
         return false;
@@ -412,39 +434,75 @@ async function handleChatbotCommand(sock, chatId, message, match) {
 
 async function handleChatbotResponse(sock, chatId, message, userMessage, senderId) {
     try {
-        // Check if chatbot is enabled for this chat
+        // Chatbot only works in groups
+        if (!chatId.endsWith('@g.us')) return;
+
+        // Check if chatbot is enabled for this group
         const data = loadUserGroupData();
         const isChatbotEnabled = data.chatbot[chatId] || false;
-        
-        // For groups, check if bot is mentioned or replied to
-        if (chatId.endsWith('@g.us')) {
-            const botId = sock.user.id;
-            const isMentioned = isBotMentioned(message, botId);
-            const isReplied = isReplyToBot(message, botId);
-            
-            // Only respond if:
-            // 1. Chatbot is enabled AND (bot is mentioned OR replied to)
-            // OR
-            // 2. It's a direct message (always respond in DMs)
-            if (!isChatbotEnabled && !isDirectMessage(chatId)) {
-                return;
-            }
-            
-            // If chatbot is disabled but bot is mentioned/replied to, still respond
-            // This allows occasional interactions even when disabled
-            if (!isChatbotEnabled && !isMentioned && !isReplied) {
-                return;
-            }
-        } else {
-            // Direct message - always respond
-        }
+        if (!isChatbotEnabled) return;
+
+        // ONLY respond when someone replies (quotes) the bot's message
+        const botId = sock.user.id;
+        const isReplied = isReplyToBot(message, botId);
+        if (!isReplied) return;
 
         // Don't respond to own messages
-        const botId = sock.user.id;
         const botNumber = botId.split(':')[0];
         const senderNum = (senderId || '').split('@')[0].split(':')[0];
         
         if (senderNum === botNumber) {
+            return;
+        }
+
+        // ---- Detect media type ----
+        const msgContent = message.message || {};
+        const isImage = !!(msgContent.imageMessage);
+        const isVideo = !!(msgContent.videoMessage);
+        const isAudio = !!(msgContent.audioMessage || msgContent.pttMessage);
+
+        if (isImage || isVideo || isAudio) {
+            try {
+                await showTyping(sock, chatId);
+
+                const caption = msgContent.imageMessage?.caption ||
+                                msgContent.videoMessage?.caption || '';
+
+                const ext = isImage ? 'jpg' : isVideo ? 'mp4' : 'ogg';
+                const buffer = await downloadMediaMessage(message, 'buffer', {}, { sock });
+                const mediaUrl = await uploadToTemp(buffer, `chatbot_${Date.now()}.${ext}`);
+
+                let reply;
+                if (isImage) {
+                    reply = await analyzeImage(mediaUrl, caption);
+                } else {
+                    // audio or video — transcribe then AI-respond
+                    const transcript = await transcribeAndRespond(mediaUrl, sock, chatId, message);
+                    if (transcript) {
+                        const aiReply = await getAIResponse(transcript, {
+                            messages: chatMemory.messages.get(senderId) || [],
+                            userInfo: chatMemory.userInfo.get(senderId) || {}
+                        }).catch(() => null);
+                        reply = isAudio
+                            ? `🎤 *I heard:* _${transcript}_\n\n${aiReply || getFallbackResponse(transcript)}`
+                            : `🎬 *Video audio:* _${transcript}_\n\n${aiReply || getFallbackResponse(transcript)}`;
+                    } else {
+                        reply = isAudio
+                            ? "🎤 I received your voice message but couldn't transcribe it clearly. Could you type your message instead?"
+                            : "🎬 I received your video but couldn't extract audio from it. Could you describe what you need?";
+                    }
+                }
+
+                await new Promise(resolve => setTimeout(resolve, getRandomDelay()));
+                await sock.sendMessage(chatId, {
+                    text: reply.substring(0, 1500)
+                }, { quoted: createFakeContact(message) });
+            } catch (mediaErr) {
+                console.error('Chatbot media error:', mediaErr);
+                await sock.sendMessage(chatId, {
+                    text: '⚠️ I had trouble processing that media. Please try again or type your message.'
+                }, { quoted: createFakeContact(message) });
+            }
             return;
         }
 
@@ -476,6 +534,24 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
             messages.shift();
         }
         chatMemory.messages.set(senderId, messages);
+
+        // Check if message is a download request (song or video)
+        const dlRequest = detectDownloadRequest(cleanedMessage);
+        if (dlRequest) {
+            try {
+                if (dlRequest.type === 'song') {
+                    await downloadSongForChat(sock, chatId, message, dlRequest.query);
+                } else {
+                    await downloadVideoForChat(sock, chatId, message, dlRequest.query);
+                }
+            } catch (dlErr) {
+                console.error('Chatbot download error:', dlErr);
+                await sock.sendMessage(chatId, {
+                    text: '❌ Sorry, I had trouble downloading that. Please try again.'
+                }, { quoted: createFakeContact(message) });
+            }
+            return;
+        }
 
         // Show typing indicator
         try {
@@ -704,6 +780,151 @@ Previous chat: ${recentMessages}`;
 
     // If all APIs fail, use fallback responses
     return getFallbackResponse(userMessage);
+}
+
+// ==================== DOWNLOAD HELPERS ====================
+
+function detectDownloadRequest(text) {
+    const lower = text.toLowerCase().trim();
+
+    const songPatterns = [
+        /^(?:play|send|download|get|give me|find)\s+(?:song|audio|music|track)?\s*(?:of|called|named|by)?\s+(.+)/i,
+        /^(?:song|audio|music|mp3)\s+(?:of|called|named|for|by)?\s+(.+)/i,
+        /^(?:play|send me|download)\s+(.+?)\s+(?:song|audio|music|mp3)$/i
+    ];
+
+    const videoPatterns = [
+        /^(?:play|send|download|get|give me|find)\s+(?:video|clip|mv)\s*(?:of|called|named|for|by)?\s+(.+)/i,
+        /^(?:video|clip|mv)\s+(?:of|called|named|for|by)?\s+(.+)/i,
+        /^(?:play|send me|download)\s+(.+?)\s+(?:video|clip|mv)$/i
+    ];
+
+    for (const pattern of videoPatterns) {
+        const m = lower.match(pattern);
+        if (m) return { type: 'video', query: m[1].trim() };
+    }
+    for (const pattern of songPatterns) {
+        const m = lower.match(pattern);
+        if (m) return { type: 'song', query: m[1].trim() };
+    }
+    return null;
+}
+
+async function downloadSongForChat(sock, chatId, message, query) {
+    await sock.sendMessage(chatId, { react: { text: '🎵', key: message.key } });
+    const tempDir = path.join(os.tmpdir(), 'june-x-temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+    const searchResult = (await yts(query + ' official')).videos[0];
+    if (!searchResult) {
+        return sock.sendMessage(chatId, { text: `😕 Couldn't find a song for: _${query}_` }, { quoted: createFakeContact(message) });
+    }
+
+    let downloadUrl, videoTitle;
+    const apis = [
+        `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(searchResult.url)}`,
+        `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${encodeURIComponent(searchResult.url)}`,
+        `https://api.giftedtech.co.ke/api/download/ytmp3?apikey=gifted&url=${encodeURIComponent(searchResult.url)}`
+    ];
+
+    for (const api of apis) {
+        try {
+            const res = await axios.get(api, { timeout: 30000 });
+            if (api.includes('keith') && res.data?.status) {
+                downloadUrl = res.data.result; videoTitle = res.data.title || searchResult.title; break;
+            } else if (api.includes('ryzendesu') && res.data?.status && res.data?.url) {
+                downloadUrl = res.data.url; videoTitle = res.data.title || searchResult.title; break;
+            } else if (api.includes('gifted') && res.data?.status && res.data?.result?.download_url) {
+                downloadUrl = res.data.result.download_url; videoTitle = res.data.result.title || searchResult.title; break;
+            }
+        } catch (_) { continue; }
+    }
+
+    if (!downloadUrl) {
+        return sock.sendMessage(chatId, { text: '❌ Could not download that song right now. Try again later.' }, { quoted: createFakeContact(message) });
+    }
+
+    const filePath = path.join(tempDir, `song_${Date.now()}.mp3`);
+    const writer = fs.createWriteStream(filePath);
+    const audioRes = await axios({ method: 'get', url: downloadUrl, responseType: 'stream', timeout: 120000, maxContentLength: Infinity });
+    audioRes.data.pipe(writer);
+    await new Promise((resolve, reject) => { writer.on('finish', resolve); writer.on('error', reject); });
+
+    await sock.sendMessage(chatId, { text: `🎶 _${videoTitle || searchResult.title}_` }, { quoted: createFakeContact(message) });
+    await sock.sendMessage(chatId, { audio: { url: filePath }, mimetype: 'audio/mpeg', fileName: `${(videoTitle || searchResult.title).substring(0, 80)}.mp3`, ptt: false }, { quoted: createFakeContact(message) });
+    await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
+
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+async function downloadVideoForChat(sock, chatId, message, query) {
+    await sock.sendMessage(chatId, { react: { text: '🎬', key: message.key } });
+
+    const searchResult = (await yts(query)).videos[0];
+    if (!searchResult) {
+        return sock.sendMessage(chatId, { text: `😕 Couldn't find a video for: _${query}_` }, { quoted: createFakeContact(message) });
+    }
+
+    try {
+        const res = await axios.get(`https://iamtkm.vercel.app/downloaders/ytmp4?apikey=tkm&url=${searchResult.url}`, { timeout: 30000 });
+        const dl = res.data?.data?.url;
+        if (!dl) throw new Error('No URL');
+
+        await sock.sendMessage(chatId, { video: { url: dl }, mimetype: 'video/mp4', caption: `🎬 ${searchResult.title}` }, { quoted: createFakeContact(message) });
+        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
+    } catch (_) {
+        await sock.sendMessage(chatId, { text: '❌ Could not download that video right now. Try again later.' }, { quoted: createFakeContact(message) });
+        await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
+    }
+}
+
+// ==================== MEDIA HELPERS ====================
+
+async function uploadToTemp(buffer, filename) {
+    const formData = new FormData();
+    formData.append('files[]', buffer, { filename });
+    const res = await axios.post('https://uguu.se/upload.php', formData, {
+        headers: formData.getHeaders(),
+        timeout: 30000
+    });
+    const url = res.data.files?.[0]?.url;
+    if (!url) throw new Error('Upload failed');
+    return url;
+}
+
+async function analyzeImage(imageUrl, caption) {
+    const question = caption
+        ? `Describe this image and answer: ${caption}`
+        : 'Describe what you see in this image in detail.';
+
+    const apis = [
+        `https://bk9.fun/ai/gemini-pro-vision?q=${encodeURIComponent(question)}&url=${encodeURIComponent(imageUrl)}`,
+        `https://apiskeith.top/ai/gemini-vision?q=${encodeURIComponent(question)}&url=${encodeURIComponent(imageUrl)}`
+    ];
+
+    for (const url of apis) {
+        try {
+            const res = await axios.get(url, { timeout: 30000 });
+            const data = res.data;
+            const text = data?.BK9 || data?.result || data?.response || data?.text || data?.message;
+            if (text && typeof text === 'string' && text.trim().length > 0) {
+                return text.trim();
+            }
+        } catch (_) {}
+    }
+    return '🖼️ I can see the image but I\'m having trouble analyzing it right now. Could you describe what you\'d like to know about it?';
+}
+
+async function transcribeAndRespond(mediaUrl, sock, chatId, message) {
+    try {
+        const transcribeUrl = `https://apiskeith.top/ai/transcribe?q=${encodeURIComponent(mediaUrl)}`;
+        const res = await axios.get(transcribeUrl, { timeout: 60000 });
+        const transcript = res.data?.result?.text?.trim();
+        if (!transcript) return null;
+        return transcript;
+    } catch (_) {
+        return null;
+    }
 }
 
 // ==================== EXPORTS ====================
