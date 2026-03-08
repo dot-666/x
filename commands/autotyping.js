@@ -11,6 +11,7 @@ const isOwnerOrSudo = require('../lib/isOwner');
 const configPath = path.join(__dirname, '..', 'data', 'autotyping.json');
 
 // Initialize configuration file if it doesn't exist
+const { createFakeContact } = require('../lib/fakeContact');
 function initConfig() {
     if (!fs.existsSync(configPath)) {
         fs.writeFileSync(configPath, JSON.stringify({ enabled: false }, null, 2));
@@ -27,7 +28,7 @@ async function autotypingCommand(sock, chatId, message) {
         if (!message.key.fromMe && !isOwner) {
             await sock.sendMessage(chatId, {
                 text: '❌ This command is only available for the owner!'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -49,7 +50,7 @@ async function autotypingCommand(sock, chatId, message) {
             } else {
                 await sock.sendMessage(chatId, {
                     text: '❌ Invalid option! Use: .autotyping on/off'
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 return;
             }
         } else {
@@ -63,13 +64,13 @@ async function autotypingCommand(sock, chatId, message) {
         // Send confirmation message
         await sock.sendMessage(chatId, {
             text: `✅ Auto-typing has been ${config.enabled ? 'enabled' : 'disabled'}!`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         
     } catch (error) {
         console.error('Error in autotyping command:', error);
         await sock.sendMessage(chatId, {
             text: '❌ Error processing command!'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

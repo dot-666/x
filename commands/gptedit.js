@@ -7,6 +7,7 @@ const sharp = require("sharp");
 const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 const { webp2png } = require("../lib/webp2");
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function gpteditCommand(sock, chatId, message) {
     try {
         // React to command
@@ -23,7 +24,7 @@ async function gpteditCommand(sock, chatId, message) {
         if (!prompt) {
             return sock.sendMessage(chatId, {
                 text: "📷 *GPT Image Editor*\n\nReply to an *image* or *sticker* with a prompt.\n\nExample:\n.gptedit change the background to a beach"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Check quoted message
@@ -32,13 +33,13 @@ async function gpteditCommand(sock, chatId, message) {
         if (!quotedMsg) {
             return sock.sendMessage(chatId, {
                 text: "❌ Reply to an *image* or *sticker* with your prompt!"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const isImage = !!quotedMsg.imageMessage;
         const isSticker = !!quotedMsg.stickerMessage;
         if (!isImage && !isSticker) {
-            return sock.sendMessage(chatId, { text: "❌ Only images or static stickers are supported!" }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "❌ Only images or static stickers are supported!" }, { quoted: createFakeContact(message) });
         }
 
         // Download media
@@ -59,7 +60,7 @@ async function gpteditCommand(sock, chatId, message) {
         );
 
         if (!mediaBuffer) {
-            return sock.sendMessage(chatId, { text: "❌ Failed to download image. Try again." }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "❌ Failed to download image. Try again." }, { quoted: createFakeContact(message) });
         }
 
         // Convert sticker to PNG if needed
@@ -68,13 +69,13 @@ async function gpteditCommand(sock, chatId, message) {
             const stickerMessage = quotedMsg.stickerMessage;
             const isAnimated = stickerMessage.isAnimated || stickerMessage.mimetype?.includes("animated");
             if (isAnimated) {
-                return sock.sendMessage(chatId, { text: "❌ Animated stickers are not supported." }, { quoted: message });
+                return sock.sendMessage(chatId, { text: "❌ Animated stickers are not supported." }, { quoted: createFakeContact(message) });
             }
             try {
                 imageBuffer = await webp2png(mediaBuffer);
             } catch (err) {
                 console.error("Sticker conversion error:", err);
-                return sock.sendMessage(chatId, { text: "❌ Failed to convert sticker. Use a regular image." }, { quoted: message });
+                return sock.sendMessage(chatId, { text: "❌ Failed to convert sticker. Use a regular image." }, { quoted: createFakeContact(message) });
             }
         }
 
@@ -105,35 +106,35 @@ async function gpteditCommand(sock, chatId, message) {
         });
 
         if (!response.data) {
-            return sock.sendMessage(chatId, { text: "❌ No image received from API." }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "❌ No image received from API." }, { quoted: createFakeContact(message) });
         }
 
         const resultImageBuffer = Buffer.from(response.data);
         if (!resultImageBuffer || resultImageBuffer.length === 0) {
-            return sock.sendMessage(chatId, { text: "❌ Empty image received from API." }, { quoted: message });
+            return sock.sendMessage(chatId, { text: "❌ Empty image received from API." }, { quoted: createFakeContact(message) });
         }
 
         // Check size limit
         if (resultImageBuffer.length > 5 * 1024 * 1024) {
             return sock.sendMessage(chatId, {
                 text: `❌ Image too large: ${(resultImageBuffer.length / 1024 / 1024).toFixed(2)}MB (max 5MB)`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Notify user
-        await sock.sendMessage(chatId, { text: `_✨ GPT Vision Result ready!_` });
+        await sock.sendMessage(chatId, { text: `_✨ GPT Vision Result ready!_` }, { quoted: createFakeContact(message) });
 
         // Send edited image
         await sock.sendMessage(chatId, {
             image: resultImageBuffer,
             caption: `✨ *GPT Vision Result*\n\n📝 Prompt: ${prompt}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("GPT Edit command error:", error);
         return sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

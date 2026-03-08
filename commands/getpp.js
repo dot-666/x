@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { isSudo } = require('../lib/index');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function getppCommand(sock, chatId, message) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;
@@ -8,7 +9,7 @@ async function getppCommand(sock, chatId, message) {
         if (!isOwner) {
             await sock.sendMessage(chatId, { 
                 text: '😡 Command only for the owner.'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -26,7 +27,7 @@ async function getppCommand(sock, chatId, message) {
         if (!userToAnalyze) {
             await sock.sendMessage(chatId, { 
                 text: 'Please mention someone or reply to their message to get their profile picture🫴'
-                });
+                }, { quoted: createFakeContact(message) });
 
             await sock.sendMessage(chatId, {
             react: { text: '🗑️', key: message.key }
@@ -58,7 +59,7 @@ async function getppCommand(sock, chatId, message) {
             console.error('⚠️Error in getpp command:', error);
             await sock.sendMessage(chatId, {
                 text: '🉐Failed to retrieve profile picture. The user might not have one set.'
-            });
+            }, { quoted: createFakeContact(message) });
         }
     } catch (error) {
         console.error('⚠️Unexpected error in getppCommand:', error);

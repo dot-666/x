@@ -1,11 +1,13 @@
-const { isGoodByeOn, getGoodbye, handleGoodbye } = require('../lib/welcome');
+const { isGoodByeOn, getGoodbye, handleGoodbye, isGoodbyeNoPic } = require('../lib/welcome');
 const fetch = require('node-fetch');
 const { normalizeJid, findParticipant } = require('../lib/jid');
+const { getBotName } = require('../lib/botConfig');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function goodbyeCommand(sock, chatId, message, match) {
     // Check if it's a group
     if (!chatId.endsWith('@g.us')) {
-        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -46,48 +48,58 @@ async function handleLeaveEvent(sock, id, participants) {
                 console.log('Could not fetch display name, using phone number');
             }
             
+            // Check nopic setting for this group
+            const noPic = await isGoodbyeNoPic(id);
+
             // Process custom message with variables
             let finalMessage;
             if (customMessage) {
                 finalMessage = customMessage
                     .replace(/{user}/g, `@${displayName}`)
                     .replace(/{group}/g, groupName)
-                    .replace(/{bot}/g, 'June X Bot')
+                    .replace(/{bot}/g, getBotName())
                     .replace(/{members}/g, membersCount.toString());
             } else {
                 // Default message if no custom message is set
-                finalMessage = `Goodbye @${displayName} from ${groupName}! 👋\nWe now have ${membersCount} members.\n🤖 Powered by June X Bot`;
+                finalMessage = `Goodbye @${displayName} from ${groupName}! 👋\nWe now have ${membersCount} members.\n🤖 Powered by ${getBotName()}`;
             }
-            
-            // Try to send with the individual's profile picture
-            try {
-                let profilePicUrl;
+
+            // Send message — text only if nopic is on, otherwise try with image
+            if (noPic) {
+                await sock.sendMessage(id, {
+                    text: finalMessage,
+                    mentions: [participantString]
+                }, { quoted: createFakeContact(message) });
+            } else {
                 try {
-                    profilePicUrl = await sock.profilePictureUrl(participantString, 'image');
-                } catch {
-                    console.log('No profile picture available, using default');
-                    profilePicUrl = 'https://img.pyrocdn.com/dbKUgahg.png';
+                    let profilePicUrl;
+                    try {
+                        profilePicUrl = await sock.profilePictureUrl(participantString, 'image');
+                    } catch {
+                        console.log('No profile picture available, using default');
+                        profilePicUrl = 'https://img.pyrocdn.com/dbKUgahg.png';
+                    }
+                    
+                    const picResponse = await fetch(profilePicUrl);
+                    if (picResponse.ok) {
+                        const imageBuffer = await picResponse.buffer();
+                        await sock.sendMessage(id, {
+                            image: imageBuffer,
+                            caption: finalMessage,
+                            mentions: [participantString]
+                        }, { quoted: createFakeContact(message) });
+                        continue;
+                    }
+                } catch (imageError) {
+                    console.log('Failed to send profile picture, falling back to text', imageError);
                 }
-                
-                const picResponse = await fetch(profilePicUrl);
-                if (picResponse.ok) {
-                    const imageBuffer = await picResponse.buffer();
-                    await sock.sendMessage(id, {
-                        image: imageBuffer,
-                        caption: finalMessage,
-                        mentions: [participantString]
-                    });
-                    continue;
-                }
-            } catch (imageError) {
-                console.log('Failed to send profile picture, falling back to text', imageError);
+
+                // Fallback to text message if image fails
+                await sock.sendMessage(id, {
+                    text: finalMessage,
+                    mentions: [participantString]
+                }, { quoted: createFakeContact(message) });
             }
-            
-            // Fallback to text message if image fails
-            await sock.sendMessage(id, {
-                text: finalMessage,
-                mentions: [participantString]
-            });
         } catch (error) {
             console.error('Error sending goodbye message:', error);
             const participantString = typeof participant === 'string' ? participant : (participant.id || participant.toString());
@@ -98,16 +110,16 @@ async function handleLeaveEvent(sock, id, participants) {
                 fallbackMessage = customMessage
                     .replace(/{user}/g, `@${user}`)
                     .replace(/{group}/g, groupName)
-                    .replace(/{bot}/g, 'June X Bot')
+                    .replace(/{bot}/g, getBotName())
                     .replace(/{members}/g, membersCount.toString());
             } else {
-                fallbackMessage = `Goodbye @${user}! 👋 Powered by June X Bot. We now have ${membersCount} members.`;
+                fallbackMessage = `Goodbye @${user}! 👋 Powered by ${getBotName()}. We now have ${membersCount} members.`;
             }
             
             await sock.sendMessage(id, {
                 text: fallbackMessage,
                 mentions: [participantString]
-            });
+            }, { quoted: createFakeContact(message) });
         }
     }
 }

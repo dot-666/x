@@ -4,10 +4,11 @@ const isAdmin = require('../lib/isAdmin');
 // Store for counting detected tagall messages
 const antitagStats = new Map();
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSenderAdmin, message) {
     try {
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: '```For Group Admins Only!```' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '```For Group Admins Only!```' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -17,7 +18,7 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
 
         if (!action) {
             const usage = `\`\`\`ANTITAG SETUP\n\n${prefix}antitag on\n${prefix}antitag set delete | kick\n${prefix}antitag off\n${prefix}antitag stats\n\`\`\``;
-            await sock.sendMessage(chatId, { text: usage }, { quoted: message });
+            await sock.sendMessage(chatId, { text: usage }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -25,45 +26,45 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
             case 'on':
                 const existingConfig = await getAntitag(chatId, 'on');
                 if (existingConfig?.enabled) {
-                    await sock.sendMessage(chatId, { text: '*_Antitag is already on_*' }, { quoted: message });
+                    await sock.sendMessage(chatId, { text: '*_Antitag is already on_*' }, { quoted: createFakeContact(message) });
                     return;
                 }
                 const result = await setAntitag(chatId, 'on', 'delete');
                 await sock.sendMessage(chatId, { 
                     text: result ? '*_Antitag has been turned ON_*' : '*_Failed to turn on Antitag_*' 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 break;
 
             case 'off':
                 await removeAntitag(chatId, 'on');
-                await sock.sendMessage(chatId, { text: '*_Antitag has been turned OFF_*' }, { quoted: message });
+                await sock.sendMessage(chatId, { text: '*_Antitag has been turned OFF_*' }, { quoted: createFakeContact(message) });
                 break;
 
             case 'set':
                 if (args.length < 2) {
                     await sock.sendMessage(chatId, { 
                         text: `*_Please specify an action: ${prefix}antitag set delete | kick_*` 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
                 const setAction = args[1];
                 if (!['delete', 'kick'].includes(setAction)) {
                     await sock.sendMessage(chatId, { 
                         text: '*_Invalid action. Choose delete or kick._*' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
                 const setResult = await setAntitag(chatId, 'on', setAction);
                 await sock.sendMessage(chatId, { 
                     text: setResult ? `*_Antitag action set to ${setAction}_*` : '*_Failed to set Antitag action_*' 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 break;
 
             case 'get':
                 const status = await getAntitag(chatId, 'on');
                 await sock.sendMessage(chatId, { 
                     text: `*_Antitag Configuration:_*\nStatus: ${status?.enabled ? 'ON' : 'OFF'}\nAction: ${status?.action || 'delete'}\nTotal Detected: ${getGroupStats(chatId) || 0} messages` 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 break;
 
             case 'stats':
@@ -72,7 +73,7 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
                 const stats = getGroupStats(chatId);
                 await sock.sendMessage(chatId, { 
                     text: `*_📊 ANTITAG STATISTICS_*\n\n🔹 *Status:* ${config?.enabled ? '🟢 ON' : '🔴 OFF'}\n🔹 *Action:* ${config?.action || 'delete'}\n🔹 *Total Detected:* ${stats || 0} messages\n🔹 *Last Reset:* ${getLastResetTime(chatId)}` 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 break;
 
             case 'reset':
@@ -80,15 +81,15 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
                 resetGroupStats(chatId);
                 await sock.sendMessage(chatId, { 
                     text: '*_Antitag statistics have been reset_*' 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 break;
 
             default:
-                await sock.sendMessage(chatId, { text: `*_Use ${prefix}antitag for usage._*` }, { quoted: message });
+                await sock.sendMessage(chatId, { text: `*_Use ${prefix}antitag for usage._*` }, { quoted: createFakeContact(message) });
         }
     } catch (error) {
         console.error('Error in antitag command:', error);
-        await sock.sendMessage(chatId, { text: '*_Error processing antitag command_*' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '*_Error processing antitag command_*' }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -193,7 +194,7 @@ async function handleTagDetection(sock, chatId, message, senderId) {
                             id: message.key.id,
                             participant: senderId
                         }
-                    }).catch(err => console.error('Delete failed:', err))
+                    }, { quoted: createFakeContact(message) }).catch(err => console.error('Delete failed:', err))
                 );
 
                 if (action === 'kick') {
@@ -210,7 +211,7 @@ async function handleTagDetection(sock, chatId, message, senderId) {
                                 console.error('Kick failed:', kickError);
                                 return sock.sendMessage(chatId, {
                                     text: `⚠️ *Tagall Detected!*\nFailed to kick user. Message was deleted.`
-                                });
+                                }, { quoted: createFakeContact(message) });
                             })
                     );
                 } else {
@@ -251,7 +252,7 @@ function resetGroupStats(chatId) {
 
 function getLastResetTime(chatId) {
     const stats = antitagStats.get(chatId);
-    return stats ? stats.lastReset.toLocaleString() : 'Never';
+    return stats ? stats.lastReset.toLocaleString('en-US', { timeZone: 'Africa/Nairobi' }) : 'Never';
 }
 
 // Export functions for external access

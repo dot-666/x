@@ -4,6 +4,7 @@ const os = require("os");
 const JsConfuser = require('js-confuser');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function encryptCommand(sock, chatId, message, isOwner) {
     try {
         await sock.sendMessage(chatId, {
@@ -31,20 +32,20 @@ async function encryptCommand(sock, chatId, message, isOwner) {
                       "• Variable renaming\n" +
                       "• String encoding\n" +
                       "• Control flow flattening"
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const doc = quotedMsg.documentMessage;
         if (!doc || !doc.fileName || !doc.fileName.endsWith('.js')) {
             return await sock.sendMessage(chatId, {
                 text: "❌ *Invalid File*\nPlease reply to a JavaScript (.js) file to encrypt."
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Send processing status
         await sock.sendMessage(chatId, {
             text: `🔄 *Processing Encryption*\n📄 File: ${doc.fileName}\n⏱️ This may take a few moments...`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Download the file (stream -> buffer)
         const stream = await downloadContentFromMessage(doc, 'document');
@@ -64,7 +65,7 @@ async function encryptCommand(sock, chatId, message, isOwner) {
         if (fileSize > 5 * 1024 * 1024) {
             return await sock.sendMessage(chatId, {
                 text: "❌ *File Too Large*\nMaximum file size is 5MB for encryption."
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const fileName = doc.fileName;
@@ -142,7 +143,7 @@ async function encryptCommand(sock, chatId, message, isOwner) {
                     `🔧 *Type:* Hard Code Obfuscation\n` +
                     `✨ *Features:* Variable Renaming, String Encoding, Control Flow Flattening\n` +
                     `👑 *@Tennor-modz*`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Optional log – only for owners (sender is now defined)
         if (isOwner && sender) {
@@ -172,7 +173,7 @@ async function encryptCommand(sock, chatId, message, isOwner) {
         
         return await sock.sendMessage(chatId, {
             text: errorMessage
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

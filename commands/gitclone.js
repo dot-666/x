@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function gitcloneCommand(sock, chatId, message) {
     try {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
@@ -8,19 +9,19 @@ async function gitcloneCommand(sock, chatId, message) {
 
         if (!query) return await sock.sendMessage(chatId, {
             text: 'Provide a GitHub repository URL!\nExample: .gitclone https://github.com/username/repo'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         const githubRegex = /(?:https?:\/\/)?(?:www\.)?github\.com[\/:]([^\/\n\r]+)\/([^\/\n\r#?]+)(?:[\/]?|[\/]tree[\/]([^\/\n\r]+)?)?/i;
         const match = query.match(githubRegex);
         
         if (!match) return await sock.sendMessage(chatId, {
             text: 'Invalid GitHub URL!\n\nSupported formats:\n• https://github.com/username/repo\n• https://github.com/username/repo/tree/branch\n• github.com/username/repo\n• git@github.com:username/repo.git'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         let [, user, repo, branch] = match;
         if (!user || !repo) return await sock.sendMessage(chatId, {
             text: 'Could not extract repository information. Please use format: https://github.com/username/repo'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         repo = repo.replace(/.git$/, '').replace(/[^a-zA-Z0-9\-_]/g, '');
         branch = branch || 'main';
@@ -34,7 +35,7 @@ async function gitcloneCommand(sock, chatId, message) {
             } catch {
                 return await sock.sendMessage(chatId, {
                     text: 'Repository or branch not found! Please check the URL.'
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             }
         }
 
@@ -57,7 +58,7 @@ async function gitcloneCommand(sock, chatId, message) {
             document: { url: zipUrl },
             fileName: filename,
             mimetype: 'application/zip'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("Gitclone command error:", error);
@@ -73,7 +74,7 @@ async function gitcloneCommand(sock, chatId, message) {
             errorMessage = "Network error. Check your internet connection.";
         }
 
-        return await sock.sendMessage(chatId, { text: errorMessage }, { quoted: message });
+        return await sock.sendMessage(chatId, { text: errorMessage }, { quoted: createFakeContact(message) });
     }
 }
 

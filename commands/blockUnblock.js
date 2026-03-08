@@ -18,6 +18,7 @@ const react = async (sock, chatId, key, emoji) => {
 };
 
 // Commands
+const { createFakeContact } = require('../lib/fakeContact');
 async function blockCommand(sock, chatId, message) {
   if (!(await isOwnerOrSudo(message))) {
     return sock.sendMessage(chatId, { text: 'Owner-only!', quoted: message });

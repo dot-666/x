@@ -19,6 +19,7 @@ const detectPlatform = () => {
   }
 };
 
+const { createFakeContact } = require('../lib/fakeContact');
 function formatUptime(uptime) {
   const seconds = Math.floor(uptime / 1000);
   const days = Math.floor(seconds / (24 * 60 * 60));
@@ -47,23 +48,8 @@ async function aliveCommand(sock, chatId, message) {
   const message1 = `⏰ Running on [${hostName}] for:\n *${formattedUptime}*`;
 
     // Fake contact for quoting
-    const fake = {
-      key: {
-        participants: "0@s.whatsapp.net",
-        remoteJid: "status@broadcast",
-        fromMe: false,
-        id: "JUNE-X"
-      },
-      message: {
-        contactMessage: {
-          vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
-        }
-      },
-      participant: "0@s.whatsapp.net"
-    };
-
-    // send uptime
-    await sock.sendMessage(chatId, { text: message1 }, { quoted: fake });
+        // send uptime
+    await sock.sendMessage(chatId, { text: message1 }, { quoted: createFakeContact(message) });
 
   } catch (error) {
     console.error('Error in alive command:', error);

@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function copilotCommand(sock, chatId, message) {
     try {
         // Send reaction
@@ -15,7 +16,7 @@ async function copilotCommand(sock, chatId, message) {
         if (!text.includes(' ')) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Please provide a question for the AI!\n\nExample: .copilot What is artificial intelligence?'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const parts = text.split(' ');
@@ -24,13 +25,13 @@ async function copilotCommand(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Please provide a question for the AI!\n\nExample: .copilot What is artificial intelligence?'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 1000) {
             return await sock.sendMessage(chatId, {
                 text: '📝 Question too long! Max 1000 characters.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update presence to "typing"
@@ -55,7 +56,7 @@ async function copilotCommand(sock, chatId, message) {
         
         await sock.sendMessage(chatId, {
             text: `🤖 *Copilot AI Assistant*\n\n📝 *Question:* ${query}\n\n💬 *Response:* ${aiResponse}\n\n ↘️ *Powered by Microsoft Copilot*`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("Copilot command error:", error);
@@ -82,7 +83,7 @@ async function copilotCommand(sock, chatId, message) {
             
         await sock.sendMessage(chatId, {
             text: `🚫 ${errorMessage}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

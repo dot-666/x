@@ -13,13 +13,14 @@ const {
 } = require('../lib/antidemote-file');
 const isAdmin = require('../lib/isAdmin');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function antidemoteCommand(sock, chatId, message, senderId) {
     try {
         await ensureDataDir();
         const isSenderAdmin = await isAdmin(sock, chatId, senderId);
 
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: '❌ For Group Admins Only' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ For Group Admins Only' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -40,7 +41,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 `• .antidemote ban @user - Ban member\n` +
                 `• .antidemote unban @user - Unban member\n` +
                 `• .antidemote stats - View statistics`;
-            await sock.sendMessage(chatId, { text: usage }, { quoted: message });
+            await sock.sendMessage(chatId, { text: usage }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -49,14 +50,14 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 await setAntidemote(chatId, 'on', senderId);
                 await sock.sendMessage(chatId, { 
                     text: '🛡️ *Antidemote Activated*\n\n✅ Admins are now protected from demotion!\n❌ No one can demote group admins.' 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 break;
 
             case 'off':
                 await removeAntidemote(chatId, senderId);
                 await sock.sendMessage(chatId, { 
                     text: '❌ *Antidemote Deactivated*\n\n⚠️ Admins can now be demoted normally.' 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 break;
 
             case 'status':
@@ -69,7 +70,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                     `👢 Total Kicks: ${statusConfig.kickCount || 0}\n` +
                     `📅 Last Updated: ${statusConfig.updatedAt ? new Date(statusConfig.updatedAt).toLocaleString() : 'Never'}\n\n` +
                     `${statusConfig.enabled ? '🟢 Admins are protected from demotion' : '🔴 No protection active'}`;
-                await sock.sendMessage(chatId, { text: statusText }, { quoted: message });
+                await sock.sendMessage(chatId, { text: statusText }, { quoted: createFakeContact(message) });
                 break;
 
             case 'revert':
@@ -77,14 +78,14 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 const revertResult = await revertLastAction(chatId);
                 await sock.sendMessage(chatId, { 
                     text: `🔄 *REVERT ${revertResult.success ? 'SUCCESSFUL' : 'FAILED'}*\n\n${revertResult.message}` 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 break;
 
             case 'kick':
                 if (!args[1]) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ Please mention the user to kick.\n\n📝 *Usage:* `.antidemote kick @user`' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -92,7 +93,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 if (!mentionedKick) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ Please mention a valid user with @.' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -103,14 +104,14 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 if (targetIsAdmin && config.enabled) {
                     await sock.sendMessage(chatId, { 
                         text: '🛡️ *ANTIDEMOTE PROTECTION*\n\n❌ Cannot kick admins while antidemote is enabled!\n⚠️ Disable antidemote first with `.antidemote off`' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
                 if (mentionedKick === senderId) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ You cannot kick yourself!' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -121,11 +122,11 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                     await sock.sendMessage(chatId, { 
                         text: `👢 *USER KICKED*\n\n✅ @${mentionedKick.split('@')[0]} has been removed from the group.\n👮 Kicked by: @${senderId.split('@')[0]}`,
                         mentions: [mentionedKick, senderId]
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 } catch (kickError) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ Failed to kick user. Make sure I am an admin!' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 }
                 break;
 
@@ -133,7 +134,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 if (!args[1]) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ Please mention the user to ban.\n\n📝 *Usage:* `.antidemote ban @user`' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -141,7 +142,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 if (!mentionedBan) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ Please mention a valid user with @.' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -152,14 +153,14 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 if (targetIsAdminBan && config.enabled) {
                     await sock.sendMessage(chatId, { 
                         text: '🛡️ *ANTIDEMOTE PROTECTION*\n\n❌ Cannot ban admins while antidemote is enabled!\n⚠️ Disable antidemote first with `.antidemote off`' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
                 if (mentionedBan === senderId) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ You cannot ban yourself!' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -169,7 +170,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                     await sock.sendMessage(chatId, { 
                         text: `⚠️ @${mentionedBan.split('@')[0]} is already banned.`,
                         mentions: [mentionedBan]
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -181,11 +182,11 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                     await sock.sendMessage(chatId, { 
                         text: `🚫 *USER BANNED*\n\n✅ @${mentionedBan.split('@')[0]} has been banned from the group.\n👮 Banned by: @${senderId.split('@')[0]}\n📌 Use \`.antidemote unban\` to remove ban.`,
                         mentions: [mentionedBan, senderId]
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 } catch (banError) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ Failed to ban user. Make sure I am an admin!' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 }
                 break;
 
@@ -193,7 +194,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 if (!args[1]) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ Please mention the user to unban.\n\n📝 *Usage:* `.antidemote unban @user`' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -201,7 +202,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 if (!mentionedUnban) {
                     await sock.sendMessage(chatId, { 
                         text: '❌ Please mention a valid user with @.' 
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                     return;
                 }
 
@@ -210,12 +211,12 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                     await sock.sendMessage(chatId, { 
                         text: `✅ @${mentionedUnban.split('@')[0]} has been unbanned and can now join the group.`,
                         mentions: [mentionedUnban]
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 } else {
                     await sock.sendMessage(chatId, { 
                         text: `❌ @${mentionedUnban.split('@')[0]} is not in the ban list.`,
                         mentions: [mentionedUnban]
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 }
                 break;
 
@@ -234,7 +235,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                 if (stats.recentKicks.length > 0) {
                     statsText += `*📋 RECENT ACTIONS (Last 5):*\n`;
                     stats.recentKicks.slice(0, 5).forEach((kick, i) => {
-                        const date = new Date(kick.timestamp).toLocaleString();
+                        const date = new Date(kick.timestamp).toLocaleString('en-US', { timeZone: 'Africa/Nairobi' });
                         const action = kick.reason === 'demote' ? '🛡️ Protected' : 
                                       kick.reason === 'ban' ? '🚫 Banned' : '👢 Kicked';
                         statsText += `${i+1}. ${action}: @${kick.userId.split('@')[0]}\n`;
@@ -246,25 +247,25 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                     await sock.sendMessage(chatId, { 
                         text: statsText,
                         mentions: mentions
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 } else {
                     statsText += `*📋 No recent actions recorded*`;
                     await sock.sendMessage(chatId, { 
                         text: statsText
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 }
                 break;
 
             default:
                 await sock.sendMessage(chatId, { 
                     text: '❌ *Invalid Command*\n\nUse `.antidemote` to see all available commands.' 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
         }
     } catch (error) {
         console.error('Error in antidemote command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ An error occurred while processing the command.\nPlease try again later.' 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

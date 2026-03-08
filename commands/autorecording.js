@@ -10,6 +10,7 @@ const { isSudo } = require('../lib/index');
 const configPath = path.join(__dirname, '..', 'data', 'autorecording.json');
 
 // Initialize configuration file if it doesn't exist
+const { createFakeContact } = require('../lib/fakeContact');
 function initConfig() {
     if (!fs.existsSync(configPath)) {
         fs.writeFileSync(configPath, JSON.stringify({ enabled: false }, null, 2));
@@ -24,7 +25,7 @@ async function autorecordingCommand(sock, chatId, message) {
         if (!message.key.fromMe && !(await isSudo(senderId))) {
             await sock.sendMessage(chatId, {
                 text: '❌ This command is only available for the owner!'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -43,7 +44,7 @@ async function autorecordingCommand(sock, chatId, message) {
             } else {
                 await sock.sendMessage(chatId, {
                     text: '❌ Invalid option! Use: .autorecording on/off'
-                });
+                }, { quoted: createFakeContact(message) });
                 return;
             }
         } else {
@@ -54,13 +55,13 @@ async function autorecordingCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             text: `✅ Auto-recording has been ${config.enabled ? 'enabled' : 'disabled'}!`
-        });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error in autorecording command:', error);
         await sock.sendMessage(chatId, {
             text: '❌ Error processing command!'
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

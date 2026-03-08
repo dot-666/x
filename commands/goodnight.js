@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function goodnightCommand(sock, chatId, message) {
     try {
         const shizokeys = 'shizo';
@@ -13,10 +14,10 @@ async function goodnightCommand(sock, chatId, message) {
         const goodnightMessage = json.result;
 
         // Send the goodnight message
-        await sock.sendMessage(chatId, { text: goodnightMessage }, { quoted: message });
+        await sock.sendMessage(chatId, { text: goodnightMessage }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error in goodnight command:', error);
-        await sock.sendMessage(chatId, { text: '❌ Failed to get goodnight message. Please try again later!' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ Failed to get goodnight message. Please try again later!' }, { quoted: createFakeContact(message) });
     }
 }
 

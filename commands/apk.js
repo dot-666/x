@@ -1,6 +1,7 @@
 // Enhanced APK Downloader with better error handling and features
     const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function aiCommand(sock, chatId, message) {    
     const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
     const parts = text.split(' ');
@@ -10,7 +11,7 @@ async function aiCommand(sock, chatId, message) {
     if (!query) {
         await sock.sendMessage(chatId, {
             text: `*🔍 Please provide an app name to search.*\n\n_Usage:_\n${command} Instagram\n\n_Example:_\n${command} WhatsApp`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -18,7 +19,7 @@ async function aiCommand(sock, chatId, message) {
     if (query.length < 2) {
         await sock.sendMessage(chatId, {
             text: "❌ *Query too short.* Please provide at least 2 characters for search."
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -29,7 +30,7 @@ async function aiCommand(sock, chatId, message) {
         if (timeDiff < 5000) { // 5 seconds cooldown
             await sock.sendMessage(chatId, {
                 text: `⏳ *Please wait* ${Math.ceil((5000 - timeDiff) / 1000)} seconds before making another request.`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
     }
@@ -61,7 +62,7 @@ async function aiCommand(sock, chatId, message) {
         if (!data || !data.datalist || !data.datalist.list || data.datalist.list.length === 0) {
             await sock.sendMessage(chatId, {
                 text: `❌ *No APK found for* "${query}"\n\n💡 *Suggestions:*\n• Check spelling\n• Try different keywords\n• App might not be available`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -72,7 +73,7 @@ async function aiCommand(sock, chatId, message) {
         if (!app.file || !app.file.path_alt) {
             await sock.sendMessage(chatId, {
                 text: "❌ *Download link not available* for this app."
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -106,7 +107,7 @@ async function aiCommand(sock, chatId, message) {
             if (contentLength && parseInt(contentLength) > 100 * 1024 * 1024) { // 100MB limit
                 await sock.sendMessage(chatId, {
                     text: "❌ *File too large.* APK exceeds 100MB limit."
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
                 return;
             }
         } catch (error) {
@@ -135,7 +136,7 @@ async function aiCommand(sock, chatId, message) {
                     showAdAttribution: false
                 }
             }
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Success reaction
         await sock.sendMessage(chatId, { react: { text: "✅", key: message.key } });
@@ -168,7 +169,7 @@ async function aiCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             text: errorMessage
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Error reaction
         await sock.sendMessage(chatId, { react: { text: "❌", key: message.key } });

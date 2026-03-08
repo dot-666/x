@@ -3,6 +3,7 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function emojimixCommand(sock, chatId, msg) {
     try {
         // Get the text after command
@@ -12,14 +13,14 @@ async function emojimixCommand(sock, chatId, msg) {
         const args = text.split(' ').slice(1);
         
         if (!args[0]) {
-            await sock.sendMessage(chatId, { text: '🎴 Example: .emojimix 😎+🥰' });
+            await sock.sendMessage(chatId, { text: '🎴 Example: .emojimix 😎+🥰' }, { quoted: createFakeContact(message) });
             return;
         }
 
         if (!text.includes('+')) {
             await sock.sendMessage(chatId, { 
                 text: '✳️ Separate the emoji with a *+* sign\n\n📌 Example: \n*.emojimix* 😎+🥰' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -34,7 +35,7 @@ async function emojimixCommand(sock, chatId, msg) {
         if (!data.results || data.results.length === 0) {
             await sock.sendMessage(chatId, { 
                 text: '❌ These emojis cannot be mixed! Try different ones.' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -95,7 +96,7 @@ async function emojimixCommand(sock, chatId, msg) {
         console.error('Error in emojimix command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Failed to mix emojis! Make sure you\'re using valid emojis.\n\nExample: .emojimix 😎+🥰' 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

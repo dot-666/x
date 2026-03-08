@@ -18,6 +18,7 @@ const DEFAULT_CONFIG = {
 // ---------- Config Utilities ----------
 
 // Load config safely
+const { createFakeContact } = require('../lib/fakeContact');
 function loadConfig() {
     try {
         if (!fs.existsSync(CONFIG_PATH)) {
@@ -45,7 +46,7 @@ async function autoreadReceiptsCommand(sock, chatId, message) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;
         if (!message.key.fromMe && !(await isSudo(senderId))) {
-            return sock.sendMessage(chatId, { text: '❌ Owner only command!' });
+            return sock.sendMessage(chatId, { text: '❌ Owner only command!' }, { quoted: createFakeContact(message) });
         }
 
         // Extract arguments
@@ -68,7 +69,7 @@ async function autoreadReceiptsCommand(sock, chatId, message) {
                 text: `📱 Read Receipts Status: ${statusText}\n\n` +
                       'Usage: .autoreadreceipts <option>\n' +
                       'Options: all, contacts, none'
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Validate option
@@ -78,7 +79,7 @@ async function autoreadReceiptsCommand(sock, chatId, message) {
         if (!validOptions.includes(option)) {
             return sock.sendMessage(chatId, {
                 text: '❌ Invalid option! Use: all, contacts, or none'
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update config + apply setting
@@ -92,11 +93,11 @@ async function autoreadReceiptsCommand(sock, chatId, message) {
                   `• all = Send read receipts to everyone\n` +
                   `• contacts = Send only to contacts\n` +
                   `• none = Don't send read receipts`
-        });
+        }, { quoted: createFakeContact(message) });
 
     } catch (err) {
         console.error('❌ Error in autoreadReceiptsCommand:', err);
-        return sock.sendMessage(chatId, { text: '❌ Failed to update read receipts!' });
+        return sock.sendMessage(chatId, { text: '❌ Failed to update read receipts!' }, { quoted: createFakeContact(message) });
     }
 }
 

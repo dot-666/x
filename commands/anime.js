@@ -2,6 +2,7 @@ const axios = require('axios');
 
 const ANIMU_BASE = 'https://api.some-random-api.com/animu';
 
+const { createFakeContact } = require('../lib/fakeContact');
 function normalizeType(input) {
     const lower = (input || '').toLowerCase();
     if (lower === 'facepalm' || lower === 'face_palm') return 'face-palm';
@@ -20,7 +21,7 @@ async function sendAnimu(sock, chatId, message, type) {
                 await sock.sendMessage(
                     chatId,
                     { image: res.data, caption: `anime: ${type}` },
-                    { quoted: message }
+                    { quoted: createFakeContact(message) }
                 );
                 return;
             }
@@ -29,7 +30,7 @@ async function sendAnimu(sock, chatId, message, type) {
             await sock.sendMessage(
                 chatId,
                 { text: `❌ Failed to fetch ${type}.` },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
             return;
         }
@@ -44,7 +45,7 @@ async function sendAnimu(sock, chatId, message, type) {
                 await sock.sendMessage(
                     chatId,
                     { image: res.data, caption: `anime: ${type}` },
-                    { quoted: message }
+                    { quoted: createFakeContact(message) }
                 );
                 return;
             }
@@ -53,7 +54,7 @@ async function sendAnimu(sock, chatId, message, type) {
             await sock.sendMessage(
                 chatId,
                 { text: `❌ Failed to fetch ${type}.` },
-                { quoted: message }
+                { quoted: createFakeContact(message) }
             );
             return;
         }
@@ -69,7 +70,7 @@ async function sendAnimu(sock, chatId, message, type) {
         await sock.sendMessage(
             chatId,
             { image: { url: data.link }, caption: `anime: ${type}` },
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
         return;
     }
@@ -77,7 +78,7 @@ async function sendAnimu(sock, chatId, message, type) {
         await sock.sendMessage(
             chatId,
             { text: data.quote },
-            { quoted: message }
+            { quoted: createFakeContact(message) }
         );
         return;
     }
@@ -85,7 +86,7 @@ async function sendAnimu(sock, chatId, message, type) {
     await sock.sendMessage(
         chatId,
         { text: '❌ Failed to fetch animu.' },
-        { quoted: message }
+        { quoted: createFakeContact(message) }
     );
 }
 
@@ -103,22 +104,22 @@ async function animeCommand(sock, chatId, message, args) {
             try {
                 const res = await axios.get(ANIMU_BASE);
                 const apiTypes = res.data && res.data.types ? res.data.types.map(s => s.replace('/animu/', '')).join(', ') : supported.join(', ');
-                await sock.sendMessage(chatId, { text: `Usage: .animu <type>\nTypes: ${apiTypes}` }, { quoted: message });
+                await sock.sendMessage(chatId, { text: `Usage: .animu <type>\nTypes: ${apiTypes}` }, { quoted: createFakeContact(message) });
             } catch {
-                await sock.sendMessage(chatId, { text: `Usage: .animu <type>\nTypes: ${supported.join(', ')}` }, { quoted: message });
+                await sock.sendMessage(chatId, { text: `Usage: .animu <type>\nTypes: ${supported.join(', ')}` }, { quoted: createFakeContact(message) });
             }
             return;
         }
 
         if (!supported.includes(sub)) {
-            await sock.sendMessage(chatId, { text: `❌ Unsupported type: ${sub}. Try one of: ${supported.join(', ')}` }, { quoted: message });
+            await sock.sendMessage(chatId, { text: `❌ Unsupported type: ${sub}. Try one of: ${supported.join(', ')}` }, { quoted: createFakeContact(message) });
             return;
         }
 
         await sendAnimu(sock, chatId, message, sub);
     } catch (err) {
         console.error('Error in animu command:', err);
-        await sock.sendMessage(chatId, { text: '❌ An error occurred while fetching animu.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ An error occurred while fetching animu.' }, { quoted: createFakeContact(message) });
     }
 }
 

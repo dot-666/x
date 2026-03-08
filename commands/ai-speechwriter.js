@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function speechwriterCommand(sock, chatId, message) {
     try {
         // Send initial reaction
@@ -15,7 +16,7 @@ async function speechwriterCommand(sock, chatId, message) {
         if (!text.includes(' ')) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Please provide a topic for speech writing!\n\nExample: .speechwriter how to pass exams\n\nYou can also use: .speech or .writer'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const parts = text.split(' ');
@@ -24,13 +25,13 @@ async function speechwriterCommand(sock, chatId, message) {
         if (!topic) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Please provide a topic for speech writing!\n\nExample: .speechwriter how to pass exams'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (topic.length > 200) {
             return await sock.sendMessage(chatId, {
                 text: '📝 Topic too long! Max 200 characters.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update presence to "typing"
@@ -61,7 +62,7 @@ async function speechwriterCommand(sock, chatId, message) {
         
         await sock.sendMessage(chatId, {
             text: `🎤 *Speech Writer Assistant*\n\n📝 *Topic:* ${topic}\n\n💬 *Generated Speech:*\n\n${speech}\n\n━━━━━━━━━━━━━━━━━━━━\n📋 *Details:*\n• Length: ${length}\n• Type: ${type}\n• Tone: ${tone}\n\n> *Powered by Keith's Speechwriter API*`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Send final reaction
         await sock.sendMessage(chatId, {
@@ -95,7 +96,7 @@ async function speechwriterCommand(sock, chatId, message) {
             
         await sock.sendMessage(chatId, {
             text: `🚫 ${errorMessage}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

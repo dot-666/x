@@ -1,3 +1,5 @@
+const { createFakeContact } = require('../lib/fakeContact');
+
 const compliments = [
     "You're amazing just the way you are!",
     "You have a great sense of humor!",
@@ -52,7 +54,7 @@ async function complimentCommand(sock, chatId, message) {
         if (!userToCompliment) {
             await sock.sendMessage(chatId, { 
                 text: 'Please mention someone or reply to their message to compliment them!'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -72,7 +74,7 @@ async function complimentCommand(sock, chatId, message) {
             try {
                 await sock.sendMessage(chatId, { 
                     text: 'Please try again in a few seconds.'
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (retryError) {
                 console.error('Error sending retry message:', retryError);
             }
@@ -80,7 +82,7 @@ async function complimentCommand(sock, chatId, message) {
             try {
                 await sock.sendMessage(chatId, { 
                     text: 'An error occurred while sending the compliment.'
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (sendError) {
                 console.error('Error sending error message:', sendError);
             }

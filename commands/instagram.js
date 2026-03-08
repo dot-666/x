@@ -4,6 +4,7 @@ const { igdl } = require("ruhend-scraper");
 const processedMessages = new Set();
 
 // Function to extract unique media URLs with simple deduplication
+const { createFakeContact } = require('../lib/fakeContact');
 function extractUniqueMedia(mediaData) {
     const uniqueMedia = [];
     const seenUrls = new Set();
@@ -51,7 +52,7 @@ async function instagramCommand(sock, chatId, message) {
         if (!text) {
             return await sock.sendMessage(chatId, { 
                 text: "Please provide an Instagram link for the video."
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Check for various Instagram URL formats
@@ -68,7 +69,7 @@ async function instagramCommand(sock, chatId, message) {
         if (!isValidUrl) {
             return await sock.sendMessage(chatId, { 
                 text: "That is not a valid Instagram link. Please provide a valid Instagram post, reel, or video link."
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         await sock.sendMessage(chatId, {
@@ -80,7 +81,7 @@ async function instagramCommand(sock, chatId, message) {
         if (!downloadData || !downloadData.data || downloadData.data.length === 0) {
             return await sock.sendMessage(chatId, { 
                 text: "❌ No media found at the provided link. The post might be private or the link is invalid."
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         const mediaData = downloadData.data;
@@ -94,7 +95,7 @@ async function instagramCommand(sock, chatId, message) {
         if (mediaToDownload.length === 0) {
             return await sock.sendMessage(chatId, { 
                 text: "❌ No valid media found to download. This might be a private post or the scraper failed."
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Download all media silently without status messages
@@ -114,12 +115,12 @@ async function instagramCommand(sock, chatId, message) {
                         video: { url: mediaUrl },
                         mimetype: "video/mp4",
                         caption: ""
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 } else {
                     await sock.sendMessage(chatId, {
                         image: { url: mediaUrl },
                         caption: ""
-                    }, { quoted: message });
+                    }, { quoted: createFakeContact(message) });
                 }
                 
                 // Add small delay between downloads to prevent rate limiting
@@ -137,7 +138,7 @@ async function instagramCommand(sock, chatId, message) {
         console.error('Error in Instagram command:', error);
         await sock.sendMessage(chatId, { 
             text: "❌ An error occurred while processing the Instagram request. Please try again."
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

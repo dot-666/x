@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function fetchCommand(sock, chatId, message) {
     try {
         // Initial reaction
@@ -13,7 +14,7 @@ async function fetchCommand(sock, chatId, message) {
         if (!url) {
             return await sock.sendMessage(chatId, { 
                 text: "❌ Please provide a valid URL to fetch." 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Validate URL format
@@ -22,7 +23,7 @@ async function fetchCommand(sock, chatId, message) {
         } catch (urlError) {
             return await sock.sendMessage(chatId, { 
                 text: "❌ Invalid URL format. Please provide a valid URL." 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Fetch content from URL
@@ -42,7 +43,7 @@ async function fetchCommand(sock, chatId, message) {
         if (!contentType) {
             return await sock.sendMessage(chatId, { 
                 text: "❌ Server did not return a content-type." 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const buffer = Buffer.from(response.data);
@@ -53,7 +54,7 @@ async function fetchCommand(sock, chatId, message) {
         if (buffer.length > MAX_FILE_SIZE) {
             return await sock.sendMessage(chatId, { 
                 text: `❌ File is too large (${(buffer.length / (1024 * 1024)).toFixed(2)}MB). Maximum allowed size is ${MAX_FILE_SIZE / (1024 * 1024)}MB.` 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Handle different content types
@@ -63,11 +64,11 @@ async function fetchCommand(sock, chatId, message) {
                 const jsonString = JSON.stringify(json, null, 2);
                 return await sock.sendMessage(chatId, { 
                     text: "```json\n" + jsonString + "\n```" 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             } catch (parseError) {
                 return await sock.sendMessage(chatId, { 
                     text: "❌ Failed to parse JSON. Sending as text.\n" + buffer.toString() 
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             }
         }
 
@@ -75,13 +76,13 @@ async function fetchCommand(sock, chatId, message) {
             const html = buffer.toString();
             return await sock.sendMessage(chatId, { 
                 text: html 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (contentType.includes('text/')) {
             return await sock.sendMessage(chatId, { 
                 text: buffer.toString() 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (contentType.includes('image')) {
@@ -91,12 +92,12 @@ async function fetchCommand(sock, chatId, message) {
                     document: buffer,
                     fileName: filename,
                     mimetype: contentType
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             }
             return await sock.sendMessage(chatId, { 
                 image: buffer,
                 caption: `📷 ${url}` 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (contentType.includes('video')) {
@@ -107,12 +108,12 @@ async function fetchCommand(sock, chatId, message) {
                     fileName: filename,
                     mimetype: contentType,
                     caption: `📹 Video too large for inline display. Sent as document.`
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             }
             return await sock.sendMessage(chatId, { 
                 video: buffer,
                 caption: `📹 ${url}` 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (contentType.includes('audio')) {
@@ -120,7 +121,7 @@ async function fetchCommand(sock, chatId, message) {
                 audio: buffer,
                 mimetype: contentType,
                 fileName: filename
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (contentType.includes('application/pdf')) {
@@ -128,7 +129,7 @@ async function fetchCommand(sock, chatId, message) {
                 document: buffer,
                 mimetype: "application/pdf",
                 fileName: filename.endsWith('.pdf') ? filename : `${filename}.pdf`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Handle other document types
@@ -137,7 +138,7 @@ async function fetchCommand(sock, chatId, message) {
                 document: buffer,
                 mimetype: contentType,
                 fileName: filename
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Default fallback - send as document if content type is unknown
@@ -145,7 +146,7 @@ async function fetchCommand(sock, chatId, message) {
             document: buffer,
             fileName: filename,
             mimetype: contentType || 'application/octet-stream'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error in fetchCommand:', error);
@@ -164,7 +165,7 @@ async function fetchCommand(sock, chatId, message) {
         
         await sock.sendMessage(chatId, { 
             text: errorMessage 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         
         await sock.sendMessage(chatId, { 
             react: { text: '❌', key: message.key } 

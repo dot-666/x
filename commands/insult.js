@@ -1,3 +1,5 @@
+const { createFakeContact } = require('../lib/fakeContact');
+
 const insults = [
     { 
         text: "You're like a cloud. When you disappear, it's a beautiful day!",
@@ -206,7 +208,7 @@ async function insultCommand(sock, chatId, message) {
         if (!userToInsult) {
             await sock.sendMessage(chatId, { 
                 text: 'Please mention someone or reply to their message to insult them!'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -261,7 +263,7 @@ async function insultCommand(sock, chatId, message) {
             try {
                 await sock.sendMessage(chatId, { 
                     text: 'Rate limit exceeded. Please try again in a few seconds.'
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (retryError) {
                 console.error('Error sending retry message:', retryError);
             }
@@ -269,7 +271,7 @@ async function insultCommand(sock, chatId, message) {
             try {
                 await sock.sendMessage(chatId, { 
                     text: 'An error occurred while sending the insult. Please try again.'
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (sendError) {
                 console.error('Error sending error message:', sendError);
             }

@@ -2,6 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function imagineCommand(sock, chatId, message) {
     try {
         // Send initial reaction
@@ -17,7 +18,7 @@ async function imagineCommand(sock, chatId, message) {
         if (!text.includes(' ')) {
             return await sock.sendMessage(chatId, {
                 text: '🎨 *Flux AI Image Generator*\n\n❌ Please provide a prompt for image generation!\n\n📝 *Usage:*\n.imagine a beautiful sunset over mountains\n.flux cute cat wearing glasses\n.imageai futuristic city at night\n\n🔍 *Examples:*\n• .imagine cyberpunk street\n• .imagine fantasy castle\n• .imagine anime character'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const parts = text.split(' ');
@@ -26,13 +27,13 @@ async function imagineCommand(sock, chatId, message) {
         if (!prompt) {
             return await sock.sendMessage(chatId, {
                 text: '🎨 *Flux AI Image Generator*\n\n❌ Please provide a prompt for image generation!\n\n📝 *Example:*\n.imagine a beautiful sunset over mountains'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (prompt.length > 500) {
             return await sock.sendMessage(chatId, {
                 text: '🎨 *Flux AI Image Generator*\n\n📝 Prompt too long! Max 500 characters.\n\n💡 Try a more concise description.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update presence to "recording" (generating)
@@ -69,7 +70,7 @@ async function imagineCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, {
             image: { url: filePath },
             caption: `🎨 *Flux AI Image Generator*\n\n📝 *Prompt:* ${prompt}\n\n🖼️ *AI Generated Image*\n\n> Powered by Keith's Flux AI`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Send final reaction
         await sock.sendMessage(chatId, {
@@ -117,7 +118,7 @@ async function imagineCommand(sock, chatId, message) {
             
         await sock.sendMessage(chatId, {
             text: `🎨 *Flux AI Image Generator*\n\n🚫 ${errorMessage}\n\n💡 *Tips:*\n• Try a different prompt\n• Check your internet connection\n• Wait a few minutes and try again`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

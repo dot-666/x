@@ -3,6 +3,7 @@ const path = require('path');
 const { resolveToPhoneJid } = require('../lib/jid');
 
 // --- Utility: Owner Number ---
+const { createFakeContact } = require('../lib/fakeContact');
 function getOwnerNumber() {
     try {
         const ownerPath = path.join(__dirname, '..', 'data', 'owner.json');
@@ -51,7 +52,7 @@ async function createGroupCommand(sock, chatId, senderId, message, rawText) {
 
         // Permission check
         if (!senderIsOwner && !isSudo) {
-            await sock.sendMessage(chatId, { text: '❌ Only the owner or sudo users can create groups.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Only the owner or sudo users can create groups.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -60,14 +61,14 @@ async function createGroupCommand(sock, chatId, senderId, message, rawText) {
         if (!args) {
             await sock.sendMessage(chatId, {
                 text: `📝 Usage:\n.creategroup <Group Name>\n.creategroup <Group Name> | <number1>,<number2>,...`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
         const parts = args.split('|').map(p => p.trim());
         const groupName = parts[0];
         if (!groupName) {
-            await sock.sendMessage(chatId, { text: '❌ Please provide a group name.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Please provide a group name.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -99,7 +100,7 @@ async function createGroupCommand(sock, chatId, senderId, message, rawText) {
 
         // Notifications
         console.log('\x1b[35m[CREATEGROUP] Starting group creation...\x1b[0m');
-        await sock.sendMessage(chatId, { text: `⏳ Creating *${groupName}*...` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: `⏳ Creating *${groupName}*...` }, { quoted: createFakeContact(message) });
 
         const group = await sock.groupCreate(groupName, uniqueParticipants);
 
@@ -112,13 +113,13 @@ async function createGroupCommand(sock, chatId, senderId, message, rawText) {
         console.log('\x1b[35m[CREATEGROUP] Group created successfully!\x1b[0m');
         await sock.sendMessage(chatId, {
             text: `✅ Group *${groupName}* created!\n👥 Members: ${uniqueParticipants.length + 1}${inviteLink}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
-        await sock.sendMessage(group.id, { text: `👋 Welcome to *${groupName}*!` });
+        await sock.sendMessage(group.id, { text: `👋 Welcome to *${groupName}*!` }, { quoted: createFakeContact(message) });
 
     } catch (err) {
         console.error(`\x1b[35m[CREATEGROUP] Error: ${err.message}\x1b[0m`, err.stack);
-        await sock.sendMessage(chatId, { text: `❌ Failed to create group: ${err?.message || 'Unknown error'}` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: `❌ Failed to create group: ${err?.message || 'Unknown error'}` }, { quoted: createFakeContact(message) });
     }
 }
 

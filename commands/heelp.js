@@ -7,6 +7,7 @@ const os = require('os');
 const { getMenuStyle, getMenuSettings, MENU_STYLES } = require('./menuSettings');
 const { generateWAMessageFromContent } = require('@whiskeysockets/baileys');
 const { getPrefix, handleSetPrefixCommand } = require('./setprefix');
+const { getBotName } = require('../lib/botConfig');
 
 const { getOwnerName, handleSetOwnerCommand } = require('./setowner');
 
@@ -14,6 +15,7 @@ const more = String.fromCharCode(8206);
 const readmore = more.repeat(4001);
 
 // Utility Functions
+const { createFakeContact } = require('../lib/fakeContact');
 function formatTime(seconds) {
     const days = Math.floor(seconds / (24 * 60 * 60));
     seconds = seconds % (24 * 60 * 60);
@@ -175,28 +177,10 @@ async function loadThumbnail(thumbnailPath) {
     }
 }
 
-// Create fake contact for enhanced replies
-function createFakeContact(message) {
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "JUNE-X-MENU"
-        },
-        message: {
-            contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
-
 // YOUR EXACT MENU STYLE FUNCTION WITH FIXED tylorkids AND fkontak FOR ALL STYLES
 async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thumbnailBuffer, pushname) {
     const fkontak = createFakeContact(message);
-    const botname = "JUNE-X BOT";
+    const botname = getBotName();
     const ownername = pushname;
     const tylorkids = thumbnailBuffer; // Fixed: using thumbnails from assets
     const plink = "https://github.com/vinpink2";
@@ -221,11 +205,11 @@ async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thu
                     renderLargerThumbnail: true,
                 },
             },
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
     } else if (menustyle === '2') {
         await sock.sendMessage(chatId, { 
             text: menulist 
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
     } else if (menustyle === '3') {
         await sock.sendMessage(chatId, {
             text: menulist,
@@ -240,12 +224,12 @@ async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thu
                     renderLargerThumbnail: true,
                 },
             },
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
     } else if (menustyle === '4') {
         await sock.sendMessage(chatId, {
             image: tylorkids,
             caption: menulist,
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
     } else if (menustyle === '5') {
         let massage = generateWAMessageFromContent(chatId, {
             viewOnceMessage: {
@@ -265,7 +249,7 @@ async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thu
                     },
                 },
             },
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
         await sock.relayMessage(chatId, massage.message, { messageId: massage.key.id });
     } else if (menustyle === '6') {
         await sock.relayMessage(chatId, {
@@ -290,7 +274,7 @@ async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thu
         // Default fallback
         await sock.sendMessage(chatId, { 
             text: menulist 
-        }, { quoted: fkontak });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -309,7 +293,7 @@ async function helpCommand(sock, chatId, message) {
     const start = Date.now();
     await sock.sendMessage(chatId, { 
         text: '_Wait loading menu..._' 
-    }, { quoted: fkontak });
+    }, { quoted: createFakeContact(message) });
     const end = Date.now();
     const ping = Math.round((end - start) / 2);
 
@@ -354,7 +338,7 @@ async function helpCommand(sock, chatId, message) {
         try {
             await sock.sendMessage(chatId, { 
                 text: menulist 
-            }, { quoted: fkontak });
+            }, { quoted: createFakeContact(message) });
         } catch (fallbackError) {
             console.error('Even fallback failed:', fallbackError);
         }

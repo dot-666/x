@@ -3,6 +3,7 @@ const ConnectFour = require('../lib/connect4'); // You'll need to create this mo
 // Store games globally
 const connectFourGames = {};
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function connectFourCommand(sock, chatId, senderId, text) {
     try {
         // Check if player is already in a game
@@ -15,7 +16,7 @@ async function connectFourCommand(sock, chatId, senderId, text) {
         if (existingGame) {
             await sock.sendMessage(chatId, { 
                 text: '❌ You are already in a Connect Four game. Type *.forfeit* to quit.' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -62,13 +63,13 @@ ${board}
             await sock.sendMessage(chatId, { 
                 text: str,
                 mentions: [room.game.currentTurn, room.game.playerRed, room.game.playerYellow]
-            });
+            }, { quoted: createFakeContact(message) });
 
             // Also notify the creator
             if (room.red !== chatId) {
                 await sock.sendMessage(room.red, { 
                     text: `🎮 Opponent found! Connect Four game has started in another chat.`
-                });
+                }, { quoted: createFakeContact(message) });
             }
 
         } else {
@@ -88,7 +89,7 @@ ${board}
 
             await sock.sendMessage(chatId, { 
                 text: `⏳ *Waiting for Connect Four opponent...*\nType *.connectfour${text ? ' ' + text : ''}* to join!\n\nYou will be 🔴 Red. Room will expire in 5 minutes.\n\n*Commands:*\n• .drop <1-7> - Drop disc in column\n• .forfeit - Give up`
-            });
+            }, { quoted: createFakeContact(message) });
 
             // Auto-cleanup after 5 minutes if no one joins
             setTimeout(() => {
@@ -96,7 +97,7 @@ ${board}
                     delete connectFourGames[room.id];
                     sock.sendMessage(chatId, { 
                         text: '⌛ Room expired. No one joined the Connect Four game.' 
-                    }).catch(() => {});
+                    }, { quoted: createFakeContact(message) }).catch(() => {});
                 }
             }, 300000); // 5 minutes
 
@@ -106,7 +107,7 @@ ${board}
         console.error('Error in connectfour command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Error starting Connect Four game. Please try again.' 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -132,7 +133,7 @@ async function handleConnectFourMove(sock, chatId, senderId, columnText) {
         if (senderId !== room.game.currentTurn && !isForfeit) {
             await sock.sendMessage(chatId, { 
                 text: '❌ Not your turn! Wait for your opponent to move.' 
-            });
+            }, { quoted: createFakeContact(message) });
             return true;
         }
 
@@ -149,7 +150,7 @@ async function handleConnectFourMove(sock, chatId, senderId, columnText) {
                 console.error('Move error:', error);
                 await sock.sendMessage(chatId, { 
                     text: '❌ Invalid column! Please use *.drop 1* to *.drop 7*.' 
-                });
+                }, { quoted: createFakeContact(message) });
                 return true;
             }
         }
@@ -157,7 +158,7 @@ async function handleConnectFourMove(sock, chatId, senderId, columnText) {
         if (!moveResult && !isForfeit) {
             await sock.sendMessage(chatId, { 
                 text: '❌ Column is full! Choose another column.' 
-            });
+            }, { quoted: createFakeContact(message) });
             return true;
         }
 
@@ -176,13 +177,13 @@ async function handleConnectFourMove(sock, chatId, senderId, columnText) {
             await sock.sendMessage(room.red, { 
                 text: forfeitMessage,
                 mentions: mentions
-            });
+            }, { quoted: createFakeContact(message) });
             
             if (room.yellow && room.red !== room.yellow) {
                 await sock.sendMessage(room.yellow, { 
                     text: forfeitMessage,
                     mentions: mentions
-                });
+                }, { quoted: createFakeContact(message) });
             }
             
             delete connectFourGames[room.id];
@@ -230,13 +231,13 @@ ${!winner && !isDraw ? '• Use *.drop <1-7>* to make your move\n• Type *.forf
         await sock.sendMessage(room.red, { 
             text: str,
             mentions: mentions
-        });
+        }, { quoted: createFakeContact(message) });
 
         if (room.yellow && room.red !== room.yellow) {
             await sock.sendMessage(room.yellow, { 
                 text: str,
                 mentions: mentions
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (winner || isDraw) {
@@ -250,7 +251,7 @@ ${!winner && !isDraw ? '• Use *.drop <1-7>* to make your move\n• Type *.forf
         try {
             await sock.sendMessage(chatId, { 
                 text: '❌ An error occurred during the move. Please start a new game.' 
-            });
+            }, { quoted: createFakeContact(message) });
         } catch (e) {}
         return true;
     }

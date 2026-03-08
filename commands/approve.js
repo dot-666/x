@@ -1,30 +1,31 @@
 const isAdmin = require('../lib/isAdmin');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function approveCommand(sock, chatId, message) {
     try {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text || "";
         const args = text.trim().split(/\s+/).slice(1);
 
         if (!chatId.endsWith('@g.us'))
-            return sock.sendMessage(chatId, { text: '⚠️ *Group only command.*'}, { quoted: message });
+            return sock.sendMessage(chatId, { text: '⚠️ *Group only command.*'}, { quoted: createFakeContact(message) });
 
         let metadata;
         try { metadata = await sock.groupMetadata(chatId); }
-        catch { return sock.sendMessage(chatId, { text: '❌ *Unable to access group info.*'}, { quoted: message }); }
+        catch { return sock.sendMessage(chatId, { text: '❌ *Unable to access group info.*'}, { quoted: createFakeContact(message) }); }
 
         const senderId = message.key.participant || message.key.remoteJid;
         const botId = sock.user.id;
         if (!(await isAdmin(sock, chatId, senderId)))
             return sock.sendMessage(chatId, { text: '⛔ *Admins only.*', quoted: message });
         if (!(await isAdmin(sock, chatId, botId)))
-            return sock.sendMessage(chatId, { text: '🔒 *Bot must be admin.*'}, { quoted: message });
+            return sock.sendMessage(chatId, { text: '🔒 *Bot must be admin.*'}, { quoted: createFakeContact(message) });
 
         let pending;
         try { pending = await sock.groupRequestParticipantsList(chatId); }
-        catch { return sock.sendMessage(chatId, { text: '⚠️ *Unable to fetch requests.*'}, { quoted: message }); }
+        catch { return sock.sendMessage(chatId, { text: '⚠️ *Unable to fetch requests.*'}, { quoted: createFakeContact(message) }); }
 
         if (!pending?.length)
-            return sock.sendMessage(chatId, { text: '📭 *No pending requests.*'}, { quoted: message });
+            return sock.sendMessage(chatId, { text: '📭 *No pending requests.*'}, { quoted: createFakeContact(message) });
 
         // Helper: batch approve
         const batchApprove = async (jids) => {
@@ -64,7 +65,7 @@ async function approveCommand(sock, chatId, message) {
         return sock.sendMessage(chatId, {
             text: `📋 *Pending Requests (${pending.length})*\n\n${list}\n\n*Commands:*\n.approve all\n.approve @user`,
             mentions: pending.map(p => p.jid)
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (err) {
         console.error('❌ Approve Command Error:', err);

@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function gpt4Command(sock, chatId, message) {
     try {
         // Send reaction
@@ -14,13 +15,13 @@ async function gpt4Command(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Please provide a question to ask GPT-4!\n\nExample: .gpt4 What is artificial intelligence?'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 1000) {
             return await sock.sendMessage(chatId, {
                 text: '📝 Question too long! Max 1000 characters.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update presence to "typing"
@@ -93,7 +94,7 @@ async function gpt4Command(sock, chatId, message) {
         // Format and send response
         await sock.sendMessage(chatId, {
             text: `🤔 *GPT-4*\n\n📝 *Question:* ${query}\n\n💬 *Response:* ${aiResponse}\n\n📊 *Powered by OpenAI & Gpt-4*`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("GPT-4 command error:", error);
@@ -128,7 +129,7 @@ async function gpt4Command(sock, chatId, message) {
             
         await sock.sendMessage(chatId, {
             text: `🚫 ${errorMessage}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

@@ -3,6 +3,7 @@ const path = require('path');
 const os = require('os');
 const { isSudo } = require('../lib/index');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function clearSessionCommand(sock, chatId, msg) {
     try {
         const senderId = msg.key.participant || msg.key.remoteJid;

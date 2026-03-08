@@ -4,6 +4,7 @@ const webp = require('webp-converter');
 const fs = require('fs');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function blurCommand(sock, chatId, message, quotedMessage) {
     const inputPath = path.resolve('./temp_input.jpg');
     const lowQualityPath = path.resolve('./temp_low.webp');
@@ -20,7 +21,7 @@ async function blurCommand(sock, chatId, message, quotedMessage) {
         } else {
             return sock.sendMessage(chatId, {
                 text: '❌ Reply to an image or send an image with caption .blur'
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Defensive check
@@ -44,13 +45,13 @@ async function blurCommand(sock, chatId, message, quotedMessage) {
         await sock.sendMessage(chatId, {
             image: finalBuffer,
             caption: '*[ ✔ ] Image Blurred Successfully (WebP method)*'
-        });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error("BLUR ERROR:", error);
         await sock.sendMessage(chatId, {
             text: '❌ Failed to blur image.'
-        });
+        }, { quoted: createFakeContact(message) });
     } finally {
         // ==== Cleanup temp files safely ====
         [inputPath, lowQualityPath, finalPath].forEach(file => {

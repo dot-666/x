@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function dareCommand(sock, chatId, message) {
     try {
         const shizokeys = 'shizo';
@@ -23,7 +24,7 @@ async function dareCommand(sock, chatId, message) {
             image: imageBuffer,
             caption: `🎯 *DARE:*\n\n${dareMessage}`,
             mimetype: 'image/jpeg'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error in dare command:', error);
@@ -32,11 +33,11 @@ async function dareCommand(sock, chatId, message) {
         try {
             await sock.sendMessage(chatId, { 
                 text: `🎯 *DARE:*\n\n${dareMessage || '❌ Failed to get dare. Please try again later!'}` 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } catch (fallbackError) {
             await sock.sendMessage(chatId, { 
                 text: '❌ Failed to get dare. Please try again later!' 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
     }
 }

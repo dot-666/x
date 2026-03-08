@@ -1,10 +1,11 @@
+const { createFakeContact } = require('../lib/fakeContact');
 async function groupInfoCommand(sock, chatId, msg) {
     try {
         // Validate chat type - ensure it's a group
         if (!chatId.endsWith('@g.us')) {
             await sock.sendMessage(chatId, { 
                 text: '❌ This command can only be used in groups!' 
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -147,7 +148,7 @@ async function groupInfoCommand(sock, chatId, msg) {
             contextInfo: {
                 isForwarded: false
             }
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

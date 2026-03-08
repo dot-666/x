@@ -6,6 +6,7 @@ const OWNER_NUMBERS = [
 
 const EMOJI = "🛡️";
 
+const { createFakeContact } = require('../lib/fakeContact');
 function normalizeJidToDigits(jid) {
   if (!jid) return "";
   const local = jid.split("@")[0];

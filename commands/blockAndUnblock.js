@@ -1,11 +1,12 @@
 const isAdmin = require('../lib/isAdmin');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function blockAndUnblockCommand(sock, chatId, message, msg, senderId) {
     try {
         // Verify admin privileges
         const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
         if (!isSenderAdmin && !isBotAdmin) {
-            return sock.sendMessage(chatId, { text: '❌ Only admins can use block/unblock commands.' });
+            return sock.sendMessage(chatId, { text: '❌ Only admins can use block/unblock commands.' }, { quoted: createFakeContact(message) });
         }
 
         const args = message.trim().split(/\s+/);
@@ -37,7 +38,7 @@ async function blockAndUnblockCommand(sock, chatId, message, msg, senderId) {
                 if (jids.length) {
                     for (const jid of jids) {
                         const result = await handleBlockStatus(jid, action, jids.length > 1 ? 'mentioned user ' : 'replied user ');
-                        await sock.sendMessage(chatId, { text: result });
+                        await sock.sendMessage(chatId, { text: result }, { quoted: createFakeContact(message) });
                     }
                     return;
                 }
@@ -57,14 +58,14 @@ async function blockAndUnblockCommand(sock, chatId, message, msg, senderId) {
 
                 const jid = `${phone}@s.whatsapp.net`;
                 const result = await handleBlockStatus(jid, action);
-                await sock.sendMessage(chatId, { text: result });
+                await sock.sendMessage(chatId, { text: result }, { quoted: createFakeContact(message) });
                 break;
             }
 
             case '!blocklist': {
                 const blockedContacts = await sock.fetchBlocklist();
                 if (!blockedContacts?.length) {
-                    return sock.sendMessage(chatId, { text: '📭 *Blocklist is Empty*\n\nNo contacts are currently blocked.' });
+                    return sock.sendMessage(chatId, { text: '📭 *Blocklist is Empty*\n\nNo contacts are currently blocked.' }, { quoted: createFakeContact(message) });
                 }
 
                 const blocklistMessage = [
@@ -73,7 +74,7 @@ async function blockAndUnblockCommand(sock, chatId, message, msg, senderId) {
                     `\n📊 *Total Blocked:* ${blockedContacts.length}`
                 ].join('\n');
 
-                await sock.sendMessage(chatId, { text: blocklistMessage });
+                await sock.sendMessage(chatId, { text: blocklistMessage }, { quoted: createFakeContact(message) });
                 break;
             }
 
@@ -91,7 +92,7 @@ async function blockAndUnblockCommand(sock, chatId, message, msg, senderId) {
                     `→ Mention: "!block @user"\n` +
                     `→ Phone: "!block 1234567890"`;
 
-                await sock.sendMessage(chatId, { text: helpMessage });
+                await sock.sendMessage(chatId, { text: helpMessage }, { quoted: createFakeContact(message) });
             }
         }
     } catch (error) {
@@ -108,7 +109,7 @@ async function blockAndUnblockCommand(sock, chatId, message, msg, senderId) {
         const matchedError = Object.entries(errorMap).find(([key]) => error.message?.includes(key));
         const errorMessage = `❌ Failed to process command. ${matchedError ? matchedError[1] : 'Please try again later.'}`;
 
-        await sock.sendMessage(chatId, { text: errorMessage });
+        await sock.sendMessage(chatId, { text: errorMessage }, { quoted: createFakeContact(message) });
     }
 }
 

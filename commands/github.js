@@ -3,29 +3,13 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function githubCommand(sock, chatId, message) {
 /*━━━━━━━━━━━━━━━━━━━━*/
 // fake kontak 
 /*━━━━━━━━━━━━━━━━━━━━*/
    
-   function createFakeContact(message) {
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "JUNE-X"
-        },
-        message: {
-            contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE MD\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
-
-  try {
+     try {
   
   const fkontak = createFakeContact(message);
     
@@ -50,7 +34,7 @@ const pushname = message.pushName || "Unknown User";
     const imgPath = path.join(__dirname, '../assets/menu3.jpg');
     const imgBuffer = fs.readFileSync(imgPath);
 
-    /*await sock.sendMessage(chatId, { image: imgBuffer, caption: txt }, { quoted: message });*/
+    /*await sock.sendMessage(chatId, { image: imgBuffer, caption: txt }, { quoted: createFakeContact(message) });*/
                await sock.sendMessage(chatId, {
                 image: imgBuffer,
                 caption: txt,
@@ -63,7 +47,7 @@ const pushname = message.pushName || "Unknown User";
                         serverMessageId: -1
                     }
                 }
-            },{ quoted: fkontak });   
+            },{ quoted: createFakeContact(message) });   
       
       
       
@@ -73,7 +57,7 @@ const pushname = message.pushName || "Unknown User";
         });
     
   } catch (error) {
-    await sock.sendMessage(chatId, { text: '❌ Error fetching repository information.' }, { quoted: message });
+    await sock.sendMessage(chatId, { text: '❌ Error fetching repository information.' }, { quoted: createFakeContact(message) });
   }
 }
 

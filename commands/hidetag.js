@@ -2,6 +2,7 @@ const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function downloadMediaMessage(message, mediaType) {
     const stream = await downloadContentFromMessage(message, mediaType);
     let buffer = Buffer.from([]);
@@ -37,7 +38,7 @@ async function hideTagCommand(sock, chatId, senderId, messageText, replyMessage,
             await sock.sendMessage(chatId, content);
         }
     } else {
-        await sock.sendMessage(chatId, { text: messageText || 'Tagged all members.', mentions: allMembers });
+        await sock.sendMessage(chatId, { text: messageText || 'Tagged all members.', mentions: allMembers }, { quoted: createFakeContact(message) });
     }
 }
 

@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function inspectCommand(sock, chatId, senderId, message, userMessage) {
     try {
         const args = userMessage.split(' ').slice(1);
@@ -8,12 +9,12 @@ async function inspectCommand(sock, chatId, senderId, message, userMessage) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: `*INSPECT COMMAND*\n\n*Usage:*\n.inspect <url> - Fetch and inspect data from URL\n.inspect <url> -j - Pretty JSON format\n.inspect <url> -d - Download media\n.inspect <url> -h - Show response headers only\n\n*Examples:*\n.inspect https://api.github.com/users/octocat\n.inspect https://api.github.com/users/octocat -j\n.inspect https://example.com/image.jpg -d\n.inspect https://example.com -h`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         await sock.sendMessage(chatId, {
             text: `🔍 Inspecting...`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Parse arguments
         const parts = query.split(' ');
@@ -59,7 +60,7 @@ async function inspectCommand(sock, chatId, senderId, message, userMessage) {
                 headersText += `${key}: ${value}\n`;
             }
 
-            return await sock.sendMessage(chatId, { text: headersText }, { quoted: message });
+            return await sock.sendMessage(chatId, { text: headersText }, { quoted: createFakeContact(message) });
         }
 
         // Handle media download
@@ -73,7 +74,7 @@ async function inspectCommand(sock, chatId, senderId, message, userMessage) {
             if (contentLength && parseInt(contentLength) > maxSize) {
                 return await sock.sendMessage(chatId, {
                     text: `❌ File too large (${(parseInt(contentLength)/1024/1024).toFixed(2)}MB)\nMaximum size: 50MB`
-                }, { quoted: message });
+                }, { quoted: createFakeContact(message) });
             }
 
             const buffer = await response.arrayBuffer();
@@ -94,7 +95,7 @@ async function inspectCommand(sock, chatId, senderId, message, userMessage) {
             }
 
             // Send the media itself
-            await sock.sendMessage(chatId, mediaMsg, { quoted: message });
+            await sock.sendMessage(chatId, mediaMsg, { quoted: createFakeContact(message) });
 
             // Send structured summary
             const details = {
@@ -112,7 +113,7 @@ async function inspectCommand(sock, chatId, senderId, message, userMessage) {
                       `• MIME: ${details.mime}\n` +
                       `• Size: ${details.sizeKB}\n` +
                       `• URL: ${details.url}`
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
 
             return;
         }
@@ -131,7 +132,7 @@ async function inspectCommand(sock, chatId, senderId, message, userMessage) {
             let responseText = `JSON RESPONSE:\n\n`;
             responseText += `\`\`\`json\n${formattedJson}\`\`\``;
 
-            return await sock.sendMessage(chatId, { text: responseText }, { quoted: message });
+            return await sock.sendMessage(chatId, { text: responseText }, { quoted: createFakeContact(message) });
         }
 
         // Handle text
@@ -141,13 +142,13 @@ async function inspectCommand(sock, chatId, senderId, message, userMessage) {
             let responseText = `*TEXT RESPONSE:*\n\n`;
             responseText += `\`\`\`\n${text}\`\`\``;
 
-            return await sock.sendMessage(chatId, { text: responseText }, { quoted: message });
+            return await sock.sendMessage(chatId, { text: responseText }, { quoted: createFakeContact(message) });
         }
 
         // Fallback
         await sock.sendMessage(chatId, {
             text: `ℹ️ Response received.\n*Status:* ${responseInfo.status} ${responseInfo.statusText}\n*Content-Type:* ${contentType}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Inspect command error:', error);
@@ -167,7 +168,7 @@ async function inspectCommand(sock, chatId, senderId, message, userMessage) {
             errorMessage = '❌ An error occurred while inspecting the URL. Please check the URL and try again.';
         }
 
-        await sock.sendMessage(chatId, { text: errorMessage }, { quoted: message });
+        await sock.sendMessage(chatId, { text: errorMessage }, { quoted: createFakeContact(message) });
     }
 }
 

@@ -1,9 +1,10 @@
+const { createFakeContact } = require('../lib/fakeContact');
 async function clearCommand(sock, chatId, isGroup = false, numberOfMessages = 50) {
     try {
         // Send initial notification
         const notification = await sock.sendMessage(chatId, { 
             text: `🗑️ Clearing ${numberOfMessages} messages...` 
-        });
+        }, { quoted: createFakeContact(message) });
 
         let messagesDeleted = 0;
         
@@ -26,7 +27,7 @@ async function clearCommand(sock, chatId, isGroup = false, numberOfMessages = 50
             try {
                 await sock.sendMessage(chatId, { 
                     delete: notification.key 
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (error) {
                 console.log('Failed to auto-delete notification:', error);
             }
@@ -36,7 +37,7 @@ async function clearCommand(sock, chatId, isGroup = false, numberOfMessages = 50
         console.error('Error clearing messages:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ An error occurred while clearing messages.' 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -57,7 +58,7 @@ async function clearGroupMessages(sock, chatId, limit) {
                     
                     await sock.sendMessage(chatId, { 
                         delete: message.key 
-                    });
+                    }, { quoted: createFakeContact(message) });
                     deletedCount++;
                     
                     // Add small delay to avoid rate limiting
@@ -88,7 +89,7 @@ async function clearPrivateMessages(sock, chatId, limit) {
                 if (message.key.fromMe) {
                     await sock.sendMessage(chatId, { 
                         delete: message.key 
-                    });
+                    }, { quoted: createFakeContact(message) });
                     deletedCount++;
                     
                     // Add small delay to avoid rate limiting
@@ -110,7 +111,7 @@ async function clearAllMessages(sock, chatId, isGroup = false) {
     try {
         const notification = await sock.sendMessage(chatId, { 
             text: '🧹 Clearing all clearable messages...' 
-        });
+        }, { quoted: createFakeContact(message) });
 
         let totalDeleted = 0;
         const batchSize = 50;
@@ -130,7 +131,7 @@ async function clearAllMessages(sock, chatId, isGroup = false) {
                     if (message.key.fromMe) {
                         await sock.sendMessage(chatId, { 
                             delete: message.key 
-                        });
+                        }, { quoted: createFakeContact(message) });
                         batchDeleted++;
                         totalDeleted++;
 
@@ -157,7 +158,7 @@ async function clearAllMessages(sock, chatId, isGroup = false) {
             try {
                 await sock.sendMessage(chatId, { 
                     delete: notification.key 
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (error) {
                 console.log('Failed to auto-delete notification');
             }
@@ -167,7 +168,7 @@ async function clearAllMessages(sock, chatId, isGroup = false) {
         console.error('Error in clearAllMessages:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Error clearing all messages.' 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

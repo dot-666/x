@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 /**
  * AI Command Handler
  * @param {object} sock - WhatsApp socket
@@ -57,7 +58,7 @@ async function sendPromptMessage(sock, chatId, message) {
     const promptText =
         "⚠️ Please provide a question after !gpt\n\n" +
         "Example: !gpt What is quantum computing?";
-    return sock.sendMessage(chatId, { text: promptText }, { quoted: message });
+    return sock.sendMessage(chatId, { text: promptText }, { quoted: createFakeContact(message) });
 }
 
 /**
@@ -66,7 +67,7 @@ async function sendPromptMessage(sock, chatId, message) {
 async function sendEmptyQueryMessage(sock, chatId, message) {
     const text =
         "❌ No query detected.\nExample: !gpt What is quantum computing?";
-    return sock.sendMessage(chatId, { text }, { quoted: message });
+    return sock.sendMessage(chatId, { text }, { quoted: createFakeContact(message) });
 }
 
 /**
@@ -82,7 +83,7 @@ async function sendErrorMessage(sock, chatId, message) {
                 quotedMessage: message.message,
             },
         },
-        { quoted: message }
+        { quoted: createFakeContact(message) }
     );
 }
 
@@ -118,7 +119,7 @@ async function handleAIAPIRequest(sock, chatId, message, query) {
     const replyText = data?.result || null;
 
     if (replyText) {
-        return sock.sendMessage(chatId, { text: replyText }, { quoted: message });
+        return sock.sendMessage(chatId, { text: replyText }, { quoted: createFakeContact(message) });
     }
 
     throw new Error('No valid response from AI API');
@@ -142,7 +143,7 @@ async function sendAPIErrorMessage(sock, chatId, message, error) {
                 quotedMessage: message.message,
             },
         },
-        { quoted: message }
+        { quoted: createFakeContact(message) }
     );
 }
 

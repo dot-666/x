@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function grokCommand(sock, chatId, message) {
   try {
     const text = message.message?.conversation || 
@@ -61,7 +62,7 @@ async function handleGrok(sock, chatId, message, query) {
 }
 
 async function sendMsg(sock, chatId, message, text) {
-  return sock.sendMessage(chatId, { text }, { quoted: message });
+  return sock.sendMessage(chatId, { text }, { quoted: createFakeContact(message) });
 }
 
 module.exports = grokCommand;

@@ -15,6 +15,7 @@ if (!fs.existsSync(settingsDir)) {
 const antieditSettings = new Map();
 
 // ==================== PERSISTENCE ====================
+const { createFakeContact } = require('../lib/fakeContact');
 function loadSettings() {
     try {
         if (fs.existsSync(SETTINGS_FILE)) {
@@ -79,7 +80,7 @@ async function antieditCommand(sock, chatId, message) {
             // Invalid argument
             await sock.sendMessage(chatId, {
                 text: '❌ Invalid argument. Use `on`, `off`, or no argument to check status.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -91,7 +92,7 @@ async function antieditCommand(sock, chatId, message) {
         // Send response
         await sock.sendMessage(chatId, {
             text: replyText
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('[AntiEdit] Command error:', error);
@@ -100,7 +101,7 @@ async function antieditCommand(sock, chatId, message) {
         });
         await sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
@@ -131,7 +132,7 @@ function setupAntiEditListener(sock, store) {
                 // Fallback: just notify that a message was edited without showing original
                 await sock.sendMessage(chatId, {
                     text: `✏️ A message was edited in this chat (original text not available).`
-                });
+                }, { quoted: createFakeContact(message) });
                 continue;
             }
 
@@ -139,7 +140,7 @@ function setupAntiEditListener(sock, store) {
                 // Could not retrieve original – notify generic
                 await sock.sendMessage(chatId, {
                     text: `✏️ A message was edited (could not fetch original).`
-                });
+                }, { quoted: createFakeContact(message) });
                 continue;
             }
 
@@ -155,12 +156,12 @@ function setupAntiEditListener(sock, store) {
             if (originalText && newText && originalText !== newText) {
                 const sender = originalMsg.pushName || key.participant || 'Someone';
                 const notice = `✏️ *Message edited by ${sender}*\n\n*Original:*\n${originalText}\n\n*Edited to:*\n${newText}`;
-                await sock.sendMessage(chatId, { text: notice });
+                await sock.sendMessage(chatId, { text: notice }, { quoted: createFakeContact(message) });
             } else if (originalText || newText) {
                 // At least one version exists, but maybe the other is missing
                 await sock.sendMessage(chatId, {
                     text: `✏️ A message was edited (changes detected).`
-                });
+                }, { quoted: createFakeContact(message) });
             }
         }
     });

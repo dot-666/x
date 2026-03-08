@@ -1,11 +1,12 @@
 const isAdmin = require('../lib/isAdmin');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function demoteCommand(sock, chatId, mentionedJids, message) {
     try {
         if (!chatId.endsWith('@g.us')) {
             await sock.sendMessage(chatId, { 
                 text: 'This command can only be used in groups!'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -15,21 +16,21 @@ async function demoteCommand(sock, chatId, mentionedJids, message) {
             if (!adminStatus.isBotAdmin) {
                 await sock.sendMessage(chatId, { 
                     text: ' Please make the bot an admin first to use this command.'
-                });
+                }, { quoted: createFakeContact(message) });
                 return;
             }
 
             if (!adminStatus.isSenderAdmin) {
                 await sock.sendMessage(chatId, { 
                     text: '❌ Error: Only group admins can use the demote command.'
-                });
+                }, { quoted: createFakeContact(message) });
                 return;
             }
         } catch (adminError) {
             console.error('Error checking admin status:', adminError);
             await sock.sendMessage(chatId, { 
                 text: ' Please make sure the bot is an admin of this group.'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -45,7 +46,7 @@ async function demoteCommand(sock, chatId, mentionedJids, message) {
         if (userToDemote.length === 0) {
             await sock.sendMessage(chatId, { 
                 text: 'Please mention the user or reply to their message to demote!'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -62,7 +63,7 @@ async function demoteCommand(sock, chatId, mentionedJids, message) {
         if (filteredUsersToDemote.length === 0) {
             await sock.sendMessage(chatId, { 
                 text: 'You cannot demote the bot itself!'
-            });
+            }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -87,7 +88,7 @@ async function demoteCommand(sock, chatId, mentionedJids, message) {
         await sock.sendMessage(chatId, { 
             text: demotionMessage,
             mentions: filteredUsersToDemote
-        });
+        }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error in demote command:', error);
         if (error.data === 429) {
@@ -95,7 +96,7 @@ async function demoteCommand(sock, chatId, mentionedJids, message) {
             try {
                 await sock.sendMessage(chatId, { 
                     text: '❌ Rate limit reached. Please try again in a few seconds.'
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (retryError) {
                 console.error('Error sending retry message:', retryError);
             }
@@ -103,7 +104,7 @@ async function demoteCommand(sock, chatId, mentionedJids, message) {
             try {
                 await sock.sendMessage(chatId, { 
                     text: '❌ Failed to demote user(s). Make sure the bot is admin and has sufficient permissions.'
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (sendError) {
                 console.error('Error sending error message:', sendError);
             }
@@ -158,7 +159,7 @@ async function handleDemotionEvent(sock, groupId, participants, author) {
         await sock.sendMessage(groupId, {
             text: demotionMessage,
             mentions: mentionList
-        });
+        }, { quoted: createFakeContact(message) });
     } catch (error) {
         console.error('Error handling demotion event:', error);
         if (error.data === 429) {

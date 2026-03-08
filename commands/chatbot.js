@@ -1,6 +1,7 @@
 const path = require('path');
 const fetch = require('node-fetch');
 const fs = require('fs');
+const { getBotName } = require('../lib/botConfig');
 
 // ==================== DATA MANAGEMENT ====================
 
@@ -16,6 +17,7 @@ const defaultData = {
 };
 
 // Load user group data from file
+const { createFakeContact } = require('../lib/fakeContact');
 function loadUserGroupData() {
     try {
         // Check if directory exists, if not create it
@@ -504,12 +506,12 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
         try {
             await sock.sendMessage(chatId, {
                 text: response.substring(0, 1000)
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } catch (sendErr) {
             try {
                 await sock.sendMessage(chatId, {
                     text: response.substring(0, 1000)
-                });
+                }, { quoted: createFakeContact(message) });
             } catch (e) {
                 // Silent fail
             }
@@ -521,7 +523,7 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
         }
         try {
             const fallback = getFallbackResponse(userMessage || '');
-            await sock.sendMessage(chatId, { text: fallback });
+            await sock.sendMessage(chatId, { text: fallback }, { quoted: createFakeContact(message) });
         } catch (e) {
             // Silent fail
         }
@@ -539,8 +541,8 @@ function getFallbackResponse(message) {
         { keywords: ['what\'s up', 'sup', 'wassup'], response: 'Not much! What can I help you with? ✨' },
         { keywords: ['bye', 'goodbye', 'see you'], response: 'Catch you later! Take care! 👋' },
         { keywords: ['thanks', 'thank you', 'thx'], response: 'You\'re welcome! Happy to help! 🙌' },
-        { keywords: ['who are you', 'what are you'], response: 'I\'m JUNE-X, your friendly WhatsApp assistant! 🤖' },
-        { keywords: ['your name', 'whats your name'], response: 'I\'m JUNE-X, created to help and chat with you! ✨' },
+        { keywords: ['who are you', 'what are you'], response: `I'm ${getBotName()}, your friendly WhatsApp assistant! 🤖` },
+        { keywords: ['your name', 'whats your name'], response: `I'm ${getBotName()}, created to help and chat with you! ✨` },
         { keywords: ['help', 'what can you do'], response: 'I can chat, answer questions, and help with lots of things! Just ask away. 💫' },
         { keywords: ['good morning', 'morning'], response: 'Good morning! Hope you have an awesome day! ☀️' },
         { keywords: ['good night', 'gn', 'goodnight'], response: 'Good night! Sweet dreams! 🌙' },
@@ -583,19 +585,19 @@ async function getAIResponse(userMessage, userContext) {
         userInfoStr = `User info: ${JSON.stringify(userInfo)}`;
     }
 
-    const systemPrompt = `You are JUNE-X, a smart and friendly assistant chatting on WhatsApp. Created by June.
+    const systemPrompt = `You are ${getBotName()}, a smart and friendly assistant chatting on WhatsApp. Created by June.
 
 CORE RULES:
 1. Always respond in clear English
 2. Keep responses concise but helpful - 2-4 lines max
 3. Be friendly, witty, and use emojis occasionally
-4. Never mention you're an AI or bot - you're JUNE-X
+4. Never mention you're an AI or bot - you're ${getBotName()}
 5. Match the user's language - if they write in English, respond in English
 6. Be knowledgeable and give accurate, helpful answers
 7. If someone greets you, greet them back warmly
 
 ABOUT YOU:
-- Name: JUNE-X
+- Name: ${getBotName()}
 - Creator: June
 - You're intelligent, helpful, and have a good sense of humor
 - You can help with questions, have conversations, and provide information

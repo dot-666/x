@@ -1,6 +1,7 @@
 const { setAntiimage, getAntiimage, removeAntiimage } = require('../lib/database');
 const isAdmin = require('../lib/isAdmin');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function antiimageCommand(sock, chatId, msg, senderId) {
   const fakeContact = (m) => {
     const id = m?.key?.participant?.split('@')[0] || m?.key?.remoteJid?.split('@')[0] || '0';
@@ -86,7 +87,7 @@ async function handleImageDetection(sock, chatId, msg, senderId) {
     if (!isBotAdmin) return;
 
     const quoted = fakeContact(msg);
-    try { await sock.sendMessage(chatId, { delete: msg.key }); } catch (e) { console.error('Delete fail:', e); }
+    try { await sock.sendMessage(chatId, { delete: msg.key }, { quoted: createFakeContact(message) }); } catch (e) { console.error('Delete fail:', e); }
 
     if (cfg.action === 'warn')
       await sock.sendMessage(chatId, { text: `⚠️ @${senderId.split('@')[0]} Only admins can send images`, mentions: [senderId] }, { quoted });

@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const settings = require('../settings');
 const { stickercropFromBuffer } = require('./stickercrop');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function convertBufferToStickerWebp(inputBuffer, isAnimated, cropSquare) {
     const tmpDir = path.join(process.cwd(), 'tmp');
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
@@ -189,7 +190,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
         const urlMatch = text.match(/https?:\/\/\S+/);
         if (!urlMatch) {
-            await sock.sendMessage(chatId, { text: `Send an Instagram post/reel link.\nUsage:\n.igs <url>\n.igsc <url>` }, { quoted: message });
+            await sock.sendMessage(chatId, { text: `Send an Instagram post/reel link.\nUsage:\n.igs <url>\n.igsc <url>` }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -197,7 +198,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
 
         const downloadData = await igdl(urlMatch[0]).catch(() => null);
         if (!downloadData || !downloadData.data) {
-            await sock.sendMessage(chatId, { text: '❌ Failed to fetch media from Instagram link.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ Failed to fetch media from Instagram link.' }, { quoted: createFakeContact(message) });
             return;
         }
         // Raw items
@@ -212,7 +213,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
             }
         }
         if (items.length === 0) {
-            await sock.sendMessage(chatId, { text: '❌ No media found at the provided link.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: '❌ No media found at the provided link.' }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -251,7 +252,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
                     }
                 }
 
-                await sock.sendMessage(chatId, { sticker: finalSticker }, { quoted: message });
+                await sock.sendMessage(chatId, { sticker: finalSticker }, { quoted: createFakeContact(message) });
 
                 // Small delay to avoid rate limiting
                 if (i < maxItems - 1) {
@@ -265,7 +266,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
 
     } catch (err) {
         console.error('Error in igs command:', err);
-        await sock.sendMessage(chatId, { text: 'Failed to create sticker from Instagram link.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: 'Failed to create sticker from Instagram link.' }, { quoted: createFakeContact(message) });
     }
 }
 

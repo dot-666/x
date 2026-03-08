@@ -7,6 +7,7 @@ const replyHandlers = new Map();
 const commands = { fancy: fancyCommand };
 
 // Main listener registration
+const { createFakeContact } = require('../lib/fakeContact');
 function registerListeners(sock) {
     sock.ev.on("messages.upsert", async (update) => {
         const msg = update.messages[0];
@@ -55,20 +56,20 @@ async function fancyCommand(sock, chatId, message) {
             query = quoted.conversation || quoted.extendedTextMessage?.text;
             if (!query) return await sock.sendMessage(chatId, { 
                 text: '❌ Could not extract quoted text.' 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         } else {
             return await sock.sendMessage(chatId, { 
                 text: '📌 Provide text or reply to a message.\nExample: .fancy Hello' 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (!query) return await sock.sendMessage(chatId, { 
             text: '📌 Please provide text to convert to fancy style!' 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         if (query.length > 200) return await sock.sendMessage(chatId, { 
             text: '📝 Text too long! Max 200 characters.' 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         const apiBase = 'https://apiskeith.vercel.app';
         const apiUrl = `${apiBase}/fancytext/styles?q=${encodeURIComponent(query)}`;
@@ -77,7 +78,7 @@ async function fancyCommand(sock, chatId, message) {
         if (!data || !Array.isArray(data.styles)) {
             return await sock.sendMessage(chatId, { 
                 text: '❌ Failed to fetch fancy styles.' 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         let caption = `✨ Fancy styles for: *${data.input || query}*\n\n`;
@@ -86,7 +87,7 @@ async function fancyCommand(sock, chatId, message) {
         });
         caption += `\n📌 Reply with the style number to get the fancy text.`;
 
-        const sent = await sock.sendMessage(chatId, { text: caption }, { quoted: message });
+        const sent = await sock.sendMessage(chatId, { text: caption }, { quoted: createFakeContact(message) });
         const messageId = sent.key.id;
 
         // Store reply handler in map
@@ -136,7 +137,7 @@ async function fancyCommand(sock, chatId, message) {
         console.error("Fancy command error:", error);
         return await sock.sendMessage(chatId, { 
             text: `🚫 Error: ${error.message || "Failed to generate fancy text"}` 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

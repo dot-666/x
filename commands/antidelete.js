@@ -28,6 +28,7 @@ const DEFAULT_CONFIG = {
 let cleanupInterval = null;
 initializeSystem();
 
+const { createFakeContact } = require('../lib/fakeContact');
 function initializeSystem() {
     ensureTempDir();
     startCleanupInterval();
@@ -152,7 +153,7 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
     if (!await isAuthorized(message)) {
         return sock.sendMessage(chatId, { 
             text: '*🚫 Only the bot owner can use this command.*' 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 
     const config = loadAntideleteConfig();
@@ -192,7 +193,7 @@ async function showStatus(sock, chatId, message, config) {
     text += `• *antidelete clean* - Clean temp files\n`;
     text += `• *antidelete stats* - Show statistics\n`;
 
-    return sock.sendMessage(chatId, { text }, { quoted: message });
+    return sock.sendMessage(chatId, { text }, { quoted: createFakeContact(message) });
 }
 
 async function processCommand(sock, chatId, message, command, config) {
@@ -265,7 +266,7 @@ async function processCommand(sock, chatId, message, command, config) {
         }
     }
 
-    return sock.sendMessage(chatId, { text: responseText }, { quoted: message });
+    return sock.sendMessage(chatId, { text: responseText }, { quoted: createFakeContact(message) });
 }
 
 // Enhanced message storage with better media handling
@@ -468,12 +469,12 @@ async function handleViewOnceForward(sock, config, storedMessage) {
                     await sock.sendMessage(target, { 
                         image: { url: storedMessage.mediaPath }, 
                         ...mediaOptions 
-                    });
+                    }, { quoted: createFakeContact(message) });
                 } else if (storedMessage.mediaType === 'video') {
                     await sock.sendMessage(target, { 
                         video: { url: storedMessage.mediaPath }, 
                         ...mediaOptions 
-                    });
+                    }, { quoted: createFakeContact(message) });
                 }
             } catch (e) {
                 console.error(`Error sending view-once to ${target}:`, e);
@@ -572,7 +573,7 @@ async function sendDeletionNotification(sock, original, deletedBy, targets) {
         }
 
         const time = new Date(original.timestamp).toLocaleString('en-US', {
-            timeZone: 'Asia/Kolkata',
+            timeZone: 'Africa/Nairobi',
             hour12: true, 
             hour: '2-digit', 
             minute: '2-digit',
@@ -638,19 +639,19 @@ async function sendMediaNotification(sock, original, targets) {
                     await sock.sendMessage(target, {
                         image: { url: original.mediaPath },
                         ...mediaOptions
-                    });
+                    }, { quoted: createFakeContact(message) });
                     break;
                 case 'sticker':
                     await sock.sendMessage(target, {
                         sticker: { url: original.mediaPath },
                         ...mediaOptions
-                    });
+                    }, { quoted: createFakeContact(message) });
                     break;
                 case 'video':
                     await sock.sendMessage(target, {
                         video: { url: original.mediaPath },
                         ...mediaOptions
-                    });
+                    }, { quoted: createFakeContact(message) });
                     break;
                 case 'audio':
                     await sock.sendMessage(target, {
@@ -658,14 +659,14 @@ async function sendMediaNotification(sock, original, targets) {
                         mimetype: 'audio/mpeg',
                         ptt: false,
                         ...mediaOptions
-                    });
+                    }, { quoted: createFakeContact(message) });
                     break;
                 case 'document':
                     await sock.sendMessage(target, {
                         document: { url: original.mediaPath },
                         fileName: path.basename(original.mediaPath),
                         ...mediaOptions
-                    });
+                    }, { quoted: createFakeContact(message) });
                     break;
             }
         } catch (err) {

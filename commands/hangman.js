@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { createFakeContact } = require('../lib/fakeContact');
 
 // Enhanced word list with categories
 const wordCategories = {
@@ -101,14 +102,14 @@ function startHangman(sock, chatId, category = null) {
                      `🔤 Letters left: ${getAvailableLetters(hangmanGames[chatId])}\n` +
                      `⏱️ Time limit: 5 minutes`;
     
-    sock.sendMessage(chatId, { text: gameInfo });
+    sock.sendMessage(chatId, { text: gameInfo }, { quoted: createFakeContact(message) });
     
     // Add timeout for game
     setTimeout(() => {
         if (hangmanGames[chatId]) {
             sock.sendMessage(chatId, { 
                 text: `⏰ Time's up! The word was: *${hangmanGames[chatId].word}*` 
-            });
+            }, { quoted: createFakeContact(message) });
             delete hangmanGames[chatId];
         }
     }, 5 * 60 * 1000); // 5 minutes
@@ -159,7 +160,7 @@ function guessLetter(sock, chatId, letter) {
     if (!hangmanGames[chatId]) {
         sock.sendMessage(chatId, { 
             text: 'No active game! Start a new one with: .hangman [category]\nCategories: ' + Object.keys(wordCategories).join(', ') 
-        });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -170,12 +171,12 @@ function guessLetter(sock, chatId, letter) {
     
     // Validate input
     if (letter.length !== 1 || !letter.match(/[a-z]/i)) {
-        sock.sendMessage(chatId, { text: '❌ Please enter a single letter (A-Z)' });
+        sock.sendMessage(chatId, { text: '❌ Please enter a single letter (A-Z)' }, { quoted: createFakeContact(message) });
         return;
     }
     
     if (guessedLetters.includes(letter)) {
-        sock.sendMessage(chatId, { text: `⚠️ You already guessed "${letter.toUpperCase()}"` });
+        sock.sendMessage(chatId, { text: `⚠️ You already guessed "${letter.toUpperCase()}"` }, { quoted: createFakeContact(message) });
         return;
     }
     
@@ -199,7 +200,7 @@ function guessLetter(sock, chatId, letter) {
                        `🔤 Available: ${getAvailableLetters(game)}\n` +
                        getHangmanDrawing(game.wrongGuesses);
         
-        sock.sendMessage(chatId, { text: message });
+        sock.sendMessage(chatId, { text: message }, { quoted: createFakeContact(message) });
         
         if (!maskedWord.includes('_')) {
             // Calculate final score with time bonus
@@ -214,7 +215,7 @@ function guessLetter(sock, chatId, letter) {
                               `❌ Wrong guesses: ${game.wrongGuesses}\n` +
                               `🔤 Total guesses: ${game.guessedLetters.length}`;
             
-            sock.sendMessage(chatId, { text: winMessage });
+            sock.sendMessage(chatId, { text: winMessage }, { quoted: createFakeContact(message) });
             delete hangmanGames[chatId];
         }
     } else {
@@ -229,7 +230,7 @@ function guessLetter(sock, chatId, letter) {
                        `🔤 Available: ${getAvailableLetters(game)}\n` +
                        getHangmanDrawing(game.wrongGuesses);
         
-        sock.sendMessage(chatId, { text: message });
+        sock.sendMessage(chatId, { text: message }, { quoted: createFakeContact(message) });
         
         if (game.wrongGuesses >= game.maxWrongGuesses) {
             const loseMessage = `💀 *Game Over!*\n\n` +
@@ -237,7 +238,7 @@ function guessLetter(sock, chatId, letter) {
                                `⭐ Final Score: ${game.score}\n` +
                                `🔤 Guessed letters: ${game.guessedLetters.map(l => l.toUpperCase()).join(', ')}`;
             
-            sock.sendMessage(chatId, { text: loseMessage });
+            sock.sendMessage(chatId, { text: loseMessage }, { quoted: createFakeContact(message) });
             delete hangmanGames[chatId];
         }
     }
@@ -245,14 +246,14 @@ function guessLetter(sock, chatId, letter) {
 
 function giveHint(sock, chatId) {
     if (!hangmanGames[chatId]) {
-        sock.sendMessage(chatId, { text: 'No active game!' });
+        sock.sendMessage(chatId, { text: 'No active game!' }, { quoted: createFakeContact(message) });
         return;
     }
     
     const game = hangmanGames[chatId];
     
     if (game.hintUsed) {
-        sock.sendMessage(chatId, { text: 'You already used your hint!' });
+        sock.sendMessage(chatId, { text: 'You already used your hint!' }, { quoted: createFakeContact(message) });
         return;
     }
     
@@ -269,7 +270,7 @@ function giveHint(sock, chatId) {
 
 function showGameStatus(sock, chatId) {
     if (!hangmanGames[chatId]) {
-        sock.sendMessage(chatId, { text: 'No active game!' });
+        sock.sendMessage(chatId, { text: 'No active game!' }, { quoted: createFakeContact(message) });
         return;
     }
     
@@ -286,7 +287,7 @@ function showGameStatus(sock, chatId) {
                   `💡 Hint available: ${!game.hintUsed ? 'Yes' : 'Used'}\n` +
                   getHangmanDrawing(game.wrongGuesses);
     
-    sock.sendMessage(chatId, { text: status });
+    sock.sendMessage(chatId, { text: status }, { quoted: createFakeContact(message) });
 }
 
 function showLeaderboard(sock, chatId) {
@@ -298,12 +299,12 @@ function showLeaderboard(sock, chatId) {
               `2. 🥈 Player2: 180 points\n` +
               `3. 🥉 Player3: 150 points\n\n` +
               `*Play more games to appear on the leaderboard!*` 
-    });
+    }, { quoted: createFakeContact(message) });
 }
 
 function endGame(sock, chatId) {
     if (!hangmanGames[chatId]) {
-        sock.sendMessage(chatId, { text: 'No active game to end!' });
+        sock.sendMessage(chatId, { text: 'No active game to end!' }, { quoted: createFakeContact(message) });
         return;
     }
     
@@ -312,7 +313,7 @@ function endGame(sock, chatId) {
                    `The word was: *${game.word.toUpperCase()}*\n` +
                    `⭐ Final score: ${game.score}`;
     
-    sock.sendMessage(chatId, { text: message });
+    sock.sendMessage(chatId, { text: message }, { quoted: createFakeContact(message) });
     delete hangmanGames[chatId];
 }
 

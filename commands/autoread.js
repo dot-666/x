@@ -6,11 +6,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const { getBotName } = require('../lib/botConfig');
 const { isSudo } = require('../lib/index');
 
 const configPath = path.join(__dirname, '..', 'data', 'autoread.json');
 
 // Initialize configuration file if it doesn't exist
+const { createFakeContact } = require('../lib/fakeContact');
 function initConfig() {
     if (!fs.existsSync(configPath)) {
         fs.writeFileSync(configPath, JSON.stringify({ mode: 'off' }, null, 2));
@@ -34,7 +36,7 @@ async function autoreadCommand(sock, chatId, message) {
                         serverMessageId: -1
                     }
                 }
-            },{quoted: message});
+            },{ quoted: createFakeContact(message) });
             return;
         }
 
@@ -73,7 +75,7 @@ async function autoreadCommand(sock, chatId, message) {
                         serverMessageId: -1
                     }
                 }
-            },{quoted: message});
+            },{ quoted: createFakeContact(message) });
             return;
         }
 
@@ -113,7 +115,7 @@ async function autoreadCommand(sock, chatId, message) {
                             serverMessageId: -1
                         }
                     }
-                },{quoted: message});
+                },{ quoted: createFakeContact(message) });
                 return;
 
             default:
@@ -128,7 +130,7 @@ async function autoreadCommand(sock, chatId, message) {
                             serverMessageId: -1
                         }
                     }
-                },{quoted: message});
+                },{ quoted: createFakeContact(message) });
                 return;
         }
 
@@ -147,7 +149,7 @@ async function autoreadCommand(sock, chatId, message) {
                     serverMessageId: -1
                 }
             }
-        },{quoted: message});
+        },{ quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error in autoread command:', error);
@@ -162,7 +164,7 @@ async function autoreadCommand(sock, chatId, message) {
                     serverMessageId: -1
                 }
             }
-        },{quoted: message});
+        },{ quoted: createFakeContact(message) });
     }
 }
 
@@ -207,7 +209,7 @@ function isBotMentionedInMessage(message, botNumber) {
             return true;
         }
 
-        const botNames = [global.botname?.toLowerCase(), 'bot', 'June', 'June-X Bot'];
+        const botNames = [global.botname?.toLowerCase(), getBotName().toLowerCase(), 'bot', 'June', 'June-X Bot'];
         const words = textContent.toLowerCase().split(/\s+/);
         if (botNames.some(name => words.includes(name))) {
             return true;

@@ -1,5 +1,6 @@
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function metaiCommand(sock, chatId, message) {
     try {
         // Send reaction
@@ -15,7 +16,7 @@ async function metaiCommand(sock, chatId, message) {
         if (!text.includes(' ')) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Please provide a query for Meta AI!\n\nExample: .metai What is artificial intelligence?'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const parts = text.split(' ');
@@ -24,13 +25,13 @@ async function metaiCommand(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: '❌ Please provide a query for Meta AI!\n\nExample: .metai What is artificial intelligence?'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 1000) {
             return await sock.sendMessage(chatId, {
                 text: '📝 Query too long! Max 1000 characters.'
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         // Update presence to "typing"
@@ -55,7 +56,7 @@ async function metaiCommand(sock, chatId, message) {
         
         await sock.sendMessage(chatId, {
             text: `🤖 *Meta AI Assistant*\n\n📝 *Query:* ${query}\n\n💬 *Response:*\n ${aiResponse}\n\n> *Powered by Meta AI*`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
       // Send reaction
         await sock.sendMessage(chatId, {
@@ -89,7 +90,7 @@ async function metaiCommand(sock, chatId, message) {
             
         await sock.sendMessage(chatId, {
             text: `🚫 ${errorMessage}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

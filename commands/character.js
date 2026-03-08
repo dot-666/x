@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { channelInfo } = require('../lib/messageConfig');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function characterCommand(sock, chatId, message) {
     let userToAnalyze;
     
@@ -17,7 +18,7 @@ async function characterCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, { 
             text: 'Please mention someone or reply to their message to analyze their character!', 
             ...channelInfo 
-        });
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
@@ -68,14 +69,14 @@ async function characterCommand(sock, chatId, message) {
             caption: analysis,
             mentions: [userToAnalyze],
             ...channelInfo
-        });
+        }, { quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('Error in character command:', error);
         await sock.sendMessage(chatId, { 
             text: 'Failed to analyze character! Try again later.',
             ...channelInfo 
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

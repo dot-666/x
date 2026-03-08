@@ -1,20 +1,4 @@
-function createFakeContact(message) {
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "June x"
-        },
-        message: {
-            contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DAVE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
-
+const { createFakeContact } = require('../lib/fakeContact');
 async function chaneljidCommand(sock, chatId, message) {
     const fake = createFakeContact(message);
 
@@ -26,13 +10,13 @@ async function chaneljidCommand(sock, chatId, message) {
     if (!url) {
         return sock.sendMessage(chatId, { 
             text: 'Example: chjid https://whatsapp.com/chanel/...'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 
     if (!url.includes("https://whatsapp.com/channel/")) {
         return sock.sendMessage(chatId, { 
             text: 'Invalid WhatsApp channel link'
-        }, { quoted: fake });
+        }, { quoted: createFakeContact(message) });
     }
 
     try {
@@ -43,14 +27,14 @@ async function chaneljidCommand(sock, chatId, message) {
         
                await sock.sendMessage(chatId, { 
             text: `${res.id}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
         
 
     } catch (error) {
         console.error('ChannelJID Error:', error);
         await sock.sendMessage(chatId, { 
             text: 'Failed to get channel info'
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
