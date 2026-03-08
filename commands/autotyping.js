@@ -216,9 +216,43 @@ async function showTypingAfterCommand(sock, chatId) {
     return false; // Autotyping is disabled
 }
 
+// Straight fixed-duration typing presence (similar pattern to straightRecordingPresence)
+async function straightTypingPresence(sock, chatId) {
+    if (isAutotypingEnabled()) {
+        try {
+            await sock.presenceSubscribe(chatId);
+            await sock.sendPresenceUpdate('available', chatId);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await sock.sendPresenceUpdate('composing', chatId);
+
+            const typingDuration = 8000;
+            const intervals = Math.floor(typingDuration / 3000);
+
+            for (let i = 0; i < intervals; i++) {
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                await sock.sendPresenceUpdate('composing', chatId);
+            }
+
+            const remaining = typingDuration - (intervals * 3000);
+            if (remaining > 0) {
+                await new Promise(resolve => setTimeout(resolve, remaining));
+                await sock.sendPresenceUpdate('composing', chatId);
+            }
+
+            await sock.sendPresenceUpdate('paused', chatId);
+            return true;
+        } catch (error) {
+            console.error('❌ Error sending straight typing presence:', error);
+            return false;
+        }
+    }
+    return false;
+}
+
 module.exports = {
     autotypingCommand,
     isAutotypingEnabled,
+    straightTypingPresence,
     handleAutotypingForMessage,
     handleAutotypingForCommand,
     showTypingAfterCommand
