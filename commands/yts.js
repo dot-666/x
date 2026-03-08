@@ -1,5 +1,6 @@
 const yts = require('yt-search');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function ytsCommand(sock, chatId, senderId, message, userMessage) {
     try {
         const args = userMessage.split(' ').slice(1);
@@ -8,12 +9,12 @@ async function ytsCommand(sock, chatId, senderId, message, userMessage) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: `🔍 *YouTube Search Command*\n\nUsage:\n.yts <search_query>\n\nExample:\n.yts Godzilla\n.yts latest songs\n.yts tutorial for JUNE-X`
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         await sock.sendMessage(chatId, {
             text: `🌍 Searching...: "${query}"`
-        },{ quoted: message });
+        },{ quoted: createFakeContact(message) });
 
         let searchResults;
         try {
@@ -22,7 +23,7 @@ async function ytsCommand(sock, chatId, senderId, message, userMessage) {
             console.error('YouTube search error:', searchError);
             return await sock.sendMessage(chatId, {
                 text: '❌ Error searching YouTube. Please try again later.'
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         const videos = (searchResults && searchResults.videos) ? searchResults.videos.slice(0, 15) : [];
@@ -30,7 +31,7 @@ async function ytsCommand(sock, chatId, senderId, message, userMessage) {
         if (videos.length === 0) {
             return await sock.sendMessage(chatId, {
                 text: `❌ No results found for "${query}"\n\nTry different keywords.`
-            });
+            }, { quoted: createFakeContact(message) });
         }
 
         let resultMessage = `🄹 🅄 🄽 🄴  🅇  🄾 🄽: "${query}"\n\n`;
@@ -51,13 +52,13 @@ async function ytsCommand(sock, chatId, senderId, message, userMessage) {
         resultMessage += `☆ Tip: Use docytplay <url> to download audio\n`;
         resultMessage += `☆ Use docytvideo <url> to download video`;
 
-        await sock.sendMessage(chatId, { text: resultMessage },{ quoted: message});
+        await sock.sendMessage(chatId, { text: resultMessage },{ quoted: createFakeContact(message) });
 
     } catch (error) {
         console.error('YouTube search command error:', error);
         await sock.sendMessage(chatId, {
             text: '❌ An error occurred while searching YouTube. Please try again.'
-        });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

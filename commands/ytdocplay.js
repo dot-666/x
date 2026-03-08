@@ -4,6 +4,7 @@ const yts = require("yt-search");
 const path = require("path");
 const os = require("os");
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function ytdocplayCommand(sock, chatId, message) {
     try { 
         await sock.sendMessage(chatId, {
@@ -29,20 +30,20 @@ async function ytdocplayCommand(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, { 
                 text: "🎵 Provide a song name!\nExample: .play Not Like Us" 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         if (query.length > 100) {
             return await sock.sendMessage(chatId, { 
                 text: "📝 Song name too long! Max 100 chars." 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const searchResult = await (await yts(`${query} official`)).videos[0];
         if (!searchResult) {
             return sock.sendMessage(chatId, { 
                 text: "😕 Couldn't find that song. Try another one!" 
-            }, { quoted: message });
+            }, { quoted: createFakeContact(message) });
         }
 
         const video = searchResult;
@@ -118,7 +119,7 @@ async function ytdocplayCommand(sock, chatId, message) {
             document: { url: filePath }, 
             mimetype: "audio/mpeg", 
             fileName: `${(videoTitle || video.title).substring(0, 100)}.mp3`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Cleanup
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -127,7 +128,7 @@ async function ytdocplayCommand(sock, chatId, message) {
         console.error("ytdocplayCommand error:", error);
         return await sock.sendMessage(chatId, { 
             text: `🚫 Error: ${error.message || "Failed to download audio"}` 
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 

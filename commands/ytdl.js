@@ -1,6 +1,7 @@
 const yts = require('yt-search');
 const axios = require('axios');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function ytplayCommand(sock, chatId, message) {
     try {
         // Initial reaction 📺
@@ -9,7 +10,7 @@ async function ytplayCommand(sock, chatId, message) {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
         const input = text.split(' ').slice(1).join(' ').trim();
         if (!input) {
-            await sock.sendMessage(chatId, { text: "Give me a YouTube link or title!" }, { quoted: message });
+            await sock.sendMessage(chatId, { text: "Give me a YouTube link or title!" }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -21,7 +22,7 @@ async function ytplayCommand(sock, chatId, message) {
         } else {
             const { videos } = await yts(input);
             if (!videos.length) {
-                await sock.sendMessage(chatId, { text: "No video found!" }, { quoted: message });
+                await sock.sendMessage(chatId, { text: "No video found!" }, { quoted: createFakeContact(message) });
                 return;
             }
             videoInfo = videos[0];
@@ -31,7 +32,7 @@ async function ytplayCommand(sock, chatId, message) {
         const res = await axios.get(`https://iamtkm.vercel.app/downloaders/ytmp4?apikey=tkm&url=${videoUrl}`);
         const dl = res.data?.data?.url;
         if (!dl) {
-            await sock.sendMessage(chatId, { text: "Download failed." }, { quoted: message });
+            await sock.sendMessage(chatId, { text: "Download failed." }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: "❌", key: message.key } });
             return;
         }
@@ -40,13 +41,13 @@ async function ytplayCommand(sock, chatId, message) {
             video: { url: dl },
             mimetype: "video/mp4",
             caption: `🎬 ${videoInfo.title}`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Success reaction ✅
         await sock.sendMessage(chatId, { react: { text: "✅", key: message.key } });
 
     } catch (err) {
-        await sock.sendMessage(chatId, { text: "Error occurred while processing video." }, { quoted: message });
+        await sock.sendMessage(chatId, { text: "Error occurred while processing video." }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, { react: { text: "❌", key: message.key } });
     }
 }
@@ -59,7 +60,7 @@ async function ytsongCommand(sock, chatId, message) {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
         const input = text.split(' ').slice(1).join(' ').trim();
         if (!input) {
-            await sock.sendMessage(chatId, { text: "Give me a YouTube link or song name!" }, { quoted: message });
+            await sock.sendMessage(chatId, { text: "Give me a YouTube link or song name!" }, { quoted: createFakeContact(message) });
             return;
         }
 
@@ -71,7 +72,7 @@ async function ytsongCommand(sock, chatId, message) {
         } else {
             const { videos } = await yts(input);
             if (!videos.length) {
-                await sock.sendMessage(chatId, { text: "No song found!" }, { quoted: message });
+                await sock.sendMessage(chatId, { text: "No song found!" }, { quoted: createFakeContact(message) });
                 return;
             }
             videoInfo = videos[0];
@@ -81,7 +82,7 @@ async function ytsongCommand(sock, chatId, message) {
         const res = await axios.get(`https://apiskeith.top/download/audio?url=${videoUrl}`);
         const dl = res.data?.result;
         if (!dl) {
-            await sock.sendMessage(chatId, { text: "Download failed." }, { quoted: message });
+            await sock.sendMessage(chatId, { text: "Download failed." }, { quoted: createFakeContact(message) });
             await sock.sendMessage(chatId, { react: { text: "❌", key: message.key } });
             return;
         }
@@ -90,13 +91,13 @@ async function ytsongCommand(sock, chatId, message) {
             audio: { url: dl },
             mimetype: "audio/mpeg",
             fileName: `${videoInfo.title}.mp3`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Success reaction ✅
         await sock.sendMessage(chatId, { react: { text: "✅", key: message.key } });
 
     } catch (err) {
-        await sock.sendMessage(chatId, { text: "Error occurred while processing song." }, { quoted: message });
+        await sock.sendMessage(chatId, { text: "Error occurred while processing song." }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, { react: { text: "❌", key: message.key } });
     }
 }

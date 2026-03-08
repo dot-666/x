@@ -3,6 +3,7 @@ const axios = require('axios');
 const yts = require('yt-search');
 const path = require('path');
 
+const { createFakeContact } = require('../lib/fakeContact');
 async function ytdocvideoCommand(sock, chatId, message) {
     try {
         await sock.sendMessage(chatId, {
@@ -18,17 +19,17 @@ async function ytdocvideoCommand(sock, chatId, message) {
 
         if (!query) return await sock.sendMessage(chatId, {
             text: '🎬 Provide a YouTube link or Name\nExample:\n\nytdocvideo Not Like Us Music Video\nytdocvideo Espresso '
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         if (query.length > 100) return await sock.sendMessage(chatId, {
             text: `📝 Video name too long! Max 100 chars.`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Search for video
         const searchResult = await (await yts(`${query}`)).videos[0];
         if (!searchResult) return sock.sendMessage(chatId, {
             text: " 🚫 Couldn't find that video. Try another one!"
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         const video = searchResult;
         const apiUrl = `https://iamtkm.vercel.app/downloaders/ytmp4?apikey=tkm&url=${encodeURIComponent(video.url)}`;
@@ -74,7 +75,7 @@ async function ytdocvideoCommand(sock, chatId, message) {
             mimetype: "video/mp4",
             fileName: `${video.title.substring(0, 100)}.mp4`,
             caption:  `*🎞️ YouTube Video Downloaded*\n\n *Title:* ${video.title}\n *Duration:* ${video.timestamp}\n *Channel:* ${video.author.name}\n *Size:* ${fileSizeMB} MB`
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
 
         // Cleanup
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -95,7 +96,7 @@ async function ytdocvideoCommand(sock, chatId, message) {
         
         return await sock.sendMessage(chatId, {
             text: errorMessage
-        }, { quoted: message });
+        }, { quoted: createFakeContact(message) });
     }
 }
 
