@@ -8,5 +8,15 @@
   "welcome": false,
   "goodbye": {},
   "chatbot": {},
-  "autoReaction": false
+  "autoReaction": {
+    "enabled": false,
+    "customReactions": [
+      "💞",
+      "💘",
+      "🥰",
+      "💙",
+      "💓",
+      "💕"
+    ]
+  }
 }
