@@ -621,8 +621,12 @@ if (/^[1-9]$/.test(userMessage)) {
         // Check for command prefix
         /*━━━━━━━━━━━━━━━━━━━━*/
     if (!userMessage.startsWith(prefix)) {
-            // Show typing indicator if autotyping is enabled
-            await handleAutotypingForMessage(sock, chatId, userMessage);
+            // Show typing or recording indicator if enabled
+            if (isAutotypingEnabled()) {
+                await handleAutotypingForMessage(sock, chatId, userMessage);
+            } else if (isAutorecordingEnabled()) {
+                await handleAutorecordingForMessage(sock, chatId);
+            }
  if (isGroup) {
                 await Promise.allSettled([
                     handleChatbotResponse(sock, chatId, message, userMessage, senderId),
