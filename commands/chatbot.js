@@ -4,7 +4,6 @@ const fs = require('fs');
 const os = require('os');
 const axios = require('axios');
 const FormData = require('form-data');
-const yts = require('yt-search');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { getBotName } = require('../lib/botConfig');
 
@@ -341,6 +340,121 @@ function cleanMessageText(message, botId) {
     }
 }
 
+// ==================== IMAGE GENERATION DETECTION ====================
+
+// Detect if user wants to generate an image
+function detectImageGeneration(text) {
+    const lower = text.toLowerCase().trim();
+    
+    // Patterns for image generation requests
+    const patterns = [
+        /^(?:generate|create|make|draw|paint|show me|imagine)\s+(?:an?|the)?\s*(?:image|picture|art|drawing|photo|img|pic)\s+(?:of|with)?\s+(.+)$/i,
+        /^(?:generate|create|make|draw)\s+(.+?)\s+(?:image|picture|art|drawing|photo)$/i,
+        /^(?:ai|art)\s+(?:generate|create|make)\s+(.+)$/i,
+        /^(?:can you|could you|please)\s+(?:generate|create|make|draw)\s+(?:an?)?\s*(?:image|picture)\s+(?:of)?\s+(.+)$/i,
+        /^(?:i want|i need)\s+(?:an?)?\s*(?:image|picture)\s+(?:of)?\s+(.+)$/i,
+        /^imagine\s+(.+)$/i,
+        /^draw\s+(.+)$/i
+    ];
+    
+    for (const pattern of patterns) {
+        const match = lower.match(pattern);
+        if (match && match[1] && match[1].length > 3) {
+            // Filter out common non-image requests
+            const query = match[1].trim();
+            const ignoreList = ['hello', 'hi', 'hey', 'thanks', 'thank you', 'bye', 'goodbye', 'what', 'who', 'where', 'when', 'why', 'how'];
+            if (!ignoreList.includes(query.toLowerCase())) {
+                return { type: 'image', prompt: query };
+            }
+        }
+    }
+    
+    return null;
+}
+
+// ==================== IMAGE GENERATION FUNCTIONS ====================
+
+// Generate image using multiple APIs
+async function generateImage(prompt) {
+    const apis = [
+        {
+            name: 'Prodia',
+            url: 'https://bk9.fun/ai/prodia',
+            method: 'POST',
+            data: { prompt: prompt, model: 'absolutereality_v181.safetensors [3d9d4d2b]' },
+            parseResponse: (data) => data?.imgUrl || data?.result?.imgUrl || data?.image || data?.url
+        },
+        {
+            name: 'Gifted',
+            url: 'https://api.giftedtech.co.ke/api/ai/prodia',
+            method: 'POST',
+            data: { 
+                apikey: 'gifted', 
+                prompt: prompt,
+                model: 'absolutereality_v181.safetensors [3d9d4d2b]'
+            },
+            parseResponse: (data) => data?.result?.image || data?.image || data?.url
+        },
+        {
+            name: 'Flux AI',
+            url: `https://pikabotzapi.vercel.app/api/ai/flux?prompt=${encodeURIComponent(prompt)}`,
+            method: 'GET',
+            parseResponse: (data) => data?.result || data?.image || data?.url
+        }
+    ];
+
+    for (const api of apis) {
+        try {
+            let response;
+            
+            if (api.method === 'POST') {
+                response = await axios.post(api.url, api.data, {
+                    timeout: 60000,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } else {
+                response = await axios.get(api.url, { timeout: 60000 });
+            }
+
+            const imageUrl = api.parseResponse(response.data);
+            
+            if (imageUrl) {
+                return { success: true, url: imageUrl, api: api.name };
+            }
+        } catch (error) {
+            console.error(`${api.name} failed:`, error.message);
+            continue;
+        }
+    }
+
+    // Fallback to simpler API
+    try {
+        const response = await axios.get(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`, {
+            timeout: 30000,
+            responseType: 'arraybuffer'
+        });
+        
+        // Upload to temp service
+        const buffer = Buffer.from(response.data, 'binary');
+        const formData = new FormData();
+        formData.append('files[]', buffer, { filename: 'image.jpg' });
+        
+        const uploadRes = await axios.post('https://uguu.se/upload.php', formData, {
+            headers: formData.getHeaders(),
+            timeout: 30000
+        });
+        
+        const url = uploadRes.data.files?.[0]?.url;
+        if (url) {
+            return { success: true, url: url, api: 'Pollinations' };
+        }
+    } catch (error) {
+        console.error('Pollinations failed:', error.message);
+    }
+
+    return { success: false, error: 'All image generation APIs failed' };
+}
+
 // ==================== CHATBOT COMMAND HANDLER ====================
 
 async function handleChatbotCommand(sock, chatId, message, match) {
@@ -437,7 +551,7 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
         const isChatbotEnabled = data.chatbot[chatId] || false;
         if (!isChatbotEnabled) return;
 
-        // UPDATED: Respond when someone replies to ANY message (not just bot's messages)
+        // Respond when someone replies to ANY message
         const isReplied = isReplyToAnyMessage(message);
         if (!isReplied) return;
 
@@ -456,6 +570,7 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
         const isVideo = !!(msgContent.videoMessage);
         const isAudio = !!(msgContent.audioMessage || msgContent.pttMessage);
 
+        // Handle media messages
         if (isImage || isVideo || isAudio) {
             try {
                 await showTyping(sock, chatId);
@@ -463,35 +578,45 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
                 const caption = msgContent.imageMessage?.caption ||
                                 msgContent.videoMessage?.caption || '';
 
-                const ext = isImage ? 'jpg' : isVideo ? 'mp4' : 'ogg';
-                const buffer = await downloadMediaMessage(message, 'buffer', {}, { sock });
-                const mediaUrl = await uploadToTemp(buffer, `chatbot_${Date.now()}.${ext}`);
-
-                let reply;
                 if (isImage) {
-                    reply = await analyzeImage(mediaUrl, caption);
+                    // Image analysis
+                    const ext = 'jpg';
+                    const buffer = await downloadMediaMessage(message, 'buffer', {}, { sock });
+                    const mediaUrl = await uploadToTemp(buffer, `chatbot_${Date.now()}.${ext}`);
+                    
+                    const reply = await analyzeImage(mediaUrl, caption);
+                    
+                    await new Promise(resolve => setTimeout(resolve, getRandomDelay()));
+                    await sock.sendMessage(chatId, {
+                        text: reply.substring(0, 1500)
+                    }, { quoted: createFakeContact(message) });
                 } else {
-                    // audio or video — transcribe then AI-respond
-                    const transcript = await transcribeAndRespond(mediaUrl, sock, chatId, message);
+                    // Audio/Video transcription
+                    const ext = isVideo ? 'mp4' : 'ogg';
+                    const buffer = await downloadMediaMessage(message, 'buffer', {}, { sock });
+                    const mediaUrl = await uploadToTemp(buffer, `chatbot_${Date.now()}.${ext}`);
+                    
+                    const transcript = await transcribeMedia(mediaUrl);
+                    
                     if (transcript) {
                         const aiReply = await getAIResponse(transcript, {
                             messages: chatMemory.messages.get(senderId) || [],
                             userInfo: chatMemory.userInfo.get(senderId) || {}
                         }).catch(() => null);
-                        reply = isAudio
+                        
+                        const reply = isAudio
                             ? `🎤 *I heard:* _${transcript}_\n\n${aiReply || getFallbackResponse(transcript)}`
                             : `🎬 *Video audio:* _${transcript}_\n\n${aiReply || getFallbackResponse(transcript)}`;
+                        
+                        await sock.sendMessage(chatId, { text: reply }, { quoted: createFakeContact(message) });
                     } else {
-                        reply = isAudio
+                        const reply = isAudio
                             ? "🎤 I received your voice message but couldn't transcribe it clearly. Could you type your message instead?"
                             : "🎬 I received your video but couldn't extract audio from it. Could you describe what you need?";
+                        
+                        await sock.sendMessage(chatId, { text: reply }, { quoted: createFakeContact(message) });
                     }
                 }
-
-                await new Promise(resolve => setTimeout(resolve, getRandomDelay()));
-                await sock.sendMessage(chatId, {
-                    text: reply.substring(0, 1500)
-                }, { quoted: createFakeContact(message) });
             } catch (mediaErr) {
                 console.error('Chatbot media error:', mediaErr);
                 await sock.sendMessage(chatId, {
@@ -501,31 +626,76 @@ async function handleChatbotResponse(sock, chatId, message, userMessage, senderI
             return;
         }
 
-        // Clean the message text
+        // Handle text messages
         const cleanedMessage = cleanMessageText(message, botId);
         if (!cleanedMessage || cleanedMessage.trim().length === 0) {
             return;
         }
 
-        // Check if message is a download request (song or video) - ENHANCED DETECTION
-        const dlRequest = detectDownloadRequest(cleanedMessage);
-        if (dlRequest) {
+        // Check if message is an image generation request
+        const imgGenRequest = detectImageGeneration(cleanedMessage);
+        if (imgGenRequest) {
             try {
-                if (dlRequest.type === 'song') {
-                    await downloadSongForChat(sock, chatId, message, dlRequest.query, senderId);
+                // Show typing indicator while generating
+                await showTyping(sock, chatId);
+                
+                // Send initial message
+                const loadingMsg = await sock.sendMessage(chatId, { 
+                    text: `🎨 Generating image: *"${imgGenRequest.prompt}"*...\nThis may take a few moments.` 
+                }, { quoted: createFakeContact(message) });
+                
+                await sock.sendMessage(chatId, { react: { text: '🎨', key: message.key } });
+
+                // Generate the image
+                const result = await generateImage(imgGenRequest.prompt);
+                
+                if (result.success) {
+                    // Download and re-upload to ensure compatibility
+                    try {
+                        const imgResponse = await axios.get(result.url, { 
+                            responseType: 'arraybuffer',
+                            timeout: 30000 
+                        });
+                        
+                        const buffer = Buffer.from(imgResponse.data, 'binary');
+                        
+                        // Edit loading message
+                        await sock.sendMessage(chatId, { 
+                            text: `✅ Image generated successfully!\nPrompt: *${imgGenRequest.prompt}*\nGenerated by: ${result.api}`,
+                            edit: loadingMsg.key 
+                        });
+                        
+                        // Send the image
+                        await sock.sendMessage(chatId, { 
+                            image: buffer,
+                            caption: `🎨 *${imgGenRequest.prompt}*`
+                        }, { quoted: createFakeContact(message) });
+                        
+                        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
+                    } catch (downloadErr) {
+                        // If download fails, just send the URL
+                        await sock.sendMessage(chatId, { 
+                            text: `✅ Image generated!\nPrompt: *${imgGenRequest.prompt}*\n\nLink: ${result.url}`,
+                            edit: loadingMsg.key 
+                        }, { quoted: createFakeContact(message) });
+                    }
                 } else {
-                    await downloadVideoForChat(sock, chatId, message, dlRequest.query, senderId);
+                    await sock.sendMessage(chatId, { 
+                        text: `❌ Failed to generate image. Please try a different prompt or try again later.`,
+                        edit: loadingMsg.key 
+                    }, { quoted: createFakeContact(message) });
+                    await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
                 }
-            } catch (dlErr) {
-                console.error('Chatbot download error:', dlErr);
-                await sock.sendMessage(chatId, {
-                    text: '❌ Sorry, I had trouble downloading that. Please try again.'
+            } catch (genErr) {
+                console.error('Image generation error:', genErr);
+                await sock.sendMessage(chatId, { 
+                    text: '❌ Error generating image. Please try again.'
                 }, { quoted: createFakeContact(message) });
             }
             return;
         }
 
-        // Store in memory
+        // Store in memory for regular chat
         if (!chatMemory.messages.has(senderId)) {
             chatMemory.messages.set(senderId, []);
             chatMemory.userInfo.set(senderId, {});
@@ -614,11 +784,12 @@ function getFallbackResponse(message) {
         { keywords: ['thanks', 'thank you', 'thx'], response: 'You\'re welcome! Happy to help! 🙌' },
         { keywords: ['who are you', 'what are you'], response: `I'm ${getBotName()}, your friendly WhatsApp assistant! 🤖` },
         { keywords: ['your name', 'whats your name'], response: `I'm ${getBotName()}, created to help and chat with you! ✨` },
-        { keywords: ['help', 'what can you do'], response: 'I can chat, answer questions, and help with lots of things! Just ask away. 💫' },
+        { keywords: ['help', 'what can you do'], response: 'I can chat, answer questions, generate images, analyze pictures, and help with lots of things! Just ask away. 💫' },
         { keywords: ['good morning', 'morning'], response: 'Good morning! Hope you have an awesome day! ☀️' },
         { keywords: ['good night', 'gn', 'goodnight'], response: 'Good night! Sweet dreams! 🌙' },
         { keywords: ['good afternoon'], response: 'Good afternoon! How\'s your day going? ⛅' },
-        { keywords: ['good evening'], response: 'Good evening! How was your day? 🌆' }
+        { keywords: ['good evening'], response: 'Good evening! How was your day? 🌆' },
+        { keywords: ['generate', 'create image', 'make picture', 'draw', 'imagine'], response: 'Want me to generate an image? Just say something like "generate a beautiful sunset" or "create an image of a cat"! 🎨' }
     ];
 
     for (const fb of fallbacks) {
@@ -666,6 +837,12 @@ CORE RULES:
 5. Match the user's language - if they write in English, respond in English
 6. Be knowledgeable and give accurate, helpful answers
 7. If someone greets you, greet them back warmly
+
+CAPABILITIES:
+- I can chat and answer questions
+- I can analyze images you send me
+- I can generate images from descriptions (just ask me to "generate a picture of...")
+- I can transcribe voice messages and videos
 
 ABOUT YOU:
 - Name: ${getBotName()}
@@ -777,284 +954,6 @@ Previous chat: ${recentMessages}`;
     return getFallbackResponse(userMessage);
 }
 
-// ==================== DOWNLOAD HELPERS ====================
-
-// Enhanced download request detection with more patterns
-function detectDownloadRequest(text) {
-    const lower = text.toLowerCase().trim();
-
-    // More comprehensive patterns for song detection
-    const songPatterns = [
-        // "play song name", "download song name", etc
-        /^(?:play|download|get|give me|find|send me|i want)\s+(?:the\s+)?(?:song|audio|music|track|mp3)?\s*(?:of|for|called|named|by)?\s+(.+?)(?:\s+(?:song|audio|music|track|mp3))?$/i,
-        
-        // "song song name", "music name", etc
-        /^(?:song|audio|music|track|mp3)\s+(?:of|for|called|named)?\s+(.+)$/i,
-        
-        // "play name song"
-        /^(?:play|send me|download)\s+(.+?)\s+(?:song|audio|music|mp3)$/i,
-        
-        // Direct YouTube links or queries
-        /^(?:yt|youtube)\s+(?:song|audio|music)?\s*(.+)$/i,
-        
-        // "can you play name"
-        /^(?:can you|could you|please)\s+(?:play|download|get)\s+(.+)$/i,
-        
-        // "I want to hear name"
-        /^(?:i want to|i'd like to)\s+(?:hear|listen to|download)\s+(.+)$/i
-    ];
-
-    // Patterns for video detection
-    const videoPatterns = [
-        /^(?:play|download|get|give me|find|send me|watch)\s+(?:the\s+)?(?:video|clip|mv|youtube)\s*(?:of|for|called|named)?\s+(.+?)(?:\s+(?:video|clip|mv))?$/i,
-        /^(?:video|clip|mv)\s+(?:of|for|called|named)?\s+(.+)$/i,
-        /^(?:play|send me|download)\s+(.+?)\s+(?:video|clip|mv)$/i,
-        /^(?:yt|youtube)\s+video\s+(.+)$/i,
-        /^(?:can you|could you|please)\s+(?:play|show|download)\s+(?:a\s+)?video\s+(?:of|for)?\s+(.+)$/i
-    ];
-
-    // Check for video first (more specific)
-    for (const pattern of videoPatterns) {
-        const m = lower.match(pattern);
-        if (m && m[1] && m[1].length > 2) {
-            return { type: 'video', query: m[1].trim() };
-        }
-    }
-    
-    // Then check for songs
-    for (const pattern of songPatterns) {
-        const m = lower.match(pattern);
-        if (m && m[1] && m[1].length > 2) {
-            // Filter out common false positives
-            const query = m[1].trim();
-            const ignoreList = ['hello', 'hi', 'hey', 'thanks', 'thank you', 'bye', 'goodbye'];
-            if (!ignoreList.includes(query.toLowerCase())) {
-                return { type: 'song', query: query };
-            }
-        }
-    }
-    
-    return null;
-}
-
-// Enhanced download function with multiple API sources
-async function downloadSongForChat(sock, chatId, message, query, senderId) {
-    const loadingMsg = await sock.sendMessage(chatId, { 
-        text: `🔍 Searching for *"${query}"*...` 
-    }, { quoted: createFakeContact(message) });
-    
-    await sock.sendMessage(chatId, { react: { text: '🎵', key: message.key } });
-    
-    const tempDir = path.join(os.tmpdir(), 'june-x-temp');
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-    try {
-        // Search for the song
-        const searchResult = (await yts(query + ' song official audio')).videos[0];
-        if (!searchResult) {
-            await sock.sendMessage(chatId, { 
-                text: `😕 Couldn't find a song for: *${query}*`, 
-                edit: loadingMsg.key 
-            }, { quoted: createFakeContact(message) });
-            return;
-        }
-
-        await sock.sendMessage(chatId, { 
-            text: `📥 Found: *${searchResult.title}*\nDuration: ${searchResult.timestamp}\nDownloading...`, 
-            edit: loadingMsg.key 
-        });
-
-        // Try multiple download APIs
-        let downloadUrl = null;
-        let videoTitle = searchResult.title;
-        
-        const apis = [
-            {
-                url: `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(searchResult.url)}`,
-                handler: (res) => res.data?.result ? { url: res.data.result, title: res.data.title } : null
-            },
-            {
-                url: `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${encodeURIComponent(searchResult.url)}`,
-                handler: (res) => res.data?.url ? { url: res.data.url, title: res.data.title } : null
-            },
-            {
-                url: `https://api.giftedtech.co.ke/api/download/ytmp3?apikey=gifted&url=${encodeURIComponent(searchResult.url)}`,
-                handler: (res) => res.data?.result?.download_url ? { url: res.data.result.download_url, title: res.data.result.title } : null
-            },
-            {
-                url: `https://pikabotzapi.vercel.app/api/downloader/ytmp3?url=${encodeURIComponent(searchResult.url)}`,
-                handler: (res) => res.data?.result?.download ? { url: res.data.result.download, title: res.data.result.title } : null
-            },
-            {
-                url: `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(searchResult.url)}`,
-                handler: (res) => res.data?.downloadUrl ? { url: res.data.downloadUrl, title: res.data.title } : null
-            }
-        ];
-
-        for (const api of apis) {
-            try {
-                const res = await axios.get(api.url, { timeout: 30000 });
-                const result = api.handler(res);
-                if (result?.url) {
-                    downloadUrl = result.url;
-                    videoTitle = result.title || searchResult.title;
-                    break;
-                }
-            } catch (_) { continue; }
-        }
-
-        if (!downloadUrl) {
-            // Fallback to direct YouTube download attempt
-            try {
-                const directRes = await axios.get(`https://youtube-mp3.downloader.now/api?url=${encodeURIComponent(searchResult.url)}`, { timeout: 30000 });
-                if (directRes.data?.link) {
-                    downloadUrl = directRes.data.link;
-                }
-            } catch (_) {}
-        }
-
-        if (!downloadUrl) {
-            await sock.sendMessage(chatId, { 
-                text: '❌ Could not download that song right now. Try again later.',
-                edit: loadingMsg.key 
-            }, { quoted: createFakeContact(message) });
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-            return;
-        }
-
-        // Download the file
-        const filePath = path.join(tempDir, `song_${Date.now()}.mp3`);
-        const writer = fs.createWriteStream(filePath);
-        
-        const audioRes = await axios({ 
-            method: 'get', 
-            url: downloadUrl, 
-            responseType: 'stream', 
-            timeout: 120000, 
-            maxContentLength: 50 * 1024 * 1024 // 50MB limit
-        });
-        
-        audioRes.data.pipe(writer);
-        
-        await new Promise((resolve, reject) => { 
-            writer.on('finish', resolve); 
-            writer.on('error', reject);
-        });
-
-        // Send the audio
-        await sock.sendMessage(chatId, { 
-            text: `🎵 *${videoTitle || searchResult.title}*\n_Song requested by @${senderId.split('@')[0]}_`, 
-            mentions: [senderId],
-            edit: loadingMsg.key 
-        });
-
-        await sock.sendMessage(chatId, { 
-            audio: { url: filePath }, 
-            mimetype: 'audio/mpeg', 
-            fileName: `${(videoTitle || searchResult.title).substring(0, 80)}.mp3`, 
-            ptt: false 
-        }, { quoted: createFakeContact(message) });
-
-        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
-
-        // Cleanup
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-    } catch (error) {
-        console.error('Download error:', error);
-        await sock.sendMessage(chatId, { 
-            text: '❌ Error downloading song. Please try again.',
-            edit: loadingMsg.key 
-        }, { quoted: createFakeContact(message) });
-        await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-    }
-}
-
-async function downloadVideoForChat(sock, chatId, message, query, senderId) {
-    const loadingMsg = await sock.sendMessage(chatId, { 
-        text: `🔍 Searching for video: *"${query}"*...` 
-    }, { quoted: createFakeContact(message) });
-    
-    await sock.sendMessage(chatId, { react: { text: '🎬', key: message.key } });
-
-    try {
-        const searchResult = (await yts(query + ' video')).videos[0];
-        if (!searchResult) {
-            await sock.sendMessage(chatId, { 
-                text: `😕 Couldn't find a video for: *${query}*`,
-                edit: loadingMsg.key 
-            }, { quoted: createFakeContact(message) });
-            return;
-        }
-
-        await sock.sendMessage(chatId, { 
-            text: `📥 Found: *${searchResult.title}*\nDuration: ${searchResult.timestamp}\nDownloading video...`, 
-            edit: loadingMsg.key 
-        });
-
-        // Try multiple video download APIs
-        let downloadUrl = null;
-        
-        const apis = [
-            `https://iamtkm.vercel.app/downloaders/ytmp4?apikey=tkm&url=${searchResult.url}`,
-            `https://api.davidcyriltech.my.id/download/ytmp4?url=${encodeURIComponent(searchResult.url)}`,
-            `https://pikabotzapi.vercel.app/api/downloader/ytmp4?url=${encodeURIComponent(searchResult.url)}`,
-            `https://api.giftedtech.co.ke/api/download/ytmp4?apikey=gifted&url=${encodeURIComponent(searchResult.url)}`
-        ];
-
-        for (const api of apis) {
-            try {
-                const res = await axios.get(api, { timeout: 30000 });
-                
-                if (api.includes('iamtkm') && res.data?.data?.url) {
-                    downloadUrl = res.data.data.url;
-                    break;
-                } else if (api.includes('davidcyriltech') && res.data?.downloadUrl) {
-                    downloadUrl = res.data.downloadUrl;
-                    break;
-                } else if (api.includes('pikabotzapi') && res.data?.result?.download) {
-                    downloadUrl = res.data.result.download;
-                    break;
-                } else if (api.includes('gifted') && res.data?.result?.download_url) {
-                    downloadUrl = res.data.result.download_url;
-                    break;
-                }
-            } catch (_) { continue; }
-        }
-
-        if (!downloadUrl) {
-            await sock.sendMessage(chatId, { 
-                text: '❌ Could not download that video right now. Try again later.',
-                edit: loadingMsg.key 
-            }, { quoted: createFakeContact(message) });
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-            return;
-        }
-
-        await sock.sendMessage(chatId, { 
-            text: `🎬 *${searchResult.title}*\n_Video requested by @${senderId.split('@')[0]}_`, 
-            mentions: [senderId],
-            edit: loadingMsg.key 
-        });
-
-        await sock.sendMessage(chatId, { 
-            video: { url: downloadUrl }, 
-            mimetype: 'video/mp4', 
-            caption: `🎬 ${searchResult.title}`
-        }, { quoted: createFakeContact(message) });
-
-        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
-
-    } catch (error) {
-        console.error('Video download error:', error);
-        await sock.sendMessage(chatId, { 
-            text: '❌ Error downloading video. Please try again.',
-            edit: loadingMsg.key 
-        }, { quoted: createFakeContact(message) });
-        await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-    }
-}
-
 // ==================== MEDIA HELPERS ====================
 
 async function uploadToTemp(buffer, filename) {
@@ -1092,7 +991,7 @@ async function analyzeImage(imageUrl, caption) {
     return '🖼️ I can see the image but I\'m having trouble analyzing it right now. Could you describe what you\'d like to know about it?';
 }
 
-async function transcribeAndRespond(mediaUrl, sock, chatId, message) {
+async function transcribeMedia(mediaUrl) {
     try {
         const transcribeUrl = `https://apiskeith.top/ai/transcribe?q=${encodeURIComponent(mediaUrl)}`;
         const res = await axios.get(transcribeUrl, { timeout: 60000 });
