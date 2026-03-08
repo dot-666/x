@@ -1,9 +1,1 @@
-{
-  "120363424143346950@g.us": {
-    "goodbyeEnabled": true,
-    "goodbyeMessage": "Goodbye {user} from {group}! 👋 Regards, {bot}. We now have {members} members left.",
-    "goodbyeNoPic": true,
-    "welcomeEnabled": true,
-    "welcomeMessage": "Welcome {user} to {group}! 🎉 Regards to {bot}. We now have {members} members."
-  }
-}
+
