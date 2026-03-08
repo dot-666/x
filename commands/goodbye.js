@@ -3,11 +3,10 @@ const fetch = require('node-fetch');
 const { normalizeJid, findParticipant } = require('../lib/jid');
 const { getBotName } = require('../lib/botConfig');
 
-const { createFakeContact } = require('../lib/fakeContact');
 async function goodbyeCommand(sock, chatId, message, match) {
     // Check if it's a group
     if (!chatId.endsWith('@g.us')) {
-        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: createFakeContact(message) });
+        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: message });
         return;
     }
 
@@ -19,7 +18,7 @@ async function goodbyeCommand(sock, chatId, message, match) {
     await handleGoodbye(sock, chatId, message, matchText);
 }
 
-async function handleLeaveEvent(sock, id, participants) {
+async function handleLeaveEvent(sock, id, participants, message) {
     // Check if goodbye is enabled for this group
     const isGoodbyeEnabled = await isGoodByeOn(id);
     if (!isGoodbyeEnabled) return;
@@ -60,7 +59,6 @@ async function handleLeaveEvent(sock, id, participants) {
                     .replace(/{bot}/g, getBotName())
                     .replace(/{members}/g, membersCount.toString());
             } else {
-                // Default message if no custom message is set
                 finalMessage = `Goodbye @${displayName} from ${groupName}! 👋\nWe now have ${membersCount} members.\n🤖 Powered by ${getBotName()}`;
             }
 
@@ -69,7 +67,7 @@ async function handleLeaveEvent(sock, id, participants) {
                 await sock.sendMessage(id, {
                     text: finalMessage,
                     mentions: [participantString]
-                }, { quoted: createFakeContact(message) });
+                }, { quoted: message });
             } else {
                 try {
                     let profilePicUrl;
@@ -87,7 +85,7 @@ async function handleLeaveEvent(sock, id, participants) {
                             image: imageBuffer,
                             caption: finalMessage,
                             mentions: [participantString]
-                        }, { quoted: createFakeContact(message) });
+                        }, { quoted: message });
                         continue;
                     }
                 } catch (imageError) {
@@ -98,7 +96,7 @@ async function handleLeaveEvent(sock, id, participants) {
                 await sock.sendMessage(id, {
                     text: finalMessage,
                     mentions: [participantString]
-                }, { quoted: createFakeContact(message) });
+                }, { quoted: message });
             }
         } catch (error) {
             console.error('Error sending goodbye message:', error);
@@ -119,7 +117,7 @@ async function handleLeaveEvent(sock, id, participants) {
             await sock.sendMessage(id, {
                 text: fallbackMessage,
                 mentions: [participantString]
-            }, { quoted: createFakeContact(message) });
+            }, { quoted: message });
         }
     }
 }
