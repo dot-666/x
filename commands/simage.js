@@ -24,7 +24,6 @@ const scheduleFileDeletion = (filePath, delay = 10000) => {
     }, delay);
 };
 
-const { createFakeContact } = require('../lib/fakeContact');
 /**
  * Convert a WhatsApp sticker (WEBP) to PNG and send it back
  * @param {object} sock - Baileys socket instance
@@ -35,7 +34,7 @@ const convertStickerToImage = async (sock, quotedMessage, chatId) => {
     try {
         const stickerMessage = quotedMessage?.stickerMessage;
         if (!stickerMessage) {
-            await sock.sendMessage(chatId, { text: '⚠️ Reply to a sticker with .simage to convert it.' }, { quoted: createFakeContact(message) });
+            await sock.sendMessage(chatId, { text: '⚠️ Reply to a sticker with .simage to convert it.' });
             return;
         }
 
@@ -59,7 +58,7 @@ const convertStickerToImage = async (sock, quotedMessage, chatId) => {
         await sock.sendMessage(chatId, { 
             image: imageBuffer, 
             caption: '✅ Sticker converted to image!' 
-        }, { quoted: createFakeContact(message) });
+        });
 
         // Cleanup
         scheduleFileDeletion(stickerFilePath);
@@ -67,7 +66,7 @@ const convertStickerToImage = async (sock, quotedMessage, chatId) => {
 
     } catch (error) {
         console.error('❌ Error converting sticker:', error);
-        await sock.sendMessage(chatId, { text: 'An error occurred while converting the sticker.' }, { quoted: createFakeContact(message) });
+        await sock.sendMessage(chatId, { text: 'An error occurred while converting the sticker.' });
     }
 };
 
