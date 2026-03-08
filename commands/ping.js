@@ -7,11 +7,11 @@ const { createFakeContact } = require('../lib/fakeContact');
 async function pingCommand(sock, chatId, message) {
   try {
     // Create fake quoted contact
-    const quoted = createFakeContact(message);
+    const fake = createFakeContact(message);
     
     const start = Date.now();
     const sentMsg = await sock.sendMessage(chatId, {
-      text: '*🔹pong!...*'}, { quoted }
+      text: '*🔹pong!...*'}, { quoted: createFakeContact(message) }
     );
 
     const ping = Date.now() - start;
@@ -24,11 +24,11 @@ async function pingCommand(sock, chatId, message) {
     await sock.sendMessage(chatId, {
       text: response,
       edit: sentMsg.key // Edit the original message
-    }, { quoted });   
+    }, { quoted: createFakeContact(message) });   
     
   } catch (error) {
     console.error('Ping error:', error);
-    await sock.sendMessage(chatId, { text: 'Failed to measure speed.' }, { quoted });
+    await sock.sendMessage(chatId, { text: 'Failed to measure speed.' }, { quoted: createFakeContact(message) });
   }
 }
 
