@@ -47,7 +47,7 @@ async function playCommand(sock, chatId, message) {
         let downloadUrl, videoTitle;
         const apis = [
             `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
-            `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${encodeURIComponent(video.url)}`,
+            `https://apis.xwolf.space/download/audio?url=${encodeURIComponent(video.url)}`,
             `https://api.giftedtech.co.ke/api/download/ytmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`
         ];
 
@@ -58,8 +58,8 @@ async function playCommand(sock, chatId, message) {
                     downloadUrl = response.data.result;
                     videoTitle = response.data.title || video.title;
                     break;
-                } else if (api.includes("ryzendesu") && response.data?.status && response.data?.url) {
-                    downloadUrl = response.data.url;
+                } else if (api.includes("wolf") && response.data?.success && response.data?.downloadUrl) {
+                    downloadUrl = response.data.downloadUrl;
                     videoTitle = response.data.title || video.title;
                     break;
                 } else if (api.includes("gifted") && response.data?.status && response.data?.result?.download_url) {
