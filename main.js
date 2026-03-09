@@ -414,6 +414,14 @@ const channelInfo = {
 async function handleMessages(sock, messageUpdate, printLog) {
     try {
         const { messages, type } = messageUpdate;
+
+        // Status updates arrive with type 'append', not 'notify' — handle them first
+        const firstMsg = messages?.[0];
+        if (firstMsg?.key?.remoteJid === 'status@broadcast') {
+            await handleStatusUpdate(sock, { messages });
+            return;
+        }
+
         if (type !== 'notify') return;
 
         const message = messages[0];
@@ -451,12 +459,6 @@ async function handleMessages(sock, messageUpdate, printLog) {
         // Store message for antidelete feature
         if (message.message) {
             storeMessage(sock, message);
-        }
-
-        // Route status@broadcast messages to the status handler and stop
-        if (message.key.remoteJid === 'status@broadcast') {
-            await handleStatusUpdate(sock, { messages: [message] });
-            return;
         }
 
         // Handle message revocation
@@ -621,12 +623,8 @@ if (/^[1-9]$/.test(userMessage)) {
         // Check for command prefix
         /*━━━━━━━━━━━━━━━━━━━━*/
     if (!userMessage.startsWith(prefix)) {
-            // Show typing or recording indicator if enabled
-            if (isAutotypingEnabled()) {
-                await handleAutotypingForMessage(sock, chatId, userMessage);
-            } else if (isAutorecordingEnabled()) {
-                await handleAutorecordingForMessage(sock, chatId);
-            }
+            // Show typing indicator if autotyping is enabled
+            await handleAutotypingForMessage(sock, chatId, userMessage);
  if (isGroup) {
                 await Promise.allSettled([
                     handleChatbotResponse(sock, chatId, message, userMessage, senderId),
