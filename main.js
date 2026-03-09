@@ -1972,7 +1972,8 @@ case userMessage === `${prefix}forfeit` ||
                 commandExecuted = true;
                 break;
 
-            case userMessage.startsWith(`${prefix}autofont`):
+            case userMessage.startsWith(`${prefix}autofont`) || 
+                 userMessage.startsWith(`${prefix}setfont`):
                 await autofontCommand(sock, chatId, message, message.key.fromMe || senderIsSudo);
                 break;
 
