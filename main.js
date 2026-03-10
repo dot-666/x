@@ -355,7 +355,6 @@ const { antistatusmentionCommand, handleAntiStatusMention } = require('./command
 const { startScramble, handleScrambleGuess, endScramble } = require('./commands/scramble');
 const { antiimageCommand, handleImageDetection } = require('./commands/antiimage');
 const { ligue1StandingsCommand, laligaStandingsCommand, matchesCommand } = require('./commands/sport1');
-const { antieditCommand, handleAntiEditUpdate } = require('./commands/antiedit');
 const approveCommand = require('./commands/approve');
 const smemeCommand = require('./commands/smeme');
 const wormgptCommand = require('./commands/wormgpt');
@@ -434,12 +433,6 @@ async function handleMessages(sock, messageUpdate, printLog) {
             addMessageReaction(sock, message)
         ]);
 
-        if (!sock._antieditListenerBound) {
-            sock.ev.on('messages.update', async (updates) => {
-                await handleAntiEditUpdate(sock, updates);
-            });
-            sock._antieditListenerBound = true;
-        }
 
         if (!sock._callListenerBound) {
             sock.ev.on('call', async (callData) => {
@@ -869,9 +862,6 @@ return;
                 commandExecuted = true;
                 break;
 
-           case userMessage.startsWith(`${prefix}antiedit`):
-                 await antieditCommand(sock, chatId, message);
-                 break;
 
             case userMessage.startsWith(`${prefix}warnings`):
                 const mentionedJidListWarnings = message.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
