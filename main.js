@@ -836,9 +836,6 @@ return;
                 break;
 
                 
-            case userMessage.startsWith(`${prefix}restart`):
-                await restartCommand(sock, chatId, message);
-                break;
 
             case userMessage === `${prefix}help` || 
                  userMessage === `${prefix}menu` ||
@@ -1338,7 +1335,7 @@ case userMessage === `${prefix}forfeit` ||
                 break;
                 
 
-            case userMessage === `${prefix}blocklist` ||
+            case userMessage === `${prefix}allblocklist` ||
                  userMessage === `${prefix}listblock`:
                 await blocklistCommand(sock, chatId, message);
                 break;                
