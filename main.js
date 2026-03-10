@@ -355,6 +355,7 @@ const metaiCommand = require('./commands/ai-meta');
 const { anticallCommand, handleIncomingCall } = require('./commands/anticall');
 const { antistickerCommand, handleStickerDetection } = require('./commands/antisticker');
 const { antistatusmentionCommand, handleAntiStatusMention } = require('./commands/antimention');
+const { startScramble, handleScrambleGuess, endScramble } = require('./commands/scramble');
 const { antiimageCommand, handleImageDetection } = require('./commands/antiimage');
 const { ligue1StandingsCommand, laligaStandingsCommand, matchesCommand } = require('./commands/sport1');
 const approveCommand = require('./commands/approve');
@@ -587,12 +588,14 @@ const fake = createFakeContact(message);
             
 // Add this after your command handler, in the regular message processing:
 if (/^[1-9]$/.test(userMessage)) {
-    // Try Tic-Tac-Toe first
     const tttResult = await handleTicTacToeMove(sock, chatId, senderId, userMessage);
-    // If not in Tic-Tac-Toe and number is 1-7, try Connect Four
     if (!tttResult && parseInt(userMessage) <= 7) {
         await handleConnectFourMove(sock, chatId, senderId, userMessage);
     }
+}
+
+if (userMessage && !userMessage.startsWith(prefix)) {
+    await handleScrambleGuess(sock, chatId, senderId, userMessage);
 }
 
 
@@ -1242,6 +1245,17 @@ case userMessage === `${prefix}forfeit` ||
 
             case userMessage.startsWith(`${prefix}insult`):
                 await insultCommand(sock, chatId, message);
+                break;
+
+            
+            case userMessage.startsWith(`${prefix}scramble`): {
+                const scrambleMode = userMessage.split(' ')[1];
+                await startScramble(sock, chatId, senderId, scrambleMode || '');
+                break;
+            }
+
+            case userMessage.startsWith(`${prefix}endscramble`):
+                await endScramble(sock, chatId);
                 break;
 
                 
