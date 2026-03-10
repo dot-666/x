@@ -130,9 +130,62 @@ function getReadReceiptsSetting() {
     }
 }
 
+// ---------- Simple On/Off Read Receipts Command ----------
+
+async function readReceiptsCommand(sock, chatId, message) {
+    try {
+        const senderId = message.key.participant || message.key.remoteJid;
+        if (!message.key.fromMe && !(await isSudo(senderId))) {
+            return sock.sendMessage(chatId, { text: '❌ Owner only command!' }, { quoted: createFakeContact(message) });
+        }
+
+        const rawText = message.message?.conversation ||
+                        message.message?.extendedTextMessage?.text || '';
+        const arg = rawText.trim().split(/\s+/)[1]?.toLowerCase();
+
+        const config = loadConfig();
+
+        if (!arg) {
+            const current = config.readReceipts || 'all';
+            const statusLabel = current === 'none' ? '❌ OFF (not sending receipts)' : '✅ ON (sending receipts)';
+            return sock.sendMessage(chatId, {
+                text: `📱 *Read Receipts Status:* ${statusLabel}\n\n` +
+                      `Usage: .readreciepts on | off`
+            }, { quoted: createFakeContact(message) });
+        }
+
+        if (arg === 'on') {
+            config.readReceipts = 'all';
+            saveConfig(config);
+            await sock.updateReadReceiptsPrivacy('all');
+            return sock.sendMessage(chatId, {
+                text: '✅ Read receipts turned *ON*. Everyone will see when you read messages.'
+            }, { quoted: createFakeContact(message) });
+        }
+
+        if (arg === 'off') {
+            config.readReceipts = 'none';
+            saveConfig(config);
+            await sock.updateReadReceiptsPrivacy('none');
+            return sock.sendMessage(chatId, {
+                text: '✅ Read receipts turned *OFF*. No one will see when you read messages.'
+            }, { quoted: createFakeContact(message) });
+        }
+
+        return sock.sendMessage(chatId, {
+            text: '❌ Invalid option! Usage: .readreciepts on | off'
+        }, { quoted: createFakeContact(message) });
+
+    } catch (err) {
+        console.error('❌ Error in readReceiptsCommand:', err);
+        return sock.sendMessage(chatId, { text: '❌ Failed to update read receipts!' }, { quoted: createFakeContact(message) });
+    }
+}
+
 // ---------- Exports ----------
 module.exports = {
     autoreadReceiptsCommand,
     applyReadReceiptsPrivacy,
-    getReadReceiptsSetting
+    getReadReceiptsSetting,
+    readReceiptsCommand
 };
