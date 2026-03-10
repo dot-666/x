@@ -58,7 +58,11 @@ async function dispCommand(sock, chatId, message) {
 
         const duration = DURATIONS[option];
 
-        await sock.chatModify({ disappearingMessageDuration: duration }, chatId);
+        // For private chats Baileys uses sendMessage with disappearingMessagesInChat.
+        // false = off (0 seconds), a number = specific duration in seconds.
+        await sock.sendMessage(chatId, {
+            disappearingMessagesInChat: duration === 0 ? false : duration
+        });
 
         const label = DURATION_LABELS[duration] || option;
         await sock.sendMessage(chatId, {
@@ -66,9 +70,9 @@ async function dispCommand(sock, chatId, message) {
         }, { quoted: createFakeContact(message) });
 
     } catch (err) {
-        console.error('dispCommand error:', err);
+        console.error('dispCommand error:', err.message || err);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to update disappearing messages.\nMake sure the bot has the required permissions.'
+            text: `❌ Failed to update disappearing messages.\nError: ${err.message || 'unknown'}`
         }, { quoted: createFakeContact(message) });
     }
 }
