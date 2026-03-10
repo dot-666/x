@@ -88,14 +88,13 @@ async function processStatusMessage(sock, msgKey) {
     // Mark as viewed
     try {
         await sock.readMessages([resolvedKey]);
-        const who = resolvedParticipant?.split('@')[0] || 'unknown';
-        console.log(`[ JUNE - X ] 👁️ Status viewed: ${who}`);
+        // Notification removed
     } catch (err) {
         if (err.message?.includes('rate-overlimit')) {
             await new Promise(r => setTimeout(r, 3000));
             try { await sock.readMessages([resolvedKey]); } catch { /* ignore */ }
         } else {
-            console.error('[ JUNE - X ] ❌ readMessages error:', err.message);
+            // Error removed
         }
     }
 
@@ -119,7 +118,7 @@ async function processStatusMessage(sock, msgKey) {
             { statusJidList: jidList }
         );
     } catch (err) {
-        console.error('[ JUNE - X ] ❌ React error:', err.message);
+        // Error removed
     }
 }
 
@@ -152,7 +151,7 @@ async function handleStatusUpdate(sock, statusUpdate) {
             await processStatusMessage(sock, statusUpdate.reaction.key);
         }
     } catch (err) {
-        console.error('[ JUNE - X ] ❌ handleStatusUpdate error:', err.message);
+        // Error removed
     }
 }
 
@@ -249,7 +248,6 @@ async function autoStatusCommand(sock, chatId, msg, args) {
         }
 
     } catch (err) {
-        console.error('Error in autoStatusCommand:', err);
         await sock.sendMessage(chatId, { text: '❌ Error: ' + err.message }, { quoted: createFakeContact(msg) });
     }
 }
