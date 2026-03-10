@@ -10,11 +10,10 @@ process.stdout.write = function (chunk, encoding, callback) {
         return;
     }
 
+    return originalWrite.apply(this, arguments);
+};
 
-
-
-
-⁰999const originalWriteError = process.stderr.write;
+const originalWriteError = process.stderr.write;
 process.stderr.write = function (chunk, encoding, callback) {
     const message = chunk.toString();
     if (message.includes('Closing session: SessionEntry')) {
@@ -140,6 +139,7 @@ const {
 } = require('./commands/autoread');
 
 const { readReceiptsCommand } = require('./commands/autoReadReciepts');
+const { alwaysonlineCommand, applyAlwaysOnlineOnStartup } = require('./commands/alwaysonline');
  
 const { 
  incrementMessageCount, 
@@ -156,6 +156,7 @@ const {
  setDisappearingMessages
 } = require('./commands/groupmanage');
 
+const { handleAntibotCommand, handleAntibotJoin } = require('./commands/antibot');
  
 const { 
  handleAntilinkCommand, 
@@ -683,7 +684,8 @@ return;
             `${prefix}autotyping`, 
             `${prefix}autoread`, 
             `${prefix}pmblocker`,
-            `${prefix}readreciepts`
+            `${prefix}readreciepts`,
+            `${prefix}alwaysonline`
         ];
         const isOwnerCommand = ownerCommands.some(cmd =>
             userMessage === cmd || userMessage.startsWith(cmd + ' ')
@@ -2041,6 +2043,10 @@ case userMessage === `${prefix}forfeit` ||
                 await readReceiptsCommand(sock, chatId, message);
                 break;
 
+            case userMessage.startsWith(`${prefix}alwaysonline`):
+                await alwaysonlineCommand(sock, chatId, message);
+                break;
+
             case userMessage.startsWith(`${prefix}autofont`) || 
                  userMessage.startsWith(`${prefix}setfont`):
                 await autofontCommand(sock, chatId, message, message.key.fromMe || senderIsSudo);
@@ -2344,5 +2350,6 @@ module.exports = {
     handleGroupParticipantUpdate,
     handleStatus: async (sock, status) => {
         await handleStatusUpdate(sock, status);
-    }
+    },
+    applyAlwaysOnlineOnStartup
 };
