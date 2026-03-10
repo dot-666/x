@@ -3,6 +3,17 @@ const { normalizeJid } = require('../lib/jid');
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
+/**
+ * Convert any JID to a clean phone number string (without device suffix or domain).
+ * @param {string} jid - The JID (e.g., "123456789:1@s.whatsapp.net")
+ * @returns {string} - Clean phone number (e.g., "123456789")
+ */
+function jidToPhone(jid) {
+    if (!jid) return '';
+    // Remove device suffix (e.g., :1) and domain
+    return jid.split(':')[0].replace('@s.whatsapp.net', '');
+}
+
 async function isOwnerOrSudo(sock, message) {
     if (message?.key?.fromMe === true) return true;
     const senderId = message?.key?.participant || message?.key?.remoteJid;
@@ -24,7 +35,8 @@ function parseNumberArg(message) {
     if (!arg) return null;
     const digits = arg.replace(/\D/g, '');
     if (digits.length < 7) return null;
-    return `${digits}@s.whatsapp.net`;
+    // Normalize the constructed JID to strip any accidental device suffix
+    return normalizeJid(`${digits}@s.whatsapp.net`);
 }
 
 async function blockCommand(sock, chatId, message) {
@@ -51,9 +63,10 @@ async function blockCommand(sock, chatId, message) {
     try {
         await sock.updateBlockStatus(target, 'block');
         await sock.sendMessage(chatId, {
-            text: `🔒 *Blocked*\n\n+${target.replace('@s.whatsapp.net', '')} has been blocked.`
+            text: `🔒 *Blocked*\n\n+${jidToPhone(target)} has been blocked.`
         }, { quoted: message });
     } catch (e) {
+        console.error('[Block] Error:', e);
         await sock.sendMessage(chatId, { text: `❌ Failed to block: ${e.message}` }, { quoted: message });
     }
 }
@@ -77,9 +90,10 @@ async function unblockCommand(sock, chatId, message) {
     try {
         await sock.updateBlockStatus(target, 'unblock');
         await sock.sendMessage(chatId, {
-            text: `🔓 *Unblocked*\n\n+${target.replace('@s.whatsapp.net', '')} has been unblocked.`
+            text: `🔓 *Unblocked*\n\n+${jidToPhone(target)} has been unblocked.`
         }, { quoted: message });
     } catch (e) {
+        console.error('[Unblock] Error:', e);
         await sock.sendMessage(chatId, { text: `❌ Failed to unblock: ${e.message}` }, { quoted: message });
     }
 }
@@ -132,7 +146,12 @@ async function blocklistCommand(sock, chatId, message) {
         }, { quoted: message });
     }
 
-    const lines = blocked.map((jid, i) => `${String(i + 1).padStart(2, '0')}. +${jid.replace('@s.whatsapp.net', '')}`);
+    // Format each JID to a clean phone number and pad with leading zeros for alignment
+    const lines = blocked.map((jid, i) => {
+        const phone = jidToPhone(jid);
+        return `${String(i + 1).padStart(2, '0')}. +${phone}`;
+    });
+
     const chunks = [];
     while (lines.length) chunks.push(lines.splice(0, 50));
 
