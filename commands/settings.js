@@ -3,6 +3,7 @@ const { isSudo } = require('../lib/index');
 const { createFakeContact } = require('../lib/fakeContact');
 const { getAntiimage } = require('../lib/database');
 const { getAntisticker } = require('../lib/database');
+const { getBotName } = require('../lib/botConfig');
 
 function readJsonSafe(path, fallback) {
     try {
@@ -15,6 +16,7 @@ function readJsonSafe(path, fallback) {
 
 async function settingsCommand(sock, chatId, message) {
     try {
+        const botName = getBotName();
         const senderId = message.key.participant || message.key.remoteJid;
         if (!message.key.fromMe && !(await isSudo(senderId))) {
             await sock.sendMessage(chatId, { text: 'Only bot owner can use this command!' }, { quoted: createFakeContact(message) });
@@ -63,7 +65,7 @@ async function settingsCommand(sock, chatId, message) {
 
         const lines = [];
         lines.push('╔══════════════════════╗');
-        lines.push('║   *JUNE MD SETTINGS*   ║');
+        lines.push(`║   *${botName} SETTINGS*   `);
         lines.push('╚══════════════════════╝');
         lines.push('');
         lines.push('*🌐 Global Settings*');
