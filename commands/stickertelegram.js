@@ -8,7 +8,6 @@ const crypto = require('crypto');
 const { exec } = require('child_process');
 const settings = require('../settings');
 
-const { createFakeContact } = require('../lib/fakeContact');
 async function stickerTelegramCommand(sock, chatId, msg) {
     try {
         const pushname = msg.pushName || "Unknown User";
@@ -21,13 +20,13 @@ async function stickerTelegramCommand(sock, chatId, msg) {
         if (!args[0]) {
             return sock.sendMessage(chatId, { 
                 text: '⚠️ Please enter the Telegram sticker URL!\nExample:\n.tg https://t.me/addstickers/Porcientoreal'
-            }, { quoted: createFakeContact(message) });
+            });
         }
 
         if (!args[0].match(/(https:\/\/t.me\/addstickers\/)/gi)) {
             return sock.sendMessage(chatId, { 
                 text: '❌ Invalid URL!\nUse a valid Telegram sticker pack link.'
-            }, { quoted: createFakeContact(message) });
+            });
         }
 
         const packName = args[0].replace("https://t.me/addstickers/", "");
@@ -45,7 +44,7 @@ async function stickerTelegramCommand(sock, chatId, msg) {
 
         await sock.sendMessage(chatId, { 
             text: `📦 Found ${stickerSet.result.stickers.length} stickers\n⏳ Starting download...`
-        }, { quoted: createFakeContact(message) });
+        });
 
         const tmpDir = path.join(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
@@ -104,7 +103,7 @@ async function stickerTelegramCommand(sock, chatId, msg) {
 
                 const finalBuffer = await img.save(null);
 
-                await sock.sendMessage(chatId, { sticker: finalBuffer }, { quoted: createFakeContact(message) });
+                await sock.sendMessage(chatId, { sticker: finalBuffer });
 
                 successCount++;
                 await delay(800);
@@ -126,7 +125,7 @@ async function stickerTelegramCommand(sock, chatId, msg) {
         console.error('❌ stickerTelegramCommand Error:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Failed to process Telegram stickers.\nCheck the link and try again.' 
-        }, { quoted: createFakeContact(message) });
+        });
     }
 }
 
