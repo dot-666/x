@@ -83,10 +83,112 @@ async function setGroupPhoto(sock, chatId, senderId, message) {
     }
 }
 
+async function getGroupProfile(sock, chatId, message) {
+    if (!chatId.endsWith('@g.us')) {
+        await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: message });
+        return;
+    }
+    try {
+        let pp;
+        try {
+            pp = await sock.profilePictureUrl(chatId, 'image');
+        } catch (e) {
+            pp = null;
+        }
+        if (!pp) {
+            await sock.sendMessage(chatId, { text: '❌ This group has no profile picture set.' }, { quoted: message });
+            return;
+        }
+        const meta = await sock.groupMetadata(chatId);
+        await sock.sendMessage(chatId, {
+            image: { url: pp },
+            caption: `📸 *Group Profile Picture*\n👥 *Group:* ${meta.subject || 'Unknown'}`
+        }, { quoted: message });
+    } catch (e) {
+        await sock.sendMessage(chatId, { text: '❌ Failed to fetch group profile picture.' }, { quoted: message });
+    }
+}
+
+async function getGroupName(sock, chatId, message) {
+    if (!chatId.endsWith('@g.us')) {
+        await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: message });
+        return;
+    }
+    try {
+        const meta = await sock.groupMetadata(chatId);
+        await sock.sendMessage(chatId, {
+            text: `📝 *Group Name:* ${meta.subject || 'No name set'}`
+        }, { quoted: message });
+    } catch (e) {
+        await sock.sendMessage(chatId, { text: '❌ Failed to fetch group name.' }, { quoted: message });
+    }
+}
+
+async function getGroupDescription(sock, chatId, message) {
+    if (!chatId.endsWith('@g.us')) {
+        await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: message });
+        return;
+    }
+    try {
+        const meta = await sock.groupMetadata(chatId);
+        const desc = meta.desc ? meta.desc.toString().trim() : null;
+        await sock.sendMessage(chatId, {
+            text: desc
+                ? `📋 *Group Description:*\n\n${desc}`
+                : '❌ This group has no description.'
+        }, { quoted: message });
+    } catch (e) {
+        await sock.sendMessage(chatId, { text: '❌ Failed to fetch group description.' }, { quoted: message });
+    }
+}
+
+async function setDisappearingMessages(sock, chatId, senderId, args, message) {
+    if (!chatId.endsWith('@g.us')) {
+        await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: message });
+        return;
+    }
+    const check = await ensureGroupAndAdmin(sock, chatId, senderId);
+    if (!check.ok) return;
+
+    const option = (args || '').trim().toLowerCase();
+
+    const durations = {
+        'off': 0,
+        '24h': 86400,
+        '7d': 604800,
+        '90d': 7776000
+    };
+
+    if (!durations.hasOwnProperty(option)) {
+        await sock.sendMessage(chatId, {
+            text: '❌ Usage: .setdispmessage <off | 24h | 7d | 90d>\n\n' +
+                  '• *off* — Disable disappearing messages\n' +
+                  '• *24h* — Messages disappear after 24 hours\n' +
+                  '• *7d* — Messages disappear after 7 days\n' +
+                  '• *90d* — Messages disappear after 90 days'
+        }, { quoted: message });
+        return;
+    }
+
+    try {
+        await sock.groupToggleEphemeral(chatId, durations[option]);
+        const label = option === 'off' ? 'disabled' : `set to ${option}`;
+        await sock.sendMessage(chatId, {
+            text: `✅ Disappearing messages ${label}.`
+        }, { quoted: message });
+    } catch (e) {
+        await sock.sendMessage(chatId, { text: '❌ Failed to update disappearing messages.' }, { quoted: message });
+    }
+}
+
 module.exports = {
     setGroupDescription,
     setGroupName,
-    setGroupPhoto
+    setGroupPhoto,
+    getGroupProfile,
+    getGroupName,
+    getGroupDescription,
+    setDisappearingMessages
 };
 
 
