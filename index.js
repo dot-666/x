@@ -36,7 +36,7 @@ const { rmSync } = require('fs')
 // --- 🌟 NEW: Centralized Logging Function
 
 /**
- * Custom logging function to enforce the [ JUNE - MD ] prefix and styling.
+ * Custom logging function to enforce the [ JUNE - X ] prefix and styling.
  * @param {string} message - The message to log.
  * @param {string} [color='white'] - The chalk color (e.g., 'green', 'red', 'yellow').
  * @param {boolean} [isError=false] - Whether to use console.error.
@@ -476,6 +476,15 @@ async function sendWelcomeMessage(XeonBotInc) {
         // NEW: Reset the error counter on successful connection
         deleteErrorCountFile();
         global.errorRetryCount = 0;
+
+        // Apply always-online setting if it was enabled before restart
+        if (typeof global._applyAlwaysOnlineOnStartup === 'function') {
+            try {
+                await global._applyAlwaysOnlineOnStartup(XeonBotInc);
+            } catch (e) {
+                log(`[AlwaysOnline] Startup apply failed: ${e.message}`, 'yellow', false);
+            }
+        }
     } catch (e) {
         log(`Error sending welcome message during stabilization: ${e.message}`, 'red', true);
         global.isBotConnected = false;
@@ -553,7 +562,6 @@ async function startXeonBotInc() {
 
     // --- 🚨 MESSAGE LOGGER ---
     XeonBotInc.ev.on('messages.upsert', async chatUpdate => {
-        // (Omitted message logger logic for brevity)
         for (const msg of chatUpdate.messages) {
               if (!msg.message) continue;
               let chatId = msg.key.remoteJid;
@@ -754,6 +762,7 @@ async function tylor() {
         handleMessages = mainModules.handleMessages;
         handleGroupParticipantUpdate = mainModules.handleGroupParticipantUpdate;
         handleStatus = mainModules.handleStatus;
+        global._applyAlwaysOnlineOnStartup = mainModules.applyAlwaysOnlineOnStartup;
 
         const myfuncModule = require('./lib/myfunc');
         smsg = myfuncModule.smsg;
@@ -858,5 +867,3 @@ async function tylor() {
 tylor().catch(err => log(`Fatal error starting bot: ${err.message}`, 'red', true));
 process.on('uncaughtException', (err) => log(`Uncaught Exception: ${err.message}`, 'red', true));
 process.on('unhandledRejection', (err) => log(`Unhandled Rejection: ${err.message}`, 'red', true));
-
-
