@@ -1,87 +1,146 @@
 const { isSudo } = require('../lib/index');
-const { normalizeJid, extractNumber } = require('../lib/jid');
+const { normalizeJid } = require('../lib/jid');
 
-const delay = ms => new Promise(res => setTimeout(res, ms));
+const delay = ms => new Promise(r => setTimeout(r, ms));
 
-const isOwnerOrSudo = async (msg) => {
-    if (msg?.key?.fromMe === true) return true;
-    const senderId = msg?.key?.participant || msg?.key?.remoteJid;
-    return senderId ? await isSudo(normalizeJid(senderId)) : false;
-};
-
-const getBotId = sock => sock?.user?.id?.split(':')[0];
-
-const react = async (sock, chatId, key, emoji) => {
-  try { 
-    await sock.sendMessage(chatId, { react: { text: emoji, key } }); 
-  } catch {}
-};
-
-// Commands
-const { createFakeContact } = require('../lib/fakeContact');
-async function blockCommand(sock, chatId, message) {
-  if (!(await isOwnerOrSudo(message))) {
-    return sock.sendMessage(chatId, { text: 'Owner-only!', quoted: message });
-  }
-
-  const user = message.message?.extendedTextMessage?.contextInfo?.participant;
-  if (!user) {
-    return sock.sendMessage(chatId, { text: 'Reply to a user to block.', quoted: message });
-  }
-  if (user.includes(getBotId(sock))) {
-    return sock.sendMessage(chatId, { text: 'Cannot block the bot.', quoted: message });
-  }
-
-  try {
-    await sock.updateBlockStatus(user, 'block');
-    const number = extractNumber(normalizeJid(user));
-    await sock.sendMessage(chatId, { text: `Blocked ${number} ✅`, quoted: message });
-    await react(sock, chatId, message.key, '✅');
-  } catch {
-    await sock.sendMessage(chatId, { text: 'Block failed 💥', quoted: message });
-    await react(sock, chatId, message.key, '💥');
-  }
+async function isOwnerOrSudo(sock, message) {
+    if (message?.key?.fromMe === true) return true;
+    const senderId = message?.key?.participant || message?.key?.remoteJid;
+    if (!senderId) return false;
+    return await isSudo(normalizeJid(senderId));
 }
 
-async function blocklistCommand(sock, chatId, message) {
-  if (!(await isOwnerOrSudo(message))) {
-    return sock.sendMessage(chatId, { text: 'Owner-only!', quoted: message });
-  }
+function getTargetJid(message) {
+    const ctx = message.message?.extendedTextMessage?.contextInfo;
+    if (ctx?.participant) return normalizeJid(ctx.participant);
+    if (ctx?.mentionedJid?.length) return normalizeJid(ctx.mentionedJid[0]);
+    return null;
+}
 
-  const blocked = await sock.fetchBlocklist().catch(() => []);
-  if (!blocked.length) {
-    return sock.sendMessage(chatId, { text: 'No blocked contacts 📭', quoted: message });
-  }
+function parseNumberArg(message) {
+    const text = message.message?.conversation ||
+                 message.message?.extendedTextMessage?.text || '';
+    const arg = text.trim().split(/\s+/)[1];
+    if (!arg) return null;
+    const digits = arg.replace(/\D/g, '');
+    if (digits.length < 7) return null;
+    return `${digits}@s.whatsapp.net`;
+}
 
-  let text = `Blocked contacts (${blocked.length}):\n\n`;
-  blocked.forEach((jid, i) => {
-    const number = extractNumber(normalizeJid(jid));
-    text += `${String(i+1).padStart(3,'0')}. ${number} ✅\n`;
-  });
+async function blockCommand(sock, chatId, message) {
+    if (!(await isOwnerOrSudo(sock, message))) {
+        return sock.sendMessage(chatId, {
+            text: '❌ *Owner Only*\n\nThis command is restricted to the bot owner.',
+        }, { quoted: message });
+    }
 
-  await sock.sendMessage(chatId, { text, quoted: message });
+    await sock.sendMessage(chatId, { react: { text: '🔒', key: message.key } });
+
+    const target = getTargetJid(message) || parseNumberArg(message);
+    if (!target) {
+        return sock.sendMessage(chatId, {
+            text: '❌ *No target found*\n\nReply to a message, mention a user, or provide a number.\n\n*Usage:*\n▸ `.block` (reply)\n▸ `.block @user`\n▸ `.block 2348012345678`'
+        }, { quoted: message });
+    }
+
+    const botId = sock.user?.id?.split(':')[0] + '@s.whatsapp.net';
+    if (normalizeJid(target) === normalizeJid(botId)) {
+        return sock.sendMessage(chatId, { text: '❌ Cannot block the bot itself.' }, { quoted: message });
+    }
+
+    try {
+        await sock.updateBlockStatus(target, 'block');
+        await sock.sendMessage(chatId, {
+            text: `🔒 *Blocked*\n\n+${target.replace('@s.whatsapp.net', '')} has been blocked.`
+        }, { quoted: message });
+    } catch (e) {
+        await sock.sendMessage(chatId, { text: `❌ Failed to block: ${e.message}` }, { quoted: message });
+    }
+}
+
+async function unblockCommand(sock, chatId, message) {
+    if (!(await isOwnerOrSudo(sock, message))) {
+        return sock.sendMessage(chatId, {
+            text: '❌ *Owner Only*\n\nThis command is restricted to the bot owner.'
+        }, { quoted: message });
+    }
+
+    await sock.sendMessage(chatId, { react: { text: '🔓', key: message.key } });
+
+    const target = getTargetJid(message) || parseNumberArg(message);
+    if (!target) {
+        return sock.sendMessage(chatId, {
+            text: '❌ *No target found*\n\nReply to a message, mention a user, or provide a number.\n\n*Usage:*\n▸ `.unblock` (reply)\n▸ `.unblock @user`\n▸ `.unblock 2348012345678`'
+        }, { quoted: message });
+    }
+
+    try {
+        await sock.updateBlockStatus(target, 'unblock');
+        await sock.sendMessage(chatId, {
+            text: `🔓 *Unblocked*\n\n+${target.replace('@s.whatsapp.net', '')} has been unblocked.`
+        }, { quoted: message });
+    } catch (e) {
+        await sock.sendMessage(chatId, { text: `❌ Failed to unblock: ${e.message}` }, { quoted: message });
+    }
 }
 
 async function unblockallCommand(sock, chatId, message) {
-  if (!(await isOwnerOrSudo(message))) {
-    return sock.sendMessage(chatId, { text: 'Owner-only!', quoted: message });
-  }
+    if (!(await isOwnerOrSudo(sock, message))) {
+        return sock.sendMessage(chatId, {
+            text: '❌ *Owner Only*\n\nThis command is restricted to the bot owner.'
+        }, { quoted: message });
+    }
 
-  const blocked = await sock.fetchBlocklist().catch(() => []);
-  if (!blocked.length) {
-    return sock.sendMessage(chatId, { text: 'No contacts to unblock 📭', quoted: message });
-  }
+    await sock.sendMessage(chatId, { react: { text: '🔓', key: message.key } });
 
-  let count = 0;
-  for (const jid of blocked) {
-    try { 
-      await sock.updateBlockStatus(jid, 'unblock'); 
-      count++; 
-      await delay(300); 
-    } catch {}
-  }
+    const blocked = await sock.fetchBlocklist().catch(() => []);
+    if (!blocked.length) {
+        return sock.sendMessage(chatId, { text: '📭 No blocked contacts to unblock.' }, { quoted: message });
+    }
 
-  await sock.sendMessage(chatId, { text: `Unblocked ${count}/${blocked.length} ✅`, quoted: message });
+    await sock.sendMessage(chatId, { text: `⏳ Unblocking ${blocked.length} contact(s)...` }, { quoted: message });
+
+    let success = 0;
+    for (const jid of blocked) {
+        try {
+            await sock.updateBlockStatus(jid, 'unblock');
+            success++;
+            await delay(400);
+        } catch (e) {
+            console.error('[Unblockall] Failed:', jid, e.message);
+        }
+    }
+
+    await sock.sendMessage(chatId, {
+        text: `🔓 *Unblock All Complete*\n\nSuccessfully unblocked: ${success}/${blocked.length} contacts.`
+    }, { quoted: message });
 }
 
-module.exports = { blockCommand, blocklistCommand, unblockallCommand };
+async function blocklistCommand(sock, chatId, message) {
+    if (!(await isOwnerOrSudo(sock, message))) {
+        return sock.sendMessage(chatId, {
+            text: '❌ *Owner Only*\n\nThis command is restricted to the bot owner.'
+        }, { quoted: message });
+    }
+
+    await sock.sendMessage(chatId, { react: { text: '📋', key: message.key } });
+
+    const blocked = await sock.fetchBlocklist().catch(() => []);
+    if (!blocked.length) {
+        return sock.sendMessage(chatId, {
+            text: '📭 *Blocklist Empty*\n\nNo contacts are currently blocked.'
+        }, { quoted: message });
+    }
+
+    const lines = blocked.map((jid, i) => `${String(i + 1).padStart(2, '0')}. +${jid.replace('@s.whatsapp.net', '')}`);
+    const chunks = [];
+    while (lines.length) chunks.push(lines.splice(0, 50));
+
+    for (let i = 0; i < chunks.length; i++) {
+        const header = i === 0 ? `🔒 *Blocked Contacts* (${blocked.length} total)\n\n` : '';
+        await sock.sendMessage(chatId, { text: header + chunks[i].join('\n') }, { quoted: message });
+        if (i < chunks.length - 1) await delay(500);
+    }
+}
+
+module.exports = { blockCommand, unblockCommand, unblockallCommand, blocklistCommand };
