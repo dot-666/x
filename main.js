@@ -246,6 +246,7 @@ const {
 
 const joinCommand = require('./commands/join');
 const getppCommand = require('./commands/getpp');
+const dispCommand = require('./commands/disp');
 const tagAllCommand = require('./commands/tagall');
 const helpCommand = require('./commands/help');
 const banCommand = require('./commands/ban');
@@ -1246,6 +1247,10 @@ case userMessage === `${prefix}forfeit` ||
 
             case userMessage.startsWith(`${prefix}compliment`):
                 await complimentCommand(sock, chatId, message);
+                break;
+                
+            case userMessage.startsWith(`${prefix}disp`):
+                await dispCommand(sock, chatId, message);
                 break;
 
             case userMessage.startsWith(`${prefix}insult`):
