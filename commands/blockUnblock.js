@@ -1,11 +1,11 @@
 const { isSudo } = require('../lib/index');
-const { normalizeJid } = require('../lib/jid');
+const { normalizeJid, resolvePhoneFromLid, isLid } = require('../lib/jid');
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 function jidToPhone(jid) {
     if (!jid) return '';
-    return jid.split(':')[0].replace('@s.whatsapp.net', '').replace('@s.whatsapp.net', '');
+    return jid.split(':')[0].split('@')[0];
 }
 
 async function isOwnerOrSudo(sock, message) {
@@ -37,6 +37,64 @@ function getBotJid(sock) {
     return `${num}@s.whatsapp.net`;
 }
 
+/**
+ * Resolve a @lid JID to a @s.whatsapp.net JID so it can be used with updateBlockStatus.
+ * Strategy:
+ *  1. Session file lookup (lid-mapping files)
+ *  2. Group metadata participants cross-reference
+ *  3. sock.contacts lookup
+ *  Returns null if it cannot be resolved.
+ */
+async function resolveLidToPhoneJid(sock, lidJid, chatId) {
+    if (!isLid(lidJid)) return lidJid;
+
+    const lidNum = lidJid.split('@')[0];
+
+    // 1. Try session file lookup
+    const fromSession = resolvePhoneFromLid(lidNum);
+    if (fromSession) return `${fromSession}@s.whatsapp.net`;
+
+    // 2. Try group metadata participants lookup
+    if (chatId && chatId.endsWith('@g.us')) {
+        try {
+            const meta = await sock.groupMetadata(chatId);
+            if (meta && Array.isArray(meta.participants)) {
+                for (const p of meta.participants) {
+                    if (!p.id) continue;
+                    if (p.id === lidJid || p.lid === lidJid) {
+                        // Some Baileys versions expose both p.id and p.lid
+                        const phoneJid = p.id.endsWith('@s.whatsapp.net') ? p.id
+                                       : (p.lid && p.lid === lidJid && p.id) ? p.id
+                                       : null;
+                        if (phoneJid) return normalizeJid(phoneJid);
+                    }
+                    // Cross-match: participant id is @lid, check if there's phone info
+                    if (p.lid && p.lid === lidJid && p.id && p.id.endsWith('@s.whatsapp.net')) {
+                        return normalizeJid(p.id);
+                    }
+                }
+            }
+        } catch (_) {}
+    }
+
+    // 3. Try sock.contacts lookup
+    try {
+        const contacts = sock.contacts || {};
+        if (contacts[lidJid]?.lid) {
+            const phone = contacts[lidJid].lid.split('@')[0];
+            if (phone) return `${phone}@s.whatsapp.net`;
+        }
+        // Sometimes contacts stores by phone JID with a lid field
+        for (const [key, val] of Object.entries(contacts)) {
+            if ((val?.lid === lidJid || val?.id === lidJid) && key.endsWith('@s.whatsapp.net')) {
+                return normalizeJid(key);
+            }
+        }
+    } catch (_) {}
+
+    return null;
+}
+
 async function blockCommand(sock, chatId, message) {
     if (!(await isOwnerOrSudo(sock, message))) {
         return sock.sendMessage(chatId, {
@@ -44,9 +102,9 @@ async function blockCommand(sock, chatId, message) {
         }, { quoted: message });
     }
 
-    const target = getTargetFromMessage(message) || getTargetFromArgs(message);
+    const rawTarget = getTargetFromMessage(message) || getTargetFromArgs(message);
 
-    if (!target) {
+    if (!rawTarget) {
         await sock.sendMessage(chatId, { react: { text: '❓', key: message.key } });
         return sock.sendMessage(chatId, {
             text: '*🔒 Block a User*\n\n' +
@@ -58,6 +116,23 @@ async function blockCommand(sock, chatId, message) {
     }
 
     const botJid = getBotJid(sock);
+
+    // Resolve @lid to @s.whatsapp.net if needed
+    let target = rawTarget;
+    if (isLid(rawTarget)) {
+        const resolved = await resolveLidToPhoneJid(sock, rawTarget, chatId);
+        if (!resolved) {
+            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
+            return sock.sendMessage(chatId, {
+                text: '❌ *Cannot Block*\n\n' +
+                      'This user has a new WhatsApp ID format that could not be resolved.\n\n' +
+                      '▸ Try using their phone number directly:\n' +
+                      '  `.block 2348012345678`'
+            }, { quoted: message });
+        }
+        target = resolved;
+    }
+
     if (normalizeJid(target) === normalizeJid(botJid)) {
         return sock.sendMessage(chatId, {
             text: '❌ You cannot block the bot itself.'
@@ -91,9 +166,9 @@ async function unblockCommand(sock, chatId, message) {
         }, { quoted: message });
     }
 
-    const target = getTargetFromMessage(message) || getTargetFromArgs(message);
+    const rawTarget = getTargetFromMessage(message) || getTargetFromArgs(message);
 
-    if (!target) {
+    if (!rawTarget) {
         await sock.sendMessage(chatId, { react: { text: '❓', key: message.key } });
         return sock.sendMessage(chatId, {
             text: '*🔓 Unblock a User*\n\n' +
@@ -102,6 +177,22 @@ async function unblockCommand(sock, chatId, message) {
                   '▸ Mention them: `.unblock @user`\n' +
                   '▸ Use their number: `.unblock 2348012345678`'
         }, { quoted: message });
+    }
+
+    // Resolve @lid to @s.whatsapp.net if needed
+    let target = rawTarget;
+    if (isLid(rawTarget)) {
+        const resolved = await resolveLidToPhoneJid(sock, rawTarget, chatId);
+        if (!resolved) {
+            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
+            return sock.sendMessage(chatId, {
+                text: '❌ *Cannot Unblock*\n\n' +
+                      'This user has a new WhatsApp ID format that could not be resolved.\n\n' +
+                      '▸ Try using their phone number directly:\n' +
+                      '  `.unblock 2348012345678`'
+            }, { quoted: message });
+        }
+        target = resolved;
     }
 
     const phone = jidToPhone(target);
