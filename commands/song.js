@@ -82,7 +82,7 @@ async function songCommand(sock, chatId, message) {
         const apis = [
             `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
             `https://apis.xwolf.space/download/audio?url=${encodeURIComponent(video.url)}`,
-            `https://api.giftedtech.co.ke/api/download/ytmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`
+            `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`
         ];
         
         for (const api of apis) {
