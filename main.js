@@ -230,9 +230,6 @@ const {
  handleHeart 
 } = require('./commands/misc');
 
-
-const { antieditCommand 
-} = require('./commands/antiedit');
  
 /*━━━━━━━━━━━━━━━━━━━━*/
 // -----Command imports-----
