@@ -10,10 +10,11 @@ process.stdout.write = function (chunk, encoding, callback) {
         return;
     }
 
-    return originalWrite.apply(this, arguments);
-};
 
-const originalWriteError = process.stderr.write;
+
+
+
+⁰999const originalWriteError = process.stderr.write;
 process.stderr.write = function (chunk, encoding, callback) {
     const message = chunk.toString();
     if (message.includes('Closing session: SessionEntry')) {
@@ -137,6 +138,8 @@ const {
  isAutoreadEnabled, 
  handleAutoread 
 } = require('./commands/autoread');
+
+const { readReceiptsCommand } = require('./commands/autoReadReciepts');
  
 const { 
  incrementMessageCount, 
@@ -146,8 +149,13 @@ const {
 const { 
  setGroupDescription, 
  setGroupName, 
- setGroupPhoto 
+ setGroupPhoto,
+ getGroupProfile,
+ getGroupName,
+ getGroupDescription,
+ setDisappearingMessages
 } = require('./commands/groupmanage');
+
  
 const { 
  handleAntilinkCommand, 
@@ -654,7 +662,9 @@ return;
             `${prefix}antitag`, 
             `${prefix}setgdesc`, 
             `${prefix}setgname`, 
-            `${prefix}setgpp`
+            `${prefix}setgpp`,
+            `${prefix}antibot`,
+            `${prefix}setdispmessage`
         ];
         const isAdminCommand = adminCommands.some(cmd =>
             userMessage === cmd || userMessage.startsWith(cmd + ' ')
@@ -672,7 +682,8 @@ return;
             `${prefix}autoreact`, 
             `${prefix}autotyping`, 
             `${prefix}autoread`, 
-            `${prefix}pmblocker`
+            `${prefix}pmblocker`,
+            `${prefix}readreciepts`
         ];
         const isOwnerCommand = ownerCommands.some(cmd =>
             userMessage === cmd || userMessage.startsWith(cmd + ' ')
@@ -1862,6 +1873,50 @@ case userMessage === `${prefix}forfeit` ||
                 await setGroupPhoto(sock, chatId, senderId, message);
                 break;
 
+            case userMessage === `${prefix}getgcprofile` ||
+                 userMessage.startsWith(`${prefix}getgcprofile `):
+                if (!isGroup) {
+                    await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups!' }, { quoted: message });
+                    return;
+                }
+                await getGroupProfile(sock, chatId, message);
+                break;
+
+            case userMessage === `${prefix}getgcname` ||
+                 userMessage.startsWith(`${prefix}getgcname `):
+                if (!isGroup) {
+                    await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups!' }, { quoted: message });
+                    return;
+                }
+                await getGroupName(sock, chatId, message);
+                break;
+
+            case userMessage === `${prefix}getgcdescription` ||
+                 userMessage === `${prefix}getgcdesc` ||
+                 userMessage.startsWith(`${prefix}getgcdescription `) ||
+                 userMessage.startsWith(`${prefix}getgcdesc `):
+                if (!isGroup) {
+                    await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups!' }, { quoted: message });
+                    return;
+                }
+                await getGroupDescription(sock, chatId, message);
+                break;
+
+            case userMessage.startsWith(`${prefix}setdispmessage`):
+                {
+                    const arg = rawText.slice((prefix + 'setdispmessage').length).trim();
+                    await setDisappearingMessages(sock, chatId, senderId, arg, message);
+                }
+                break;
+
+            case userMessage.startsWith(`${prefix}antibot`):
+                if (!isGroup) {
+                    await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups!' }, { quoted: message });
+                    return;
+                }
+                await handleAntibotCommand(sock, chatId, userMessage, senderId, isSenderAdmin, message);
+                break;
+
             /*━━━━━━━━━━━━━━━━━━━━*/
             // Social media downloads
             /*━━━━━━━━━━━━━━━━━━━━*/
@@ -1980,6 +2035,10 @@ case userMessage === `${prefix}forfeit` ||
             case userMessage.startsWith(`${prefix}autoread`):
                 await autoreadCommand(sock, chatId, message);
                 commandExecuted = true;
+                break;
+
+            case userMessage.startsWith(`${prefix}readreciepts`):
+                await readReceiptsCommand(sock, chatId, message);
                 break;
 
             case userMessage.startsWith(`${prefix}autofont`) || 
@@ -2267,6 +2326,7 @@ async function handleGroupParticipantUpdate(sock, update) {
         // Handle join events
         if (action === 'add') {
             await handleJoinEvent(sock, id, participants);
+            await handleAntibotJoin(sock, id, participants);
         }
 
         // Handle leave events
