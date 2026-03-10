@@ -354,6 +354,7 @@ const { antistickerCommand, handleStickerDetection } = require('./commands/antis
 const { antistatusmentionCommand, handleAntiStatusMention } = require('./commands/antimention');
 const { startScramble, handleScrambleGuess, endScramble } = require('./commands/scramble');
 const { antiimageCommand, handleImageDetection } = require('./commands/antiimage');
+const { blockCommand, unblockCommand, unblockallCommand, blocklistCommand } = require('./commands/blockUnblock');
 const { ligue1StandingsCommand, laligaStandingsCommand, matchesCommand } = require('./commands/sport1');
 const approveCommand = require('./commands/approve');
 const smemeCommand = require('./commands/smeme');
@@ -1319,14 +1320,18 @@ case userMessage === `${prefix}forfeit` ||
                 await getppCommand(sock, chatId, message);
                 break;
                 
-            case userMessage === `${prefix}block`:
+            case userMessage.startsWith(`${prefix}block`):
                 await blockCommand(sock, chatId, message);
                 break;
-              
-                
-            case userMessage === `${prefix}unblock`:
+
+            case userMessage.startsWith(`${prefix}unblock`):
+                await unblockCommand(sock, chatId, message);
+                break;
+
+            case userMessage === `${prefix}unblockall`:
                 await unblockallCommand(sock, chatId, message);
                 break;
+
 
                 
             case userMessage === `${prefix}link`:
