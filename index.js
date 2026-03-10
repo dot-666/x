@@ -354,14 +354,37 @@ async function getLoginMethod() {
 async function downloadSessionData() {
     try {
         await fs.promises.mkdir(sessionDir, { recursive: true });
-        if (!fs.existsSync(credsPath) && global.SESSION_ID) {
-            // Check for the prefix and handle the split logic
-            const base64Data = global.SESSION_ID.includes("JUNE-MD:~") ? global.SESSION_ID.split("JUNE-MD:~")[1] : global.SESSION_ID;
-            const sessionData = Buffer.from(base64Data, 'base64');
-            await fs.promises.writeFile(credsPath, sessionData);
-            log(`Session successfully saved.`, 'green');
+        if (!global.SESSION_ID) return;
+
+        const base64Data = global.SESSION_ID.includes("JUNE-MD:~")
+            ? global.SESSION_ID.split("JUNE-MD:~")[1]
+            : global.SESSION_ID;
+
+        let newSessionData;
+        try {
+            newSessionData = Buffer.from(base64Data, 'base64');
+            // Validate it is parseable JSON (a valid creds.json)
+            JSON.parse(newSessionData.toString('utf-8'));
+        } catch (parseErr) {
+            log(`Session ID decoding failed — data is not valid JSON: ${parseErr.message}`, 'red', true);
+            return;
         }
-    } catch (err) { log(`Error downloading session data: ${err.message}`, 'red', true); }
+
+        // If creds.json already exists and is identical, skip re-writing entirely
+        if (fs.existsSync(credsPath)) {
+            const existingData = fs.readFileSync(credsPath);
+            if (existingData.equals(newSessionData)) {
+                log('Session file is already up-to-date. Skipping re-download.', 'green');
+                return;
+            }
+            log('Session ID has changed. Overwriting existing session file...', 'yellow');
+        }
+
+        await fs.promises.writeFile(credsPath, newSessionData);
+        log('Session successfully saved.', 'green');
+    } catch (err) {
+        log(`Error downloading session data: ${err.message}`, 'red', true);
+    }
 }
 
 // --- Request pairing code (JUNE MD) ---
@@ -426,8 +449,8 @@ async function sendWelcomeMessage(XeonBotInc) {
         const currentMode = data.isPublic ? 'public' : 'private';           
         const prefix = getPrefix() || '.';
 
-        // Send the message
-        await XeonBotInc.sendMessage(pNumber, {
+        // Send the message and store the key for auto-delete after 5 minutes
+        const sentMsg = await XeonBotInc.sendMessage(pNumber, {
             text: `
 ┏━━━━━✧ CONNECTED ✧━━━━━━━
 ┃✧ Prefix: [ ${prefix} ]
@@ -441,6 +464,18 @@ async function sendWelcomeMessage(XeonBotInc) {
 ┗━━━━━━━━━━━━━━━━━━━━━`
         });
         log('[ BOT ] successfully connected.', 'blue');
+
+        // Auto-delete welcome message after 5 minutes
+        if (sentMsg?.key) {
+            setTimeout(async () => {
+                try {
+                    await XeonBotInc.sendMessage(pNumber, { delete: sentMsg.key });
+                    log('[ BOT ] Welcome message auto-deleted after 5 minutes.', 'blue');
+                } catch (delErr) {
+                    log(`[ BOT ] Failed to auto-delete welcome message: ${delErr.message}`, 'yellow');
+                }
+            }, 5 * 60 * 1000);
+        }
         
         const newsletters = ["120363405182019728@newsletter", ""];
         global.newsletters = newsletters;
@@ -593,6 +628,8 @@ async function startXeonBotInc() {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             // Capture both DisconnectReason.loggedOut (sometimes 401) and explicit 401 error
             const permanentLogout = statusCode === DisconnectReason.loggedOut || statusCode === 401;
+            // 503 Service Unavailable — exit cleanly so daemon restarts without re-sending welcome
+            const serviceUnavailable = statusCode === 503;
             
             // Log and handle permanent errors (logged out, invalid session)
             if (permanentLogout) {
@@ -609,6 +646,13 @@ async function startXeonBotInc() {
                 // CRITICAL FIX: Use process.exit(1) to trigger a clean restart by the Daemon
                 process.exit(1); 
                 
+            } else if (serviceUnavailable) {
+                // 503: Server-side unavailability — exit without wiping session, let daemon restart cleanly
+                log(chalk.bgYellow.black(`\n⚠️ Disconnected! Status Code: 503 [SERVICE UNAVAILABLE].`), 'yellow');
+                log('Restarting process cleanly to avoid welcome-message loop...', 'blue');
+                await delay(5000);
+                process.exit(1);
+
             } else {
                 // NEW: Handle the 408 Timeout Logic FIRST
                 const is408Handled = await handle408Error(statusCode);
@@ -790,24 +834,23 @@ async function tylor() {
     const envSessionID = process.env.SESSION_ID?.trim();
 
     if (envSessionID && envSessionID.startsWith('JUNE-MD')) { 
-        log("Found new SESSION_ID in environment variable.", 'magenta');
+        log("Found SESSION_ID in environment variable.", 'magenta');
         
-        // 4a. Force the use of the new session by cleaning any old persistent files.
-        clearSessionFiles(); 
-        
-        // 4b. Set global and download the new session file (creds.json) from the .env value.
+        // Set global SESSION_ID and download/verify the session file.
+        // downloadSessionData now compares content — it only rewrites if the session changed.
         global.SESSION_ID = envSessionID;
         await downloadSessionData(); 
         await saveLoginMethod('session'); 
 
-        // 4c. Start bot with the newly created session files
-        log("Valid session found from .env...", 'green');
-        log('Waiting 3 seconds for stable connection...', 'yellow'); 
-        await delay(3000);
+        if (!sessionExists()) {
+            log('[ERROR] Session file could not be written. Cannot start bot.', 'red', true);
+            process.exit(1);
+        }
+
+        log("Session ready. Starting bot...", 'green');
         await startXeonBotInc();
         
-        // 4d. Start the file watcher
-        checkEnvStatus(); // <--- START .env FILE WATCHER (Mandatory)
+        checkEnvStatus();
         
         return;
     }
@@ -820,9 +863,7 @@ async function tylor() {
     
     // 6. Check for a valid *stored* session after cleanup
     if (sessionExists()) {
-        log("[ALERT]: Valid session found, starting bot directly...", 'green'); 
-        log('[ALERT]: Waiting 3 seconds for stable connection...', 'blue');
-        await delay(3000);
+        log("[ALERT]: Valid session found, starting bot directly...", 'green');
         await startXeonBotInc();
         
         // 6a. Start the file watcher
