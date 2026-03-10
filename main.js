@@ -431,8 +431,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
             handleAutoread(sock, message),
             handleDevReact(sock, message),
             handleAntiStatusMention(sock, message),
-            addMessageReaction(sock, message)
-            cacheMessage(message);
+            addMessageReaction(sock, message),
+            cacheMessage(message)
         ]);
 
         if (!sock._antieditListenerBound) {
