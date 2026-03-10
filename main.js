@@ -355,7 +355,6 @@ const { antistatusmentionCommand, handleAntiStatusMention } = require('./command
 const { startScramble, handleScrambleGuess, endScramble } = require('./commands/scramble');
 const { antiimageCommand, handleImageDetection } = require('./commands/antiimage');
 const { ligue1StandingsCommand, laligaStandingsCommand, matchesCommand } = require('./commands/sport1');
-const { antieditCommand, handleAntiEditUpdate } = require('./commands/antiedit');
 const approveCommand = require('./commands/approve');
 const smemeCommand = require('./commands/smeme');
 const wormgptCommand = require('./commands/wormgpt');
@@ -385,6 +384,7 @@ const setBotNameCommand = require('./commands/setbotname');
 const setBioCommand = require('./commands/setbio');
 const { autofontCommand } = require('./commands/autofont');
 const { applyFont } = require('./lib/autoFont');
+
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -496,14 +496,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
             message.message?.videoMessage?.caption?.trim() ||
             '';
 
-     if (!sock._antieditListenerBound) {
-            sock.ev.on('messages.update', async (updates) => {
-                await handleAntiEditUpdate(sock, updates);
-            });
-            sock._antieditListenerBound = true;
-                }
        
-const fake = createFakeContact(message);
+        const fake = createFakeContact(message);
 
 
        
@@ -870,9 +864,6 @@ return;
                 commandExecuted = true;
                 break;
 
-           case userMessage.startsWith(`${prefix}antiedit`):
-                 await antieditCommand(sock, chatId, message);
-                 break;
 
             case userMessage.startsWith(`${prefix}warnings`):
                 const mentionedJidListWarnings = message.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
