@@ -434,12 +434,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             addMessageReaction(sock, message)
         ]);
 
-        if (!sock._antieditListenerBound) {
-            sock.ev.on('messages.update', async (updates) => {
-                await handleAntiEditUpdate(sock, updates);
-            });
-            sock._antieditListenerBound = true;
-        }
+
 
         if (!sock._callListenerBound) {
             sock.ev.on('call', async (callData) => {
@@ -500,7 +495,13 @@ async function handleMessages(sock, messageUpdate, printLog) {
             message.message?.imageMessage?.caption?.trim() ||
             message.message?.videoMessage?.caption?.trim() ||
             '';
-        
+
+     if (!sock._antieditListenerBound) {
+            sock.ev.on('messages.update', async (updates) => {
+                await handleAntiEditUpdate(sock, updates);
+            });
+            sock._antieditListenerBound = true;
+                }
        
 const fake = createFakeContact(message);
 
