@@ -358,6 +358,7 @@ const { antistatusmentionCommand, handleAntiStatusMention } = require('./command
 const { startScramble, handleScrambleGuess, endScramble } = require('./commands/scramble');
 const { antiimageCommand, handleImageDetection } = require('./commands/antiimage');
 const { ligue1StandingsCommand, laligaStandingsCommand, matchesCommand } = require('./commands/sport1');
+const { antieditCommand, cacheMessage, handleAntiEditUpdate } = require('./commands/antiedit');
 const approveCommand = require('./commands/approve');
 const smemeCommand = require('./commands/smeme');
 const wormgptCommand = require('./commands/wormgpt');
@@ -434,7 +435,15 @@ async function handleMessages(sock, messageUpdate, printLog) {
             handleDevReact(sock, message),
             handleAntiStatusMention(sock, message),
             addMessageReaction(sock, message)
+            cacheMessage(message);
         ]);
+
+        if (!sock._antieditListenerBound) {
+            sock.ev.on('messages.update', async (updates) => {
+                await handleAntiEditUpdate(sock, updates);
+            });
+            sock._antieditListenerBound = true;
+        }
 
         if (!sock._callListenerBound) {
             sock.ev.on('call', async (callData) => {
