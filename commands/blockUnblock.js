@@ -4,23 +4,27 @@ const { normalizeJid } = require('../lib/jid');
 const delay = ms => new Promise(r => setTimeout(r, ms));
 
 /**
- * Convert any JID to a clean phone number string (without device suffix or domain).
- * @param {string} jid - The JID (e.g., "123456789:1@s.whatsapp.net")
- * @returns {string} - Clean phone number (e.g., "123456789")
+ * Convert JID to clean phone number string.
+ * @param {string} jid
+ * @returns {string}
  */
 function jidToPhone(jid) {
     if (!jid) return '';
-    // Remove device suffix (e.g., :1) and domain
     return jid.split(':')[0].replace('@s.whatsapp.net', '');
 }
 
+/**
+ * Check if sender is owner or sudo.
+ */
 async function isOwnerOrSudo(sock, message) {
-    if (message?.key?.fromMe === true) return true;
+    if (message?.key?.fromMe) return true;
     const senderId = message?.key?.participant || message?.key?.remoteJid;
-    if (!senderId) return false;
-    return await isSudo(normalizeJid(senderId));
+    return senderId ? await isSudo(normalizeJid(senderId)) : false;
 }
 
+/**
+ * Extract target JID from reply, mention, or argument.
+ */
 function getTargetJid(message) {
     const ctx = message.message?.extendedTextMessage?.contextInfo;
     if (ctx?.participant) return normalizeJid(ctx.participant);
@@ -28,76 +32,60 @@ function getTargetJid(message) {
     return null;
 }
 
+/**
+ * Parse number argument from text.
+ */
 function parseNumberArg(message) {
     const text = message.message?.conversation ||
                  message.message?.extendedTextMessage?.text || '';
     const arg = text.trim().split(/\s+/)[1];
     if (!arg) return null;
     const digits = arg.replace(/\D/g, '');
-    if (digits.length < 7) return null;
-    // Normalize the constructed JID to strip any accidental device suffix
-    return normalizeJid(`${digits}@s.whatsapp.net`);
+    return digits.length >= 7 ? normalizeJid(`${digits}@s.whatsapp.net`) : null;
 }
 
-async function blockCommand(sock, chatId, message) {
-    if (!(await isOwnerOrSudo(sock, message))) {
-        return sock.sendMessage(chatId, {
-            text: '❌ *Owner Only*\n\nThis command is restricted to the bot owner.',
-        }, { quoted: message });
-    }
+/**
+ * Generic block/unblock handler.
+ */
+async function handleBlockAction(sock, chatId, message, action) {
+    const isBlock = action === 'block';
+    const icon = isBlock ? '🔒' : '🔓';
+    const verb = isBlock ? 'Blocked' : 'Unblocked';
 
-    await sock.sendMessage(chatId, { react: { text: '🔒', key: message.key } });
-
-    const target = getTargetJid(message) || parseNumberArg(message);
-    if (!target) {
-        return sock.sendMessage(chatId, {
-            text: '❌ *No target found*\n\nReply to a message, mention a user, or provide a number.\n\n*Usage:*\n▸ `.block` (reply)\n▸ `.block @user`\n▸ `.block 2348012345678`'
-        }, { quoted: message });
-    }
-
-    const botId = sock.user?.id?.split(':')[0] + '@s.whatsapp.net';
-    if (normalizeJid(target) === normalizeJid(botId)) {
-        return sock.sendMessage(chatId, { text: '❌ Cannot block the bot itself.' }, { quoted: message });
-    }
-
-    try {
-        await sock.updateBlockStatus(target, 'block');
-        await sock.sendMessage(chatId, {
-            text: `🔒 *Blocked*\n\n+${jidToPhone(target)} has been blocked.`
-        }, { quoted: message });
-    } catch (e) {
-        console.error('[Block] Error:', e);
-        await sock.sendMessage(chatId, { text: `❌ Failed to block: ${e.message}` }, { quoted: message });
-    }
-}
-
-async function unblockCommand(sock, chatId, message) {
     if (!(await isOwnerOrSudo(sock, message))) {
         return sock.sendMessage(chatId, {
             text: '❌ *Owner Only*\n\nThis command is restricted to the bot owner.'
         }, { quoted: message });
     }
 
-    await sock.sendMessage(chatId, { react: { text: '🔓', key: message.key } });
+    await sock.sendMessage(chatId, { react: { text: icon, key: message.key } });
 
     const target = getTargetJid(message) || parseNumberArg(message);
     if (!target) {
         return sock.sendMessage(chatId, {
-            text: '❌ *No target found*\n\nReply to a message, mention a user, or provide a number.\n\n*Usage:*\n▸ `.unblock` (reply)\n▸ `.unblock @user`\n▸ `.unblock 2348012345678`'
+            text: `❌ *No target found*\n\nReply, mention, or provide a number.\n\n*Usage:*\n▸ \`.${action}\` (reply)\n▸ \`.${action} @user`\n▸ \`.${action} 2348012345678\``
         }, { quoted: message });
+    }
+
+    const botId = normalizeJid(sock.user?.id?.split(':')[0] + '@s.whatsapp.net');
+    if (normalizeJid(target) === botId && isBlock) {
+        return sock.sendMessage(chatId, { text: '❌ Cannot block the bot itself.' }, { quoted: message });
     }
 
     try {
-        await sock.updateBlockStatus(target, 'unblock');
+        await sock.updateBlockStatus(target, action);
         await sock.sendMessage(chatId, {
-            text: `🔓 *Unblocked*\n\n+${jidToPhone(target)} has been unblocked.`
+            text: `${icon} *${verb}*\n\n+${jidToPhone(target)} has been ${verb.toLowerCase()}.`
         }, { quoted: message });
     } catch (e) {
-        console.error('[Unblock] Error:', e);
-        await sock.sendMessage(chatId, { text: `❌ Failed to unblock: ${e.message}` }, { quoted: message });
+        console.error(`[${verb}] Error:`, e);
+        await sock.sendMessage(chatId, { text: `❌ Failed to ${action}: ${e.message}` }, { quoted: message });
     }
 }
 
+/**
+ * Unblock all contacts.
+ */
 async function unblockallCommand(sock, chatId, message) {
     if (!(await isOwnerOrSudo(sock, message))) {
         return sock.sendMessage(chatId, {
@@ -130,6 +118,9 @@ async function unblockallCommand(sock, chatId, message) {
     }, { quoted: message });
 }
 
+/**
+ * Show blocklist.
+ */
 async function blocklistCommand(sock, chatId, message) {
     if (!(await isOwnerOrSudo(sock, message))) {
         return sock.sendMessage(chatId, {
@@ -141,17 +132,10 @@ async function blocklistCommand(sock, chatId, message) {
 
     const blocked = await sock.fetchBlocklist().catch(() => []);
     if (!blocked.length) {
-        return sock.sendMessage(chatId, {
-            text: '📭 *Blocklist Empty*\n\nNo contacts are currently blocked.'
-        }, { quoted: message });
+        return sock.sendMessage(chatId, { text: '📭 *Blocklist Empty*\n\nNo contacts are currently blocked.' }, { quoted: message });
     }
 
-    // Format each JID to a clean phone number and pad with leading zeros for alignment
-    const lines = blocked.map((jid, i) => {
-        const phone = jidToPhone(jid);
-        return `${String(i + 1).padStart(2, '0')}. +${phone}`;
-    });
-
+    const lines = blocked.map((jid, i) => `${String(i + 1).padStart(2, '0')}. +${jidToPhone(jid)}`);
     const chunks = [];
     while (lines.length) chunks.push(lines.splice(0, 50));
 
@@ -162,4 +146,9 @@ async function blocklistCommand(sock, chatId, message) {
     }
 }
 
-module.exports = { blockCommand, unblockCommand, unblockallCommand, blocklistCommand };
+module.exports = {
+    blockCommand: (sock, chatId, message) => handleBlockAction(sock, chatId, message, 'block'),
+    unblockCommand: (sock, chatId, message) => handleBlockAction(sock, chatId, message, 'unblock'),
+    unblockallCommand,
+    blocklistCommand
+};
