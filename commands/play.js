@@ -46,7 +46,7 @@ async function playCommand(sock, chatId, message) {
         // Try multiple APIs with fallbacks
         let downloadUrl, videoTitle;
         const apis = [
-            `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
+            `https://www.apiskeith.vercel.app/download/audio?url=${encodeURIComponent(video.url)}`,
             `https://apis.xwolf.space/download/audio?url=${encodeURIComponent(video.url)}`,
             `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`
         ];
