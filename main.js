@@ -623,7 +623,7 @@ if (userMessage && !userMessage.startsWith(prefix)) {
         if (isGroup && userMessage) {
             await Promise.allSettled([
                 handleBadwordDetection(sock, chatId, message, userMessage, senderId),
-                Antilink(message, sock)
+                handleLinkDetection(sock, chatId, message, userMessage, senderId)
             ]);
         }
 
