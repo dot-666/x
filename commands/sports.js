@@ -22,38 +22,52 @@ const LEAGUES = {
 
 // ─── FORMATTERS ───────────────────────────────────────────────────────────────
 
+// Null-safe team name — strips " FC" suffix, falls back to "TBD"
+function tn(name) {
+    return name ? name.replace(' FC', '') : 'TBD';
+}
+
 function formatStandings(data) {
     const { competition, standings } = data.result;
-    const rows = standings.slice(0, 10).map(t =>
-        `${String(t.position).padStart(2)}. ${t.team.replace(' FC', '')} — *${t.points}pts* (${t.won}W ${t.draw}D ${t.lost}L | GD:${t.goalDifference > 0 ? '+' : ''}${t.goalDifference})`
-    ).join('\n');
+    const rows = standings
+        .filter(t => t.team !== null)
+        .slice(0, 10)
+        .map(t =>
+            `${String(t.position).padStart(2)}. ${tn(t.team)} — *${t.points}pts* (${t.won}W ${t.draw}D ${t.lost}L | GD:${t.goalDifference > 0 ? '+' : ''}${t.goalDifference})`
+        ).join('\n');
+    if (!rows) return `⚠️ ${competition} standings are not available yet.`;
     return `┏━━━✧ ${competition} STANDINGS ✧━━━\n${rows}\n┗━━━━━━━━━━━━━━━━━━━━━`;
 }
 
 function formatScorers(data) {
     const { competition, topScorers } = data.result;
-    const rows = topScorers.slice(0, 10).map(p =>
-        `${String(p.rank).padStart(2)}. *${p.player}* (${p.team.replace(' FC', '')}) — ⚽${p.goals} | 🅰️${p.assists !== 'N/A' ? p.assists : 0}`
-    ).join('\n');
+    const rows = (topScorers || [])
+        .filter(p => p.player !== null)
+        .slice(0, 10)
+        .map(p =>
+            `${String(p.rank).padStart(2)}. *${p.player || 'Unknown'}* (${tn(p.team)}) — ⚽${p.goals} | 🅰️${p.assists !== 'N/A' ? p.assists : 0}`
+        ).join('\n');
+    if (!rows) return `⚠️ ${competition} scorer data is not available yet.`;
     return `┏━━━✧ ${competition} TOP SCORERS ✧━━━\n${rows}\n┗━━━━━━━━━━━━━━━━━━━━━`;
 }
 
 function formatUpcoming(data) {
     const { competition, upcomingMatches } = data.result;
-    const rows = upcomingMatches.slice(0, 8).map(m => {
+    const rows = (upcomingMatches || []).slice(0, 8).map(m => {
         const d = new Date(m.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-        return `📅 ${d}\n   ${m.homeTeam.replace(' FC', '')} *vs* ${m.awayTeam.replace(' FC', '')}`;
+        return `📅 ${d}\n   ${tn(m.homeTeam)} *vs* ${tn(m.awayTeam)}`;
     }).join('\n');
+    if (!rows) return `⚠️ No upcoming ${competition} matches found.`;
     return `┏━━━✧ ${competition} UPCOMING ✧━━━\n${rows}\n┗━━━━━━━━━━━━━━━━━━━━━`;
 }
 
 function formatLivescore(data) {
-    const games = Object.values(data.result.games);
+    const games = Object.values(data.result?.games || {});
     if (!games.length) return '⚽ No live matches right now.';
     const rows = games.slice(0, 10).map(g => {
         const status = g.R?.st || '?';
         const score = (g.R?.r1 !== undefined) ? `${g.R.r1} - ${g.R.r2}` : '? - ?';
-        return `🔵 *${g.p1}* ${score} *${g.p2}*  [${status}]`;
+        return `🔵 *${g.p1 || 'TBD'}* ${score} *${g.p2 || 'TBD'}*  [${status}]`;
     }).join('\n');
     return `┏━━━✧ ⚽ LIVE SCORES ✧━━━━━━\n${rows}\n┗━━━━━━━━━━━━━━━━━━━━━`;
 }
@@ -173,7 +187,12 @@ async function leagueCommand(sock, chatId, message, cmd) {
         const pathMap = { standings: 'standings', scorers: 'scorers', upcoming: 'upcomingmatches' };
         const data = await get(`/${slug}/${pathMap[sub]}`);
 
-        if (!data.status) throw new Error('API returned error status');
+        if (!data.status) {
+            const msg = data.error || data.message || 'Data not available right now.';
+            return sock.sendMessage(chatId, {
+                text: `⚠️ ${label} ${sub}: ${msg}`
+            }, { quoted: createFakeContact(message) });
+        }
 
         let text;
         if (sub === 'standings') text = formatStandings(data);
