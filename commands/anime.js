@@ -7,6 +7,7 @@ function normalizeType(input) {
     const lower = (input || '').toLowerCase();
     if (lower === 'facepalm' || lower === 'face_palm') return 'face-palm';
     if (lower === 'quote' || lower === 'animu-quote' || lower === 'animuquote') return 'quote';
+    if (lower === 'nome') return 'nom';
     return lower;
 }
 
