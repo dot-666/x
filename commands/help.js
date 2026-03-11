@@ -69,60 +69,68 @@ const progressBar = (used, total, size = 10) => {
 const COMMAND_CATEGORIES = {
     'OWNER MENU': [
         'mode', 'autostatus', 'antidelete', 'autoread', 'autotyping',
-        'autoreact', 'pmblocker', 'setpp', 'clearsession', 'cleartmp',
+        'autoreact', 'areact', 'autoreaction', 'autofont', 'autorecording',
+        'pmblocker', 'setpp', 'setbio', 'clearsession', 'cleartmp',
         'sudo', 'setprefix', 'setowner', 'setbotname', 'setmenu', 'restart',
-        'menuimage', 'configimage'
+        'menuimage', 'configimage', 'settings', 'update', 'paircode',
+        'anticall', 'antibot', 'antistatusmention', 'alwaysonline', 'online',
+        'disp', 'readreciepts'
     ],
     'GROUP ADMIN': [
         'promote', 'demote', 'kick', 'mute', 'unmute', 'ban', 'unban',
-        'warn', 'warnings', 'add', 'antilink', 'antibadword', 'antitag',
-        'antisticker', 'antidemote', 'welcome', 'goodbye',
+        'warn', 'warnings', 'add', 'approve', 'join', 'killall',
+        'antilink', 'antibadword', 'antitag', 'antisticker', 'antidemote',
+        'antiimage', 'welcome', 'goodbye',
         'setgdesc', 'setgname', 'setgpp', 'open', 'close',
-        'resetlink', 'link', 'revoke', 'antisticker', 'antiimage'
+        'resetlink', 'link', 'revoke'
     ],
     'GROUP TOOLS': [
-        'tagall', 'tag', 'hidetag', 'tagnoadmin', 'mention',
-        'groupinfo', 'admins', 'leave', 'pair',
-        'chatbot', 'clear', 'delete'
+        'tagall', 'tag', 'hidetag', 'tagnoadmin', 'tagnotadmin', 'mention',
+        'groupinfo', 'infogroup', 'admins', 'listadmin', 'listonline',
+        'topmembers', 'leave', 'pair', 'chatbot', 'clear', 'delete',
+        'getpp', 'lastseen', 'drop'
     ],
     'AI MENU': [
-        'gpt', 'gemini', 'copilot', 'deepseek', 'meta', 'metai',
-        'vision', 'analyse', 'ilama', 'wormgpt', 'birdai',
+        'ai', 'gpt', 'gemini', 'copilot', 'deepseek', 'meta', 'metai',
+        'vision', 'analyse', 'ilama', 'wormgpt', 'birdai', 'blackbox',
         'perplexity', 'mistral', 'grok', 'speechwrite',
-        'imagine', 'flux'
+        'imagine', 'flux', 'dalle', 'sora', 'magicstudio', 'remini'
     ],
     'DOWNLOADER': [
-        'play', 'song', 'video', 'ytplay', 'ytv', 'ytdocplay',
-        'ytdocvideo', 'spotify', 'instagram', 'facebook', 'tiktok',
-        'mediafire', 'mf', 'apk', 'gitclone'
+        'play', 'song', 'video', 'ytplay', 'ytv', 'ytaudio', 'ytvideo',
+        'ytdocplay', 'ytdocvideo', 'spotify',
+        'instagram', 'facebook', 'tiktok', 'xvideo',
+        'mediafire', 'mf', 'apk', 'gitclone',
+        'lyrics', 'whatsong'
     ],
     'SEARCH & TOOLS': [
-        'yts', 'ytsearch', 'img', 'image', 'movie',
-        'shazam', 'fetch', 'ssweb', 'trt',
-        'transcribe', 'locate', 'location', 'url', 'tourl',
-        'vcf', 'ping', 'runtime', 'alive', 'vv',
-        'block', 'listblock', 'enc'
+        'yts', 'ytsearch', 'img', 'image', 'movie', 'shazam',
+        'fetch', 'ss', 'trt', 'transcribe', 'translate',
+        'locate', 'location', 'url', 'tourl', 'vcf',
+        'ping', 'runtime', 'alive', 'vv', 'vv2',
+        'block', 'unblock', 'allblocklist',
+        'enc', 'viewonce', 'weather', 'news', 'inspect'
     ],
     'STICKER MENU': [
-        'sticker', 'stickercrop', 'tgsticker', 'take', 'emojimix',
-        'meme', 'smeme', 'blur', 'removebg', 'simage', 'toimage'
+        'sticker', 'stickercrop', 'tgsticker', 'take', 'attp', 'emojimix',
+        'meme', 'smeme', 'blur', 'removebg', 'nobg', 'crop', 'simage', 'toimage'
     ],
     'CONVERTER': [
         'totext', 'toimage', 'toaudio', 'tomp3', 'toppt', 'tourl',
-        'gptedit', 'pinterest', 'terabox'
+        'gptedit', 'pinterest', 'terabox', 'trim', 'tts'
     ],
     'GAME MENU': [
         'tictactoe', 'connect4', 'hangman', 'trivia', 'answer',
-        'truth', 'dare', '8ball', 'cf'
+        'truth', 'dare', '8ball', 'cf', 'scramble', 'bet'
     ],
     'FUN & SOCIAL': [
-        'compliment', 'insult', 'flirt', 'shayari', 'goodnight',
-        'roseday', 'character', 'ship', 'simp', 'wasted', 'stupid',
-        'joke', 'quote', 'fact'
+        'compliment', 'insult', 'flirt', 'shayari', 'goodnight', 'gn',
+        'roseday', 'lovenight', 'character', 'ship', 'simp', 'wasted', 'stupid',
+        'joke', 'quote', 'fact', 'oogway', 'pies', 'say'
     ],
     'ANIME MENU': [
         'neko', 'waifu', 'loli', 'nom', 'poke', 'cry',
-        'kiss', 'pat', 'hug', 'wink', 'facepalm', 'anime'
+        'kiss', 'pat', 'hug', 'wink', 'facepalm', 'anime', 'animu'
     ],
     'TEXT MAKER': [
         'metallic', 'ice', 'snow', 'impressive', 'matrix', 'light',
@@ -133,6 +141,9 @@ const COMMAND_CATEGORIES = {
         'heart', 'horny', 'circle', 'lgbt', 'lolice',
         'namecard', 'tweet', 'ytcomment', 'comrade',
         'gay', 'glass', 'jail', 'passed', 'triggered'
+    ],
+    'STATUS MENU': [
+        'tostatus', 'savestatus', 'togroupstatus'
     ],
     'SPORTS MENU': [
         'livescore', 'bettips', 'fnews',
