@@ -81,14 +81,14 @@ const COMMAND_CATEGORIES = {
         'warn', 'warnings', 'add', 'approve', 'join', 'killall',
         'antilink', 'antibadword', 'antitag', 'antisticker', 'antidemote',
         'antiimage', 'welcome', 'goodbye',
-        'setgdesc', 'setgname', 'setgpp', 'open', 'close',
+        'setgroupdesc', 'setgname', 'setgpp', 'open', 'close',
         'resetlink', 'link', 'revoke'
     ],
     'GROUP TOOLS': [
         'tagall', 'tag', 'hidetag', 'tagnoadmin', 'tagnotadmin', 'mention',
         'groupinfo', 'infogroup', 'admins', 'listadmin', 'listonline',
         'topmembers', 'leave', 'pair', 'chatbot', 'clear', 'delete',
-        'getpp', 'lastseen', 'drop'
+        'getpp', 'lastseen', 'drop', 'getgcprofile', 'getgcname'
     ],
     'AI MENU': [
         'ai', 'gpt', 'gemini', 'copilot', 'deepseek', 'meta', 'metai',
