@@ -46,7 +46,7 @@ async function videoCommand(sock, chatId, message) {
         }, { quoted: createFakeContact(message) });
 
         // API call (no 100MB limit)
-        const apiUrl = `https://www.apiskeith.top/download/video?url=${encodeURIComponent(video.url)}`;
+        const apiUrl = `https://www.apiskeith.vercel.app/download/video?url=${encodeURIComponent(video.url)}`;
 
         let response;
         try {
