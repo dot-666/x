@@ -424,7 +424,7 @@ async function sendWelcomeMessage(XeonBotInc) {
         const pNumber = XeonBotInc.user.id.split(':')[0] + '@s.whatsapp.net';
         let data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
         const currentMode = data.isPublic ? 'public' : 'private';           
-        const prefix = getPrefix() || '.';
+        const prefix = getPrefix();
 
         // Send the message
         await XeonBotInc.sendMessage(pNumber, {
