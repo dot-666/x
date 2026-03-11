@@ -2254,6 +2254,7 @@ case userMessage === `${prefix}forfeit` ||
                 break;
 
             // Anime aliases
+            case userMessage.startsWith(`${prefix}nome`):
             case userMessage.startsWith(`${prefix}nom`):
             case userMessage.startsWith(`${prefix}poke`):
             case userMessage.startsWith(`${prefix}cry`):
