@@ -392,8 +392,8 @@ async function sendWelcomeMessage(XeonBotInc) {
     // Safety check: Only proceed if the welcome message hasn't been sent yet in this session.
     if (global.isBotConnected) return; 
     
-    // CRITICAL: Wait 10 seconds for the connection to fully stabilize
-    await delay(10000); 
+    // Wait 3 seconds for the connection to stabilize
+    await delay(3000); 
 
     //detectPlatform
  const detectPlatform = () => {
@@ -746,6 +746,7 @@ function checkEnvStatus() {
 
 // --- Main login flow (JUNE MD) ---
 async function tylor() {
+    startWebServer();
     
     // 1. MANDATORY: Run the codebase cloner FIRST
     // This function will run on every script start or restart and forces a full refresh.
@@ -861,6 +862,75 @@ async function tylor() {
     
     // 9. Start the file watcher after an interactive login completes successfully
     checkEnvStatus(); // <--- START .env FILE WATCHER (Mandatory)
+}
+
+// --- Express Runtime Dashboard ---
+function startWebServer() {
+    const express = require('express');
+    const app = express();
+    const PORT = process.env.PORT || 3000;
+    const pkg = require('./package.json');
+
+    app.get('/', (req, res) => {
+        const mem = process.memoryUsage();
+        const formatBytes = (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB';
+        const uptimeSec = process.uptime();
+        const hours = Math.floor(uptimeSec / 3600);
+        const minutes = Math.floor((uptimeSec % 3600) / 60);
+        const seconds = Math.floor(uptimeSec % 60);
+        const uptime = `${hours}h ${minutes}m ${seconds}s`;
+        const status = global.isBotConnected ? 'Connected' : 'Waiting for login';
+        const statusColor = global.isBotConnected ? '#22c55e' : '#eab308';
+
+        res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="10">
+<title>${pkg.name} Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#1e293b;border-radius:16px;padding:40px;max-width:480px;width:90%;box-shadow:0 25px 50px rgba(0,0,0,.4)}
+h1{font-size:1.8rem;text-align:center;margin-bottom:8px;color:#f8fafc}
+.subtitle{text-align:center;color:#94a3b8;margin-bottom:24px;font-size:.9rem}
+.status{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:28px;font-size:1.1rem;font-weight:600;color:${statusColor}}
+.status .dot{width:10px;height:10px;border-radius:50%;background:${statusColor};animation:${global.isBotConnected ? 'none' : 'pulse 2s infinite'}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.item{background:#0f172a;border-radius:10px;padding:14px}
+.item .label{font-size:.75rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.item .value{font-size:1rem;font-weight:600;color:#f1f5f9}
+.full{grid-column:1/-1}
+footer{text-align:center;margin-top:24px;font-size:.75rem;color:#475569}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>${pkg.name}</h1>
+<p class="subtitle">Runtime Dashboard</p>
+<div class="status"><span class="dot"></span>${status}</div>
+<div class="grid">
+<div class="item"><div class="label">Uptime</div><div class="value">${uptime}</div></div>
+<div class="item"><div class="label">Version</div><div class="value">v${pkg.version}</div></div>
+<div class="item"><div class="label">Node.js</div><div class="value">${process.version}</div></div>
+<div class="item"><div class="label">Platform</div><div class="value">${process.platform}</div></div>
+<div class="item"><div class="label">RSS Memory</div><div class="value">${formatBytes(mem.rss)}</div></div>
+<div class="item"><div class="label">Heap Used</div><div class="value">${formatBytes(mem.heapUsed)}</div></div>
+<div class="item full"><div class="label">Bot Name</div><div class="value">${global.botname || pkg.name}</div></div>
+</div>
+<footer>Auto-refreshes every 10 seconds</footer>
+</div>
+</body>
+</html>`);
+    });
+
+    app.listen(PORT, '0.0.0.0', () => {
+        log(`Dashboard server running on port ${PORT}`, 'green');
+    }).on('error', (err) => {
+        log(`Dashboard server failed to start: ${err.message}`, 'red', true);
+    });
 }
 
 // --- Start bot (JUNE MD) ---
