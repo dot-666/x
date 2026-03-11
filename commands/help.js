@@ -166,7 +166,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     let newOwner = getOwnerName();
     const menuSettings = getMenuSettings();
     
-    let menu = `┏❐✦ ${bot} ✦❐\n`;
+    let menu = `┏━━❐✧ ${bot} ✧❐\n`;
     menu += `┃✦ Prefix: [${prefix2}]\n`;
     menu += `┃✦ Owner: ${newOwner}\n`;
     menu += `┃✦ Mode: ${currentMode}\n`;
@@ -190,7 +190,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     for (const [category, commands] of Object.entries(COMMAND_CATEGORIES)) {
         menu += `┏❐ \`${category}\` ❐\n`;
         for (const cmd of commands) {
-            menu += `┃ ◈ ${cmd}\n`;
+            menu += `┃ ✧ ${cmd}\n`;
         }
         menu += `┗❐\n`;
         sectionIndex++;
