@@ -188,7 +188,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
 
     let sectionIndex = 0;
     for (const [category, commands] of Object.entries(COMMAND_CATEGORIES)) {
-        menu += `┏❐ \`${category}\` ❐\n`;
+        menu += `┏━━❐ \`${category}\` ❐\n`;
         for (const cmd of commands) {
             menu += `┃ ✧ ${cmd}\n`;
         }
