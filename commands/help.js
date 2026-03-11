@@ -134,6 +134,12 @@ const COMMAND_CATEGORIES = {
         'namecard', 'tweet', 'ytcomment', 'comrade',
         'gay', 'glass', 'jail', 'passed', 'triggered'
     ],
+    'SPORTS MENU': [
+        'livescore', 'bettips', 'fnews',
+        'player', 'team', 'venue', 'gameevents',
+        'epl', 'laliga', 'ucl', 'bundesliga',
+        'seriea', 'euros', 'fifa'
+    ],
     'GITHUB': [
         'git', 'github', 'sc', 'script', 'repo', 'clone'
     ]
