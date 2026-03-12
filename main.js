@@ -50,7 +50,6 @@ const ffmpeg = require('fluent-ffmpeg');
 const { jidDecode } = require('@whiskeysockets/baileys');
 const { isSudo } = require('./lib/index');
 const isAdmin = require('./lib/isAdmin');
-const { Antilink } = require('./lib/antilink');
 const { tictactoeCommand, handleTicTacToeMove } = require('./commands/tictactoe');
 const { normalizeJid, compareJids } = require('./lib/jid');
 const { createFakeContact } = require('./lib/fakeContact');
@@ -632,18 +631,15 @@ if (userMessage && !userMessage.startsWith(prefix)) {
             await handleLinkDetection(sock, chatId, message, userMessage, senderId);
         }
 
-        // PM blocker: block non-owner DMs when enabled (do not ban)
+        // PM blocker: silently block non-owner DMs when enabled
         if (!isGroup && !message.key.fromMe && !senderIsSudo) {
             try {
                 const pmState = readPmBlockerState();
                 if (pmState.enabled) {
-                    // Inform user, delay, then block without banning globally
-                    await sock.sendMessage(chatId, { text: pmState.message || 'Private messages are blocked. Please contact the owner in groups only.' });
-                    await new Promise(r => setTimeout(r, 1500));
-                    try { await sock.updateBlockStatus(chatId, 'block'); } catch (e) { }
+                    try { await sock.updateBlockStatus(chatId, 'block'); } catch (_) {}
                     return;
                 }
-            } catch (e) { }
+            } catch (_) {}
         }
 
         /*━━━━━━━━━━━━━━━━━━━━*/
