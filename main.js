@@ -122,6 +122,14 @@ const {
 } = require('./commands/autorecording');
 
 const {
+    autobothCommand,
+    isAutobothEnabled,
+    straightBothPresence,
+    handleAutobothForMessage,
+    handleAutobothForCommand
+} = require('./commands/autoboth');
+
+const {
   getPrefix, 
   handleSetPrefixCommand 
 } = require('./commands/setprefix');
@@ -645,8 +653,10 @@ if (userMessage && !userMessage.startsWith(prefix)) {
         // Check for command prefix
         /*━━━━━━━━━━━━━━━━━━━━*/
     if (!userMessage.startsWith(prefix)) {
-            // Show typing indicator if autotyping is enabled
-            await handleAutotypingForMessage(sock, chatId, userMessage);
+            // Show typing/recording/both indicator in background (fire-and-forget)
+            handleAutotypingForMessage(sock, chatId, userMessage);
+            handleAutorecordingForMessage(sock, chatId);
+            handleAutobothForMessage(sock, chatId, userMessage);
  if (isGroup) {
                 await Promise.allSettled([
                     handleChatbotResponse(sock, chatId, message, userMessage, senderId),
@@ -2104,12 +2114,15 @@ case userMessage === `${prefix}forfeit` ||
 
             case userMessage.startsWith(`${prefix}autotyping`):
                 await autotypingCommand(sock, chatId, message);
-                await straightTypingPresence(sock, chatId, message);
                 break;
 
-            case userMessage.startsWith(`${prefix}autorecording`):
-                await autorecordingCommand(sock, chatId, message);                
-                await handleAutorecordingForMessage(sock, chatId, message);
+            case userMessage.startsWith(`${prefix}autorecording`) ||
+                 userMessage.startsWith(`${prefix}autorecord`):
+                await autorecordingCommand(sock, chatId, message);
+                break;
+
+            case userMessage.startsWith(`${prefix}autoboth`):
+                await autobothCommand(sock, chatId, message);
                 break;
                 
 
@@ -2347,7 +2360,7 @@ case userMessage === `${prefix}forfeit` ||
         }
 
         if (commandExecuted !== false) {
-            await showTypingAfterCommand(sock, chatId);
+            showTypingAfterCommand(sock, chatId);
         }
 
         // Function to handle .groupjid command
