@@ -4,10 +4,11 @@ const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { isSudo } = require('../lib/index');
 
 const { createFakeContact } = require('../lib/fakeContact');
-async function setProfilePicture(sock, chatId, msg) {
+
+async function setProfilePicture(sock, chatId, message) {
     try {
-        const senderId = msg.key.participant || msg.key.remoteJid;
-        const isOwner = msg.key.fromMe || await isSudo(senderId);
+        const senderId = message.key.participant || message.key.remoteJid;
+        const isOwner = message.key.fromMe || await isSudo(senderId);
         if (!isOwner) {
             await sock.sendMessage(chatId, { 
                 text: '❌ This command is only available for the owner!' 
@@ -16,7 +17,7 @@ async function setProfilePicture(sock, chatId, msg) {
         }
 
         // Check if message is a reply
-        const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (!quotedMessage) {
             await sock.sendMessage(chatId, { 
                 text: '⚠️ Please reply to an image with the .setpp command!' 
@@ -70,4 +71,4 @@ async function setProfilePicture(sock, chatId, msg) {
     }
 }
 
-module.exports = setProfilePicture; 
+module.exports = setProfilePicture;
