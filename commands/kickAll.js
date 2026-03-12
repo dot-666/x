@@ -1,4 +1,5 @@
 const { createFakeContact } = require('../lib/fakeContact');
+const isAdmin = require('../lib/isAdmin');
 
 function normaliseJid(jid) {
     if (!jid) return jid;
@@ -31,10 +32,8 @@ async function kickAllCommand(sock, chatId, message, senderId) {
             (p.admin === 'admin' || p.admin === 'superadmin')
         );
 
-        const isSenderAdmin = participants.some(p =>
-            normaliseJid(p.id) === senderNorm &&
-            (p.admin === 'admin' || p.admin === 'superadmin')
-        );
+        // Use the imported isAdmin function instead of manual check
+        const isSenderAdmin = await isAdmin(sock, chatId, senderId);
 
         if (!isBotAdmin) {
             await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
