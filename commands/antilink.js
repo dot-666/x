@@ -1,50 +1,68 @@
-const { setAntilink, getAntilink, removeAntilink } = require('../lib/index');
+const {
+    setAntilink,
+    getAntilink,
+    removeAntilink,
+    incrementWarningCount,
+    resetWarningCount
+} = require('../lib/index');
 const isAdmin = require('../lib/isAdmin');
 const { createFakeContact } = require('../lib/fakeContact');
 
-// Link detection patterns — ordered from most specific to broadest
+const WARN_LIMIT = 3; // kick after this many warnings
+
+// ─── Link Detection ───────────────────────────────────────────────────────────
+
 const LINK_PATTERNS = [
-    /chat\.whatsapp\.com\/[A-Za-z0-9]{10,}/i,           // WhatsApp group invite
-    /wa\.me\/channel\/[A-Za-z0-9]{10,}/i,               // WhatsApp channel
-    /t\.me\/[A-Za-z0-9_+]{2,}/i,                        // Telegram
-    /https?:\/\/[^\s]{4,}/i,                             // Any http/https URL
-    /(?<!\w)(www\.[a-z0-9-]+\.[a-z]{2,})[^\s]*/i,       // www.example.com
+    // WhatsApp invite / channel / direct
+    /chat\.whatsapp\.com\/[A-Za-z0-9+_-]{5,}/i,
+    /wa\.me\/(?:channel\/)?[A-Za-z0-9+_-]{5,}/i,
+    // Telegram
+    /t\.me\/[A-Za-z0-9_+]{2,}/i,
+    // Any http/https URL
+    /https?:\/\/[^\s]{4,}/i,
+    // www.domain.tld
+    /(?:^|[\s(,])www\.[a-z0-9-]+\.[a-z]{2,}(?:[/?#][^\s]*)?/i,
+    // Plain domain.tld/path — short URLs, youtu.be, bit.ly, tinyurl.com, etc.
+    /(?:^|[\s(,])(?:[a-z0-9-]+\.)+(?:com|net|org|io|co|me|app|ly|be|tv|uk|us|ng|ke|za|gh|rw|tz|ug|et|cm|sn|ci|ma|dz|tn|eg|to|link|xyz|online|site|web|info|biz|live|store|shop|tech|dev|ai|cloud|media|news|blog|click|win|club)(?:\/[^\s]*)?/i,
 ];
 
 function containsLink(text) {
     if (!text || typeof text !== 'string') return false;
-    return LINK_PATTERNS.some(pattern => pattern.test(text));
+    return LINK_PATTERNS.some(p => p.test(text));
 }
 
-// Extract full text from any message type
-function getMessageText(message) {
-    return (
-        message.message?.conversation ||
-        message.message?.extendedTextMessage?.text ||
-        message.message?.imageMessage?.caption ||
-        message.message?.videoMessage?.caption ||
-        message.message?.documentMessage?.caption ||
-        ''
-    );
+// Extract all possible text from a message (text, captions, link preview URL, etc.)
+function getAllMessageText(message) {
+    const msg = message.message || {};
+    const parts = [
+        msg.conversation,
+        msg.extendedTextMessage?.text,
+        msg.extendedTextMessage?.contextInfo?.matchedText,
+        msg.imageMessage?.caption,
+        msg.videoMessage?.caption,
+        msg.documentMessage?.caption,
+        msg.stickerMessage?.caption,
+        msg.buttonsMessage?.contentText,
+        msg.listMessage?.description,
+        msg.templateMessage?.hydratedTemplate?.hydratedContentText,
+    ];
+    return parts.filter(Boolean).join(' ');
 }
 
-/**
- * Handle Antilink Command
- * Signature matches main.js call: (sock, chatId, userMessage, senderId, isSenderAdmin, message)
- */
+// ─── Command Handler ──────────────────────────────────────────────────────────
+
 async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSenderAdmin, message) {
+    const fake = createFakeContact(message);
     try {
         if (!isSenderAdmin && !message?.key?.fromMe) {
             await sock.sendMessage(chatId, {
                 text: '❌ Only group admins can use antilink settings.'
-            }, { quoted: createFakeContact(message) });
+            }, { quoted: fake });
             return;
         }
 
-        // Extract args from the original message text to avoid prefix-length issues
-        const rawText = getMessageText(message);
+        const rawText = getAllMessageText(message);
         const parts = rawText.trim().split(/\s+/);
-        // parts[0] is the command (e.g. ".antilink"), parts[1] onward are args
         const args = parts.slice(1).map(a => a.toLowerCase());
         const action = args[0];
 
@@ -54,15 +72,17 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
             const currentAction = config?.action || 'delete';
             await sock.sendMessage(chatId, {
                 text: `🔗 *Antilink Settings*\n\n` +
-                      `Status: ${status}\nAction: ${currentAction}\n\n` +
+                      `Status: ${status}\n` +
+                      `Action: *${currentAction}*\n` +
+                      `Warn limit: *${WARN_LIMIT}* warnings before kick\n\n` +
                       `*Commands:*\n` +
-                      `• \`antilink on\` — Enable\n` +
-                      `• \`antilink off\` — Disable\n` +
-                      `• \`antilink set delete|kick|warn\` — Set action\n` +
-                      `• \`antilink allow <link>\` — Whitelist a link\n` +
-                      `• \`antilink disallow <link>\` — Remove whitelist\n` +
-                      `• \`antilink get\` — Show current config`
-            }, { quoted: createFakeContact(message) });
+                      `• \`.antilink on\` — Enable (default: delete)\n` +
+                      `• \`.antilink off\` — Disable\n` +
+                      `• \`.antilink set delete|warn|kick\` — Set action\n` +
+                      `• \`.antilink get\` — Show current config\n` +
+                      `• \`.antilink allow <link>\` — Whitelist a link\n` +
+                      `• \`.antilink disallow <link>\` — Remove whitelist`
+            }, { quoted: fake });
             return;
         }
 
@@ -70,23 +90,19 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
             case 'on': {
                 const existing = await getAntilink(chatId, 'on');
                 if (existing?.enabled) {
-                    await sock.sendMessage(chatId, {
-                        text: '⚠️ Antilink is already ON.'
-                    }, { quoted: createFakeContact(message) });
+                    await sock.sendMessage(chatId, { text: '⚠️ Antilink is already ON.' }, { quoted: fake });
                     return;
                 }
-                const result = await setAntilink(chatId, 'on', 'delete');
+                await setAntilink(chatId, 'on', 'delete');
                 await sock.sendMessage(chatId, {
-                    text: result ? '✅ Antilink enabled (default action: delete).' : '❌ Failed to enable antilink.'
-                }, { quoted: createFakeContact(message) });
+                    text: '✅ Antilink enabled. Default action: *delete*.\nUse `.antilink set warn|kick` to change the action.'
+                }, { quoted: fake });
                 break;
             }
 
             case 'off': {
                 await removeAntilink(chatId, 'on');
-                await sock.sendMessage(chatId, {
-                    text: '✅ Antilink disabled.'
-                }, { quoted: createFakeContact(message) });
+                await sock.sendMessage(chatId, { text: '✅ Antilink disabled.' }, { quoted: fake });
                 break;
             }
 
@@ -95,13 +111,13 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
                 if (!['delete', 'kick', 'warn'].includes(mode)) {
                     await sock.sendMessage(chatId, {
                         text: '❌ Invalid mode. Choose: `delete`, `kick`, or `warn`.'
-                    }, { quoted: createFakeContact(message) });
+                    }, { quoted: fake });
                     return;
                 }
-                const result = await setAntilink(chatId, 'on', mode);
+                await setAntilink(chatId, 'on', mode);
                 await sock.sendMessage(chatId, {
-                    text: result ? `✅ Antilink action set to *${mode}*.` : '❌ Failed to set action.'
-                }, { quoted: createFakeContact(message) });
+                    text: `✅ Antilink action set to *${mode}*.${mode === 'warn' ? `\nUsers will be kicked after *${WARN_LIMIT}* warnings.` : ''}`
+                }, { quoted: fake });
                 break;
             }
 
@@ -109,36 +125,33 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
                 const config = await getAntilink(chatId, 'on');
                 if (!config) {
                     await sock.sendMessage(chatId, {
-                        text: '*Antilink Config*\nStatus: OFF\nAction: —\nAllowed links: 0'
-                    }, { quoted: createFakeContact(message) });
+                        text: '*Antilink Config*\nStatus: ❌ OFF\nAction: —\nAllowed links: 0'
+                    }, { quoted: fake });
                     return;
                 }
-                const allowed = await getAntilink(chatId, 'allowed');
-                const allowedList = Array.isArray(allowed) ? allowed : [];
+                const allowedRaw = await getAntilink(chatId, 'allowed');
+                const allowedList = Array.isArray(allowedRaw) ? allowedRaw : [];
                 let text = `*Antilink Config*\n` +
                            `Status: ${config.enabled ? '✅ ON' : '❌ OFF'}\n` +
-                           `Action: ${config.action || '—'}\n` +
+                           `Action: *${config.action || '—'}*\n` +
+                           `Warn limit: *${WARN_LIMIT}*\n` +
                            `Allowed links: ${allowedList.length}`;
                 if (allowedList.length > 0) {
                     text += '\n\n*Whitelisted:*\n' + allowedList.map((l, i) => `${i + 1}. ${l}`).join('\n');
                 }
-                await sock.sendMessage(chatId, { text }, { quoted: createFakeContact(message) });
+                await sock.sendMessage(chatId, { text }, { quoted: fake });
                 break;
             }
 
             case 'allow': {
-                const link = parts.slice(2).join(' ');
+                const link = parts.slice(2).join(' ').trim();
                 if (!link) {
-                    await sock.sendMessage(chatId, {
-                        text: '❌ Usage: `antilink allow <link>`'
-                    }, { quoted: createFakeContact(message) });
+                    await sock.sendMessage(chatId, { text: '❌ Usage: `.antilink allow <link>`' }, { quoted: fake });
                     return;
                 }
                 const config = await getAntilink(chatId, 'on');
                 if (!config?.enabled) {
-                    await sock.sendMessage(chatId, {
-                        text: '❌ Enable antilink first with `antilink on`.'
-                    }, { quoted: createFakeContact(message) });
+                    await sock.sendMessage(chatId, { text: '❌ Enable antilink first with `.antilink on`.' }, { quoted: fake });
                     return;
                 }
                 let cleanLink;
@@ -146,89 +159,82 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
                     const url = new URL(link.startsWith('http') ? link : `https://${link}`);
                     cleanLink = (url.hostname + url.pathname).replace(/\/$/, '');
                 } catch {
-                    cleanLink = link.trim().toLowerCase();
+                    cleanLink = link.toLowerCase();
                 }
                 const existing = await getAntilink(chatId, 'allowed') || [];
                 const allowedList = Array.isArray(existing) ? existing : [];
                 if (allowedList.includes(cleanLink)) {
-                    await sock.sendMessage(chatId, {
-                        text: `⚠️ Already whitelisted: \`${cleanLink}\``
-                    }, { quoted: createFakeContact(message) });
+                    await sock.sendMessage(chatId, { text: `⚠️ Already whitelisted: \`${cleanLink}\`` }, { quoted: fake });
                     return;
                 }
                 allowedList.push(cleanLink);
                 await setAntilink(chatId, 'allowed', allowedList);
-                await sock.sendMessage(chatId, {
-                    text: `✅ Whitelisted: \`${cleanLink}\``
-                }, { quoted: createFakeContact(message) });
+                await sock.sendMessage(chatId, { text: `✅ Whitelisted: \`${cleanLink}\`` }, { quoted: fake });
                 break;
             }
 
             case 'disallow':
             case 'remove': {
-                const link = parts.slice(2).join(' ');
+                const link = parts.slice(2).join(' ').trim();
                 if (!link) {
-                    await sock.sendMessage(chatId, {
-                        text: '❌ Usage: `antilink disallow <link>`'
-                    }, { quoted: createFakeContact(message) });
+                    await sock.sendMessage(chatId, { text: '❌ Usage: `.antilink disallow <link>`' }, { quoted: fake });
                     return;
                 }
                 const existing = await getAntilink(chatId, 'allowed') || [];
                 const allowedList = Array.isArray(existing) ? existing : [];
-                if (allowedList.length === 0) {
-                    await sock.sendMessage(chatId, {
-                        text: '❌ No whitelisted links to remove.'
-                    }, { quoted: createFakeContact(message) });
-                    return;
-                }
                 const idx = allowedList.findIndex(a =>
                     a.toLowerCase().includes(link.toLowerCase()) ||
                     link.toLowerCase().includes(a.toLowerCase())
                 );
                 if (idx === -1) {
-                    await sock.sendMessage(chatId, {
-                        text: `❌ Link not found in whitelist: \`${link}\``
-                    }, { quoted: createFakeContact(message) });
+                    await sock.sendMessage(chatId, { text: `❌ Not found in whitelist: \`${link}\`` }, { quoted: fake });
                     return;
                 }
                 const removed = allowedList.splice(idx, 1)[0];
                 await setAntilink(chatId, 'allowed', allowedList);
-                await sock.sendMessage(chatId, {
-                    text: `✅ Removed from whitelist: \`${removed}\``
-                }, { quoted: createFakeContact(message) });
+                await sock.sendMessage(chatId, { text: `✅ Removed from whitelist: \`${removed}\`` }, { quoted: fake });
                 break;
             }
 
             default:
                 await sock.sendMessage(chatId, {
-                    text: '❌ Unknown subcommand. Use `antilink` to see available options.'
-                }, { quoted: createFakeContact(message) });
+                    text: '❌ Unknown subcommand. Use `.antilink` to see options.'
+                }, { quoted: fake });
         }
+
     } catch (error) {
         console.error('[Antilink] Command error:', error);
-        await sock.sendMessage(chatId, {
-            text: '❌ Error processing antilink command.'
-        }, { quoted: createFakeContact(message) });
+        await sock.sendMessage(chatId, { text: '❌ Error processing antilink command.' }, { quoted: fake });
     }
 }
 
-/**
- * Handle Link Detection (called per-message from main.js)
- */
+// ─── Per-Message Link Detection ───────────────────────────────────────────────
+
 async function handleLinkDetection(sock, chatId, message, userMessage, senderId) {
     try {
+        // Skip bot's own messages
+        if (message.key.fromMe) return;
+
+        // Only process group messages
+        if (!chatId.endsWith('@g.us')) return;
+
+        // Check if antilink is enabled
         const antilinkConfig = await getAntilink(chatId, 'on');
         if (!antilinkConfig?.enabled) return;
 
-        // Check all text including captions
-        const fullText = getMessageText(message);
+        // Gather all text from this message
+        const fullText = getAllMessageText(message);
+        if (!fullText) return;
+
+        // Check for any link type
         if (!containsLink(fullText)) return;
 
-        // Skip admins — properly destructure isAdmin result
-        const { isSenderAdmin } = await isAdmin(sock, chatId, senderId);
+        // Skip group admins and check bot is admin
+        const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
         if (isSenderAdmin) return;
+        if (!isBotAdmin) return; // Can't enforce without bot being admin
 
-        // Check whitelist
+        // Skip whitelisted links
         const allowedRaw = await getAntilink(chatId, 'allowed');
         const allowedLinks = Array.isArray(allowedRaw) ? allowedRaw : [];
         if (allowedLinks.length > 0) {
@@ -236,6 +242,7 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
             if (allowedLinks.some(a => lowerText.includes(a.toLowerCase()))) return;
         }
 
+        // Message key for deletion
         const msgKey = {
             remoteJid: chatId,
             fromMe: false,
@@ -243,43 +250,76 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
             participant: message.key.participant || senderId
         };
 
+        const mention = `@${senderId.split('@')[0]}`;
+
         switch (antilinkConfig.action) {
-            case 'delete':
-                try {
-                    await sock.sendMessage(chatId, { delete: msgKey });
-                    await sock.sendMessage(chatId, {
-                        text: `🔗 @${senderId.split('@')[0]} Links are not allowed here.`,
-                        mentions: [senderId]
-                    });
-                } catch (e) {
+            case 'delete': {
+                try { await sock.sendMessage(chatId, { delete: msgKey }); } catch (e) {
                     console.error('[Antilink] Delete failed:', e.message);
                 }
-                break;
-
-            case 'kick':
-                try {
-                    await sock.sendMessage(chatId, { delete: msgKey });
-                    await sock.groupParticipantsUpdate(chatId, [senderId], 'remove');
-                    await sock.sendMessage(chatId, {
-                        text: `🚫 @${senderId.split('@')[0]} was removed for posting a link.`,
-                        mentions: [senderId]
-                    });
-                } catch (e) {
-                    console.error('[Antilink] Kick failed:', e.message);
-                    // Fallback to just delete
-                    try { await sock.sendMessage(chatId, { delete: msgKey }); } catch (_) {}
-                }
-                break;
-
-            case 'warn': {
-                try { await sock.sendMessage(chatId, { delete: msgKey }); } catch (_) {}
                 await sock.sendMessage(chatId, {
-                    text: `⚠️ @${senderId.split('@')[0]} Warning: posting links is not allowed here.`,
+                    text: `🚫 ${mention} Links are not allowed in this group.`,
                     mentions: [senderId]
                 });
                 break;
             }
+
+            case 'kick': {
+                try { await sock.sendMessage(chatId, { delete: msgKey }); } catch (e) {
+                    console.error('[Antilink] Delete (kick) failed:', e.message);
+                }
+                try {
+                    await sock.groupParticipantsUpdate(chatId, [senderId], 'remove');
+                    await sock.sendMessage(chatId, {
+                        text: `🚫 ${mention} was removed for posting a link.`,
+                        mentions: [senderId]
+                    });
+                } catch (e) {
+                    console.error('[Antilink] Kick failed:', e.message);
+                    await sock.sendMessage(chatId, {
+                        text: `⚠️ ${mention} Links are not allowed here. (Failed to remove — check bot admin rights.)`,
+                        mentions: [senderId]
+                    });
+                }
+                break;
+            }
+
+            case 'warn': {
+                try { await sock.sendMessage(chatId, { delete: msgKey }); } catch (e) {
+                    console.error('[Antilink] Delete (warn) failed:', e.message);
+                }
+                const warnCount = await incrementWarningCount(chatId, senderId);
+                if (warnCount >= WARN_LIMIT) {
+                    await resetWarningCount(chatId, senderId);
+                    try {
+                        await sock.groupParticipantsUpdate(chatId, [senderId], 'remove');
+                        await sock.sendMessage(chatId, {
+                            text: `🚫 ${mention} was removed after *${WARN_LIMIT}* link warnings.`,
+                            mentions: [senderId]
+                        });
+                    } catch (e) {
+                        console.error('[Antilink] Warn-kick failed:', e.message);
+                        await sock.sendMessage(chatId, {
+                            text: `❌ ${mention} reached ${WARN_LIMIT} warnings but could not be removed. Check bot admin permissions.`,
+                            mentions: [senderId]
+                        });
+                    }
+                } else {
+                    await sock.sendMessage(chatId, {
+                        text: `⚠️ ${mention} *Warning ${warnCount}/${WARN_LIMIT}:* No links allowed here.\n${WARN_LIMIT - warnCount} warning(s) remaining before removal.`,
+                        mentions: [senderId]
+                    });
+                }
+                break;
+            }
+
+            default: {
+                // Fallback: delete only
+                try { await sock.sendMessage(chatId, { delete: msgKey }); } catch (_) {}
+                break;
+            }
         }
+
     } catch (error) {
         console.error('[Antilink] Detection error:', error);
     }
