@@ -1,7 +1,11 @@
 /**
  * Antilink — complete recode
- * Storage: data/antilink.json (own file, no shared lib dependency)
- * Detection: per-message, called from main.js for all incoming group messages
+ * Storage  : data/antilink.json  (self-contained, no shared-lib dependency)
+ * Detection: per-message hook called from main.js for all incoming group messages
+ *
+ * KEY FIX: link regex uses a literal /pattern/ not new RegExp(string) to avoid
+ * backslash-escaping bugs that turned \. into . (any char) and caused every
+ * normal word to be treated as a URL.
  */
 
 'use strict';
@@ -10,10 +14,10 @@ const path = require('path');
 const fs   = require('fs');
 const isAdmin = require('../lib/isAdmin');
 
-const DATA_FILE = path.join(__dirname, '../data/antilink.json');
+const DATA_FILE  = path.join(__dirname, '../data/antilink.json');
 const WARN_LIMIT = 3;
 
-// ─── Storage helpers ──────────────────────────────────────────────────────────
+// ─── Storage ──────────────────────────────────────────────────────────────────
 
 function load() {
     try {
@@ -46,51 +50,41 @@ function deleteGroup(groupId) {
     save(data);
 }
 
-// ─── Link detection ───────────────────────────────────────────────────────────
-
-// Matches http(s)/www URLs and plain domain.tld patterns (bit.ly, youtu.be, etc.)
-const LINK_RE = new RegExp(
-    '(?:' +
-        'https?:\\/\\/[^\\s<>"\']{4,}' +
-        '|www\\.[a-z0-9\\-]+\\.[a-z]{2,}(?:\\/[^\\s]*)?' +
-        '|(?:[a-z0-9][a-z0-9\\-]*\\.)+' +
-            '(?:com|net|org|io|co|me|app|ly|be|tv|uk|us|ng|ke|za|gh|rw|tz|ug|et|' +
-            'cm|sn|ci|ma|dz|tn|eg|to|link|xyz|online|site|web|info|biz|live|store|' +
-            'shop|tech|dev|ai|cloud|media|news|blog|click|win|club|gl|cc|gg|fm)' +
-            '(?:\\/[^\\s]*)?' +
-    ')',
-    'i'
-);
+// ─── Link Detection ───────────────────────────────────────────────────────────
+//
+// Using a LITERAL regex so that \. means "literal dot" and \s means "whitespace".
+// Covers: http(s) URLs, www.x.x, WhatsApp, Telegram, short-URLs (bit.ly, youtu.be…)
+//
+const LINK_RE = /(?:https?:\/\/[^\s<>"']{4,}|(?:www\.|chat\.whatsapp\.com\/|wa\.me\/|t\.me\/)[^\s<>"']{3,}|(?:[a-z0-9][a-z0-9-]*\.)+(?:com|net|org|io|co|me|app|ly|be|tv|uk|us|ng|ke|za|gh|rw|tz|ug|et|cm|sn|ci|ma|dz|tn|eg|to|xyz|online|site|web|info|biz|live|store|shop|tech|dev|ai|cloud|media|news|blog|click|win|club|gl)(?:\/[^\s]*)?)/i;
 
 function textHasLink(text) {
     if (!text || typeof text !== 'string') return false;
     return LINK_RE.test(text);
 }
 
-// Pull plain text out of any message type for link scanning
+// Extract the plain-text body from any WhatsApp message type
 function extractText(message) {
     const m = message?.message || {};
     return (
-        m.conversation                                       ||
-        m.extendedTextMessage?.text                          ||
-        m.imageMessage?.caption                              ||
-        m.videoMessage?.caption                              ||
-        m.documentMessage?.caption                           ||
-        m.extendedTextMessage?.contextInfo?.matchedText      ||
+        m.conversation                                  ||
+        m.extendedTextMessage?.text                     ||
+        m.imageMessage?.caption                         ||
+        m.videoMessage?.caption                         ||
+        m.documentMessage?.caption                      ||
+        m.extendedTextMessage?.contextInfo?.matchedText ||
         ''
     );
 }
 
-// ─── Command handler ──────────────────────────────────────────────────────────
+// ─── Command Handler ──────────────────────────────────────────────────────────
 
 /**
- * Called by main.js as:
+ * Called from main.js switch:
  *   handleAntilinkCommand(sock, chatId, userMessage, senderId, isSenderAdmin, message)
  *
- * userMessage is already lowercased by main.js, e.g. ".antilink set warn"
+ * userMessage is already lower-cased, e.g. ".antilink on" or ".antilink set warn"
  */
 async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSenderAdmin, message) {
-    // Only admins / bot owner may configure antilink
     if (!isSenderAdmin && !message?.key?.fromMe) {
         await sock.sendMessage(chatId, {
             text: '❌ Only group admins can configure antilink.'
@@ -98,19 +92,18 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
         return;
     }
 
-    // Parse from userMessage — safe, already sanitised by main.js
     const parts = userMessage.trim().split(/\s+/);
-    const sub  = parts[1];   // on | off | set | get | allow | disallow
-    const arg  = parts[2];   // delete | warn | kick | <link>
+    const sub   = parts[1];        // on | off | set | get | allow | disallow
+    const arg   = parts[2];        // delete | warn | kick  OR  the link text
 
-    // ── Show help if no subcommand ───────────────────────────────────────────
+    // ── Show help ─────────────────────────────────────────────────────────────
     if (!sub) {
         const cfg = getGroup(chatId);
         await sock.sendMessage(chatId, {
             text:
                 `🔗 *Antilink*\n\n` +
                 `Status : ${cfg?.enabled ? '✅ ON' : '❌ OFF'}\n` +
-                `Action : *${cfg?.action  || '—'}*\n` +
+                `Action : *${cfg?.action || '—'}*\n` +
                 `Warn   : kick after *${WARN_LIMIT}* warnings\n\n` +
                 `*Commands*\n` +
                 `• .antilink on\n` +
@@ -132,10 +125,14 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
                 await sock.sendMessage(chatId, { text: '⚠️ Antilink is already ON.' }, { quoted: message });
                 return;
             }
-            setGroup(chatId, { enabled: true, action: cur?.action || 'delete', warnings: cur?.warnings || {} });
+            setGroup(chatId, {
+                enabled:  true,
+                action:   cur?.action   || 'delete',
+                warnings: cur?.warnings || {}
+            });
             const cfg = getGroup(chatId);
             await sock.sendMessage(chatId, {
-                text: `✅ Antilink *enabled*.\nCurrent action: *${cfg.action}*\nUse \`.antilink set delete|warn|kick\` to change.`
+                text: `✅ Antilink *enabled*.\nAction: *${cfg.action}*\nUse \`.antilink set delete|warn|kick\` to change.`
             }, { quoted: message });
             break;
         }
@@ -189,7 +186,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
                 await sock.sendMessage(chatId, { text: '❌ Usage: `.antilink allow <link>`' }, { quoted: message });
                 return;
             }
-            const cfg     = getGroup(chatId) || { enabled: false, action: 'delete', warnings: {} };
+            const cfg     = getGroup(chatId) || { enabled: false, action: 'delete', warnings: {}, allowed: [] };
             const allowed = cfg.allowed || [];
             if (allowed.some(l => l.toLowerCase() === link.toLowerCase())) {
                 await sock.sendMessage(chatId, { text: `⚠️ Already whitelisted: ${link}` }, { quoted: message });
@@ -221,7 +218,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
     }
 }
 
-// ─── Per-message detection ────────────────────────────────────────────────────
+// ─── Per-Message Detection ────────────────────────────────────────────────────
 
 /**
  * Called by main.js for every incoming group message.
@@ -229,29 +226,28 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
  */
 async function handleLinkDetection(sock, chatId, message, userMessage, senderId) {
     try {
-        // Never police the bot's own messages
         if (message.key.fromMe) return;
-        // Groups only
         if (!chatId.endsWith('@g.us')) return;
 
-        // Check if antilink is enabled for this group
         const cfg = getGroup(chatId);
         if (!cfg?.enabled) return;
 
-        // Extract text from the message and check for links
         const text = extractText(message);
         if (!text || !textHasLink(text)) return;
 
-        // Admins are exempt; bot must also be admin to act
+        // Admins are exempt; bot must be admin to act
         const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
         if (isSenderAdmin) return;
-        if (!isBotAdmin) return;
+        if (!isBotAdmin) {
+            console.warn('[Antilink] Bot is not admin in', chatId, '— cannot enforce');
+            return;
+        }
 
-        // Skip whitelisted links
+        // Whitelist check
         const whitelist = cfg.allowed || [];
         if (whitelist.length && whitelist.some(w => text.toLowerCase().includes(w.toLowerCase()))) return;
 
-        // Key used to delete the offending message
+        // Key to delete the offending message
         const delKey = {
             remoteJid:   chatId,
             fromMe:      false,
@@ -262,21 +258,16 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
         const tag    = `@${senderId.split('@')[0]}`;
         const action = cfg.action || 'delete';
 
-        // Delete the message first (works silently even if action is warn/kick)
-        try {
-            await sock.sendMessage(chatId, { delete: delKey });
-        } catch (e) {
-            console.error('[Antilink] Delete failed:', e.message);
-        }
+        // Delete first
+        try { await sock.sendMessage(chatId, { delete: delKey }); }
+        catch (e) { console.error('[Antilink] Delete failed:', e.message); }
 
-        // ── delete ───────────────────────────────────────────────────────────
         if (action === 'delete') {
             await sock.sendMessage(chatId, {
                 text: `🚫 ${tag}, links are not allowed in this group.`,
                 mentions: [senderId]
             });
 
-        // ── kick ─────────────────────────────────────────────────────────────
         } else if (action === 'kick') {
             try {
                 await sock.groupParticipantsUpdate(chatId, [senderId], 'remove');
@@ -292,7 +283,6 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
                 });
             }
 
-        // ── warn (kick after WARN_LIMIT) ─────────────────────────────────────
         } else if (action === 'warn') {
             const warnings = cfg.warnings || {};
             warnings[senderId] = (warnings[senderId] || 0) + 1;
@@ -317,7 +307,7 @@ async function handleLinkDetection(sock, chatId, message, userMessage, senderId)
             } else {
                 setGroup(chatId, { warnings });
                 await sock.sendMessage(chatId, {
-                    text: `⚠️ ${tag} *Warning ${count}/${WARN_LIMIT}* — links are not allowed.\n${WARN_LIMIT - count} warning(s) left before removal.`,
+                    text: `⚠️ ${tag} *Warning ${count}/${WARN_LIMIT}* — no links allowed.\n${WARN_LIMIT - count} warning(s) left before removal.`,
                     mentions: [senderId]
                 });
             }
