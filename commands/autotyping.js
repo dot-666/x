@@ -1,17 +1,15 @@
 /**
- * Knight Bot - A WhatsApp Bot
+ * June-X Bot
  * Autotyping Command - Shows fake typing status
  */
 
 const fs = require('fs');
 const path = require('path');
 const isOwnerOrSudo = require('../lib/isOwner');
+const { createFakeContact } = require('../lib/fakeContact');
 
-// Path to store the configuration
 const configPath = path.join(__dirname, '..', 'data', 'autotyping.json');
 
-// Initialize configuration file if it doesn't exist
-const { createFakeContact } = require('../lib/fakeContact');
 function initConfig() {
     if (!fs.existsSync(configPath)) {
         fs.writeFileSync(configPath, JSON.stringify({ enabled: false }, null, 2));
@@ -19,12 +17,11 @@ function initConfig() {
     return JSON.parse(fs.readFileSync(configPath));
 }
 
-// Toggle autotyping feature
 async function autotypingCommand(sock, chatId, message) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;
         const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
-        
+
         if (!message.key.fromMe && !isOwner) {
             await sock.sendMessage(chatId, {
                 text: '❌ This command is only available for the owner!'
@@ -32,15 +29,12 @@ async function autotypingCommand(sock, chatId, message) {
             return;
         }
 
-        // Get command arguments
-        const args = message.message?.conversation?.trim().split(' ').slice(1) || 
-                    message.message?.extendedTextMessage?.text?.trim().split(' ').slice(1) || 
-                    [];
-        
-        // Initialize or read config
+        const args = message.message?.conversation?.trim().split(' ').slice(1) ||
+            message.message?.extendedTextMessage?.text?.trim().split(' ').slice(1) ||
+            [];
+
         const config = initConfig();
-        
-        // Toggle based on argument or toggle current state if no argument
+
         if (args.length > 0) {
             const action = args[0].toLowerCase();
             if (action === 'on' || action === 'enable') {
@@ -54,18 +48,15 @@ async function autotypingCommand(sock, chatId, message) {
                 return;
             }
         } else {
-            // Toggle current state
             config.enabled = !config.enabled;
         }
-        
-        // Save updated configuration
+
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-        
-        // Send confirmation message
+
         await sock.sendMessage(chatId, {
             text: `✅ Auto-typing has been ${config.enabled ? 'enabled' : 'disabled'}!`
         }, { quoted: createFakeContact(message) });
-        
+
     } catch (error) {
         console.error('Error in autotyping command:', error);
         await sock.sendMessage(chatId, {
@@ -74,179 +65,59 @@ async function autotypingCommand(sock, chatId, message) {
     }
 }
 
-// Function to check if autotyping is enabled
 function isAutotypingEnabled() {
     try {
-        const config = initConfig();
-        return config.enabled;
-    } catch (error) {
-        console.error('Error checking autotyping status:', error);
+        return initConfig().enabled;
+    } catch {
         return false;
     }
 }
 
-// Function to handle autotyping for regular messages
-async function handleAutotypingForMessage(sock, chatId, userMessage) {
-    if (isAutotypingEnabled()) {
-        try {
-            // First subscribe to presence updates for this chat
-            await sock.presenceSubscribe(chatId);
-            
-            // Send available status first
-            await sock.sendPresenceUpdate('available', chatId);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Then send the composing status
+async function _sendTypingPresence(sock, chatId, durationMs) {
+    try {
+        await sock.presenceSubscribe(chatId);
+        await sock.sendPresenceUpdate('available', chatId);
+        await new Promise(r => setTimeout(r, 300));
+        await sock.sendPresenceUpdate('composing', chatId);
+
+        const refreshInterval = 4000;
+        const cycles = Math.floor(durationMs / refreshInterval);
+
+        for (let i = 0; i < cycles; i++) {
+            await new Promise(r => setTimeout(r, refreshInterval));
             await sock.sendPresenceUpdate('composing', chatId);
-            
-            // Simulate typing time based on message length with longer duration
-            // Increased minimum and maximum times for more realistic typing
-            const typingDelay = Math.max(5000, Math.min(15000, userMessage.length * 200));
-            
-            // Break the typing into multiple intervals to keep it active
-            const intervals = Math.floor(typingDelay / 3000); // Refresh every 3 seconds
-            
-            for (let i = 0; i < intervals; i++) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                await sock.sendPresenceUpdate('composing', chatId);
-            }
-            
-            // Additional delay for remaining time
-            const remainingTime = typingDelay - (intervals * 3000);
-            if (remainingTime > 0) {
-                await new Promise(resolve => setTimeout(resolve, remainingTime));
-                await sock.sendPresenceUpdate('composing', chatId);
-            }
-            
-            // Finally send paused status
-            await sock.sendPresenceUpdate('paused', chatId);
-            
-            return true; // Indicates typing was shown
-        } catch (error) {
-            console.error('❌ Error sending typing indicator:', error);
-            return false; // Indicates typing failed
         }
+
+        const remaining = durationMs - cycles * refreshInterval;
+        if (remaining > 0) {
+            await new Promise(r => setTimeout(r, remaining));
+        }
+
+        await sock.sendPresenceUpdate('paused', chatId);
+    } catch (err) {
+        console.error('❌ Typing presence error:', err.message || err);
     }
-    return false; // Autotyping is disabled
 }
 
-// Function to handle autotyping for commands - BEFORE command execution
-async function handleAutotypingForCommand(sock, chatId) {
-    if (isAutotypingEnabled()) {
-        try {
-            // First subscribe to presence updates for this chat
-            await sock.presenceSubscribe(chatId);
-            
-            // Send available status first
-            await sock.sendPresenceUpdate('available', chatId);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Then send the composing status
-            await sock.sendPresenceUpdate('composing', chatId);
-            
-            // Keep typing indicator active for commands with longer duration
-            const commandTypingDelay = 8000; // Increased to 8 seconds
-            
-            // Break into intervals to keep it active
-            const intervals = Math.floor(commandTypingDelay / 3000);
-            
-            for (let i = 0; i < intervals; i++) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                await sock.sendPresenceUpdate('composing', chatId);
-            }
-            
-            // Additional delay for remaining time
-            const remainingTime = commandTypingDelay - (intervals * 3000);
-            if (remainingTime > 0) {
-                await new Promise(resolve => setTimeout(resolve, remainingTime));
-                await sock.sendPresenceUpdate('composing', chatId);
-            }
-            
-            // Finally send paused status
-            await sock.sendPresenceUpdate('paused', chatId);
-            
-            return true; // Indicates typing was shown
-        } catch (error) {
-            console.error('❌ Error sending command typing indicator:', error);
-            return false; // Indicates typing failed
-        }
-    }
-    return false; // Autotyping is disabled
+function handleAutotypingForMessage(sock, chatId, userMessage) {
+    if (!isAutotypingEnabled()) return;
+    const duration = Math.max(4000, Math.min(12000, (userMessage?.length || 20) * 150));
+    _sendTypingPresence(sock, chatId, duration);
 }
 
-// Function to show typing status AFTER command execution
-async function showTypingAfterCommand(sock, chatId) {
-    if (isAutotypingEnabled()) {
-        try {
-            // This function runs after the command has been executed and response sent
-            // So we show a longer typing indicator for better UX
-            
-            // Subscribe to presence updates
-            await sock.presenceSubscribe(chatId);
-            
-            // Show typing status for a longer duration
-            const postCommandDelay = 5000; // 5 seconds
-            
-            await sock.sendPresenceUpdate('composing', chatId);
-            
-            // Break into intervals to keep it active
-            const intervals = Math.floor(postCommandDelay / 3000);
-            
-            for (let i = 0; i < intervals; i++) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                await sock.sendPresenceUpdate('composing', chatId);
-            }
-            
-            // Additional delay for remaining time
-            const remainingTime = postCommandDelay - (intervals * 3000);
-            if (remainingTime > 0) {
-                await new Promise(resolve => setTimeout(resolve, remainingTime));
-                await sock.sendPresenceUpdate('composing', chatId);
-            }
-            
-            // Then pause
-            await sock.sendPresenceUpdate('paused', chatId);
-            
-            return true;
-        } catch (error) {
-            console.error('❌ Error sending post-command typing indicator:', error);
-            return false;
-        }
-    }
-    return false; // Autotyping is disabled
+function handleAutotypingForCommand(sock, chatId) {
+    if (!isAutotypingEnabled()) return;
+    _sendTypingPresence(sock, chatId, 6000);
 }
 
-// Straight fixed-duration typing presence (similar pattern to straightRecordingPresence)
-async function straightTypingPresence(sock, chatId) {
-    if (isAutotypingEnabled()) {
-        try {
-            await sock.presenceSubscribe(chatId);
-            await sock.sendPresenceUpdate('available', chatId);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            await sock.sendPresenceUpdate('composing', chatId);
+function showTypingAfterCommand(sock, chatId) {
+    if (!isAutotypingEnabled()) return;
+    _sendTypingPresence(sock, chatId, 4000);
+}
 
-            const typingDuration = 8000;
-            const intervals = Math.floor(typingDuration / 3000);
-
-            for (let i = 0; i < intervals; i++) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                await sock.sendPresenceUpdate('composing', chatId);
-            }
-
-            const remaining = typingDuration - (intervals * 3000);
-            if (remaining > 0) {
-                await new Promise(resolve => setTimeout(resolve, remaining));
-                await sock.sendPresenceUpdate('composing', chatId);
-            }
-
-            await sock.sendPresenceUpdate('paused', chatId);
-            return true;
-        } catch (error) {
-            console.error('❌ Error sending straight typing presence:', error);
-            return false;
-        }
-    }
-    return false;
+function straightTypingPresence(sock, chatId) {
+    if (!isAutotypingEnabled()) return;
+    _sendTypingPresence(sock, chatId, 8000);
 }
 
 module.exports = {
