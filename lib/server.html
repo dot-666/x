@@ -487,64 +487,72 @@
                 retina_detect: true
             });
             
-            // Set deployment time for uptime calculation
-            const deploymentTime = new Date();
-            
-            // Update time, date, and day
+            // Real server start time fetched from /health endpoint
+            let serverStartTime = null;
+
+            async function fetchServerStartTime() {
+                try {
+                    const res = await fetch('/health');
+                    const data = await res.json();
+                    serverStartTime = data.startTime || (Date.now() - data.uptime * 1000);
+                } catch (e) {
+                    serverStartTime = Date.now();
+                }
+            }
+
+            async function measurePing() {
+                try {
+                    const t0 = performance.now();
+                    await fetch('/health');
+                    const ping = Math.round(performance.now() - t0);
+                    document.getElementById('pingValue').textContent = `${ping}ms`;
+                } catch (e) {
+                    document.getElementById('pingValue').textContent = '--ms';
+                }
+            }
+
+            function updateUptime() {
+                if (serverStartTime === null) return;
+                const uptimeMs = Date.now() - serverStartTime;
+                const totalSec = Math.floor(uptimeMs / 1000);
+                const hours = Math.floor(totalSec / 3600);
+                const minutes = Math.floor((totalSec % 3600) / 60);
+                const seconds = totalSec % 60;
+                document.getElementById('uptimeValue').textContent =
+                    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+
             function updateInfo() {
                 const now = new Date();
-                
-                // Update time
+
                 const hours = String(now.getHours()).padStart(2, '0');
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 const seconds = String(now.getSeconds()).padStart(2, '0');
                 document.getElementById('timeValue').textContent = `${hours}:${minutes}:${seconds}`;
-                
-                // Update date
-                const date = now.toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
+
+                const date = now.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
                 });
                 document.getElementById('dateValue').textContent = date;
-                
-                // Update day
+
                 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-                const dayName = dayNames[now.getDay()];
-                document.getElementById('dayValue').textContent = dayName;
-                
-                // Update uptime
-                updateUptime(deploymentTime);
-                
-                // Simulate ping update
-                updatePing();
+                document.getElementById('dayValue').textContent = dayNames[now.getDay()];
+
+                updateUptime();
             }
-            
-            // Calculate and update uptime
-            function updateUptime(startTime) {
-                const now = new Date();
-                const uptimeMs = now - startTime;
-                
-                const hours = Math.floor(uptimeMs / (1000 * 60 * 60));
-                const minutes = Math.floor((uptimeMs % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((uptimeMs % (1000 * 60)) / 1000);
-                
-                document.getElementById('uptimeValue').textContent = 
-                    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-            }
-            
-            // Simulate ping update
-            function updatePing() {
-                // Simulate realistic ping values between 20-80ms
-                const ping = Math.floor(Math.random() * 60) + 20;
-                document.getElementById('pingValue').textContent = `${ping}ms`;
-            }
-            
-            // Update info every second
+
+            // Fetch real start time on load, then refresh every 30s
+            fetchServerStartTime().then(() => updateInfo());
+            setInterval(fetchServerStartTime, 30000);
+
+            // Update display every second
             setInterval(updateInfo, 1000);
-            
-            // Initial call to set info immediately
-            updateInfo();
+
+            // Measure real ping every 5 seconds
+            measurePing();
+            setInterval(measurePing, 5000);
             
             // Add hover effect to status card
             const statusCard = document.querySelector('.status-card');
