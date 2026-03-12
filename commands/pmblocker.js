@@ -3,63 +3,53 @@ const fs = require('fs');
 const PMBLOCKER_PATH = './data/pmblocker.json';
 
 const { createFakeContact } = require('../lib/fakeContact');
+
 function readState() {
     try {
-        if (!fs.existsSync(PMBLOCKER_PATH)) return { enabled: false, message: '⚠️ Direct messages are blocked!\nYou cannot DM this bot. Please contact the owner in group chats only.' };
+        if (!fs.existsSync(PMBLOCKER_PATH)) return { enabled: false };
         const raw = fs.readFileSync(PMBLOCKER_PATH, 'utf8');
         const data = JSON.parse(raw || '{}');
-        return {
-            enabled: !!data.enabled,
-            message: typeof data.message === 'string' && data.message.trim() ? data.message : '⚠️ Direct messages are blocked!\nYou cannot DM this bot. Please contact the owner in group chats only.'
-        };
+        return { enabled: !!data.enabled };
     } catch {
-        return { enabled: false, message: '⚠️ Direct messages are blocked!\nYou cannot DM this bot. Please contact the owner in group chats only.' };
+        return { enabled: false };
     }
 }
 
-function writeState(enabled, message) {
+function writeState(enabled) {
     try {
         if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true });
-        const current = readState();
-        const payload = {
-            enabled: !!enabled,
-            message: typeof message === 'string' && message.trim() ? message : current.message
-        };
-        fs.writeFileSync(PMBLOCKER_PATH, JSON.stringify(payload, null, 2));
+        fs.writeFileSync(PMBLOCKER_PATH, JSON.stringify({ enabled: !!enabled }, null, 2));
     } catch {}
 }
 
 async function pmblockerCommand(sock, chatId, message, args) {
-    const argStr = (args || '').trim();
-    const [sub, ...rest] = argStr.split(' ');
+    const sub = (args || '').trim().split(' ')[0].toLowerCase();
     const state = readState();
 
-    if (!sub || !['on', 'off', 'status', 'setmsg'].includes(sub.toLowerCase())) {
-        await sock.sendMessage(chatId, { text: '*☣️ AUTO-BLOCK ☣️*\n\n 🔸.pmblocker on - Enable PM auto-block\n 🔸.pmblocker off - Disable PM blocker\n 🔸 .pmblocker status - Show current status\n 🔸 .pmblocker setmsg <text> - Set warning message' }, { quoted: createFakeContact(message) });
+    if (!sub || !['on', 'off', 'status'].includes(sub)) {
+        await sock.sendMessage(chatId, {
+            text: '*🚫 PM BLOCKER*\n\n' +
+                  'Silently blocks anyone who DMs the bot (no reply sent).\n\n' +
+                  '🔸 `.pmblocker on` — Enable silent PM block\n' +
+                  '🔸 `.pmblocker off` — Disable PM block\n' +
+                  '🔸 `.pmblocker status` — Show current status'
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
-    if (sub.toLowerCase() === 'status') {
-        await sock.sendMessage(chatId, { text: `PM Blocker is currently *${state.enabled ? 'ON' : 'OFF'}*\nMessage: ${state.message}` }, { quoted: createFakeContact(message) });
+    if (sub === 'status') {
+        await sock.sendMessage(chatId, {
+            text: `🚫 *PM Blocker:* ${state.enabled ? '✅ ON (silent block active)' : '❌ OFF'}`
+        }, { quoted: createFakeContact(message) });
         return;
     }
 
-    if (sub.toLowerCase() === 'setmsg') {
-        const newMsg = rest.join(' ').trim();
-        if (!newMsg) {
-            await sock.sendMessage(chatId, { text: 'Usage: .pmblocker setmsg <message>' }, { quoted: createFakeContact(message) });
-            return;
-        }
-        writeState(state.enabled, newMsg);
-        await sock.sendMessage(chatId, { text: 'PM Blocker message updated.' }, { quoted: createFakeContact(message) });
-        return;
-    }
-
-    const enable = sub.toLowerCase() === 'on';
+    const enable = sub === 'on';
     writeState(enable);
-    await sock.sendMessage(chatId, { text: `PM Blocker is now *${enable ? 'ENABLED' : 'DISABLED'}*.` }, { quoted: createFakeContact(message) });
+    await sock.sendMessage(chatId, {
+        text: `🚫 *PM Blocker* is now *${enable ? 'ENABLED' : 'DISABLED'}*.\n` +
+              (enable ? 'Anyone who DMs the bot will be silently blocked.' : 'DMs are now allowed.')
+    }, { quoted: createFakeContact(message) });
 }
 
 module.exports = { pmblockerCommand, readState };
-
-
