@@ -1,6 +1,6 @@
 const yts = require('yt-search');
-
 const { createFakeContact } = require('../lib/fakeContact');
+
 async function ytsCommand(sock, chatId, senderId, message, userMessage) {
     try {
         const args = userMessage.split(' ').slice(1);
@@ -14,7 +14,7 @@ async function ytsCommand(sock, chatId, senderId, message, userMessage) {
 
         await sock.sendMessage(chatId, {
             text: `🌍 Searching...: "${query}"`
-        },{ quoted: createFakeContact(message) });
+        }, { quoted: createFakeContact(message) });
 
         let searchResults;
         try {
@@ -26,7 +26,7 @@ async function ytsCommand(sock, chatId, senderId, message, userMessage) {
             }, { quoted: createFakeContact(message) });
         }
 
-        const videos = (searchResults && searchResults.videos) ? searchResults.videos.slice(0, 15) : [];
+        const videos = (searchResults && searchResults.videos) ? searchResults.videos.slice(0, 5) : [];
 
         if (videos.length === 0) {
             return await sock.sendMessage(chatId, {
@@ -34,25 +34,27 @@ async function ytsCommand(sock, chatId, senderId, message, userMessage) {
             }, { quoted: createFakeContact(message) });
         }
 
-        let resultMessage = `🄹 🅄 🄽 🄴  🅇  🄾 🄽: "${query}"\n\n`;
-
-        videos.forEach((video, index) => {
+        for (const video of videos) {
             const duration = video.timestamp || 'N/A';
             const views = video.views ? video.views.toLocaleString() : 'N/A';
             const uploadDate = video.ago || 'N/A';
 
-            resultMessage += `*${index + 1}. ${video.title}*\n`;
-            resultMessage += `🄹 *URL:* ${video.url}\n`;
-            resultMessage += `🅄 *Duration:* ${duration}\n`;
-            resultMessage += `🄽 *Views:* ${views}\n`;
-            resultMessage += `🄴 *Uploaded:* ${uploadDate}\n`;
-            resultMessage += `🅇 *Channel:* ${video.author?.name || 'N/A'}\n\n`;
-        });
+            const caption = 
+`*${video.title}*
+🄹 *URL:* ${video.url}
+🅄 *Duration:* ${duration}
+🄽 *Views:* ${views}
+🄴 *Uploaded:* ${uploadDate}
+🅇 *Channel:* ${video.author?.name || 'N/A'}
 
-        resultMessage += `☆ Tip: Use docytplay <url> to download audio\n`;
-        resultMessage += `☆ Use docytvideo <url> to download video`;
+☆ Tip: Use docytplay <url> to download audio
+☆ Use docytvideo <url> to download video`;
 
-        await sock.sendMessage(chatId, { text: resultMessage },{ quoted: createFakeContact(message) });
+            await sock.sendMessage(chatId, {
+                image: { url: video.thumbnail },
+                caption
+            }, { quoted: createFakeContact(message) });
+        }
 
     } catch (error) {
         console.error('YouTube search command error:', error);
