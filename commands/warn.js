@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const isAdmin = require('../lib/isAdmin');
+const { isSudo } = require('../lib/index');
 
 // Define paths
 const databaseDir = path.join(process.cwd(), 'data');
@@ -33,29 +34,32 @@ async function warnCommand(sock, chatId, senderId, mentionedJids, message) {
             return;
         }
 
-        // Check admin status first
-        try {
-            const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
-            
-            if (!isBotAdmin) {
-                await sock.sendMessage(chatId, { 
-                    text: '🛑 Error: Please make the bot an admin first to use this command.'
-                }, { quoted: createFakeContact(message) });
-                return;
-            }
+        // Check admin status first (owner/sudo bypass)
+        const isOwner = message.key.fromMe || await isSudo(senderId);
+        if (!isOwner) {
+            try {
+                const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
+                
+                if (!isBotAdmin) {
+                    await sock.sendMessage(chatId, { 
+                        text: '🛑 Error: Please make the bot an admin first to use this command.'
+                    }, { quoted: createFakeContact(message) });
+                    return;
+                }
 
-            if (!isSenderAdmin) {
+                if (!isSenderAdmin) {
+                    await sock.sendMessage(chatId, { 
+                        text: '🛑 Error: Only group admins can use the warn command.'
+                    }, { quoted: createFakeContact(message) });
+                    return;
+                }
+            } catch (adminError) {
+                console.error('Error checking admin status:', adminError);
                 await sock.sendMessage(chatId, { 
-                    text: '🛑 Error: Only group admins can use the warn command.'
+                    text: '🛑 Error: Please make sure the bot is an admin of this group.'
                 }, { quoted: createFakeContact(message) });
                 return;
             }
-        } catch (adminError) {
-            console.error('Error checking admin status:', adminError);
-            await sock.sendMessage(chatId, { 
-                text: '🛑 Error: Please make sure the bot is an admin of this group.'
-            }, { quoted: createFakeContact(message) });
-            return;
         }
 
         let userToWarn;

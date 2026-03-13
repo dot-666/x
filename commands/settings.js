@@ -26,7 +26,7 @@ async function settingsCommand(sock, chatId, message) {
         const isGroup = chatId.endsWith('@g.us');
         const dataDir = './data';
 
-        const mode        = readJsonSafe(`${dataDir}/messageCount.json`,  { isPublic: true });
+        const mode        = readJsonSafe(`${dataDir}/botMode.json`,  { isPublic: true, mode: 'public' });
         const autoStatus  = readJsonSafe(`${dataDir}/autoStatus.json`,    { enabled: false, reactOn: false });
         const autoread    = readJsonSafe(`${dataDir}/autoread.json`,      { enabled: false });
         const autotyping  = readJsonSafe(`${dataDir}/autotyping.json`,    { enabled: false });
@@ -70,7 +70,7 @@ async function settingsCommand(sock, chatId, message) {
         lines.push('');
         lines.push('*🌐 Global Settings*');
         lines.push(`┃ Prefix       : *${prefixCfg.prefix || '.'}*`);
-        lines.push(`┃ Mode         : *${mode.isPublic ? 'Public' : 'Private'}*`);
+        lines.push(`┃ Mode         : *${mode.mode ? mode.mode.charAt(0).toUpperCase() + mode.mode.slice(1) : (mode.isPublic ? 'Public' : 'Private')}*`);
         lines.push(`┃ Menu Style   : *Style ${menuCfg.menuStyle || '1'}*`);
         lines.push('');
         lines.push('*⚙️ Automation*');

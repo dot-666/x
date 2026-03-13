@@ -1,4 +1,5 @@
 const isAdmin = require('../lib/isAdmin');
+const { isSudo } = require('../lib/index');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
@@ -15,27 +16,30 @@ async function downloadMediaMessage(message, mediaType) {
     return filePath;
 }
 
-async function tagCommand(sock, chatId, senderId, messageText, replyMessage) {
+async function tagCommand(sock, chatId, senderId, messageText, replyMessage, message) {
     // ✅ Restrict to groups only
     if (!chatId.endsWith('@g.us')) {
         await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' }, { quoted: createFakeContact(message) });
         return;
     }
 
-    const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
+    const isOwner = (message && message.key.fromMe) || await isSudo(senderId);
+    if (!isOwner) {
+        const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
 
-    if (!isBotAdmin) {
-        await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
-        return;
-    }
-
-    if (!isSenderAdmin) {
-        const stickerPath = './assets/sticktag.webp';  // Path to your sticker
-        if (fs.existsSync(stickerPath)) {
-            const stickerBuffer = fs.readFileSync(stickerPath);
-            await sock.sendMessage(chatId, { sticker: stickerBuffer }, { quoted: createFakeContact(message) });
+        if (!isBotAdmin) {
+            await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
+            return;
         }
-        return;
+
+        if (!isSenderAdmin) {
+            const stickerPath = './assets/sticktag.webp';
+            if (fs.existsSync(stickerPath)) {
+                const stickerBuffer = fs.readFileSync(stickerPath);
+                await sock.sendMessage(chatId, { sticker: stickerBuffer }, { quoted: createFakeContact(message) });
+            }
+            return;
+        }
     }
 
     const groupMetadata = await sock.groupMetadata(chatId);

@@ -1,15 +1,18 @@
 const isAdmin = require('../lib/isAdmin');
+const { isSudo } = require('../lib/index');
 const activeMuteTimers = new Map();
 
 const { createFakeContact } = require('../lib/fakeContact');
 async function muteCommand(sock, chatId, senderId, message, durationInMinutes) {
-    const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
-
-    if (!isBotAdmin) {
-        return sock.sendMessage(chatId, { text: '⚠️ Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
-    }
-    if (!isSenderAdmin) {
-        return sock.sendMessage(chatId, { text: '🚫 Only group admins can use the mute command.' }, { quoted: createFakeContact(message) });
+    const isOwner = message.key.fromMe || await isSudo(senderId);
+    if (!isOwner) {
+        const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
+        if (!isBotAdmin) {
+            return sock.sendMessage(chatId, { text: '⚠️ Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
+        }
+        if (!isSenderAdmin) {
+            return sock.sendMessage(chatId, { text: '🚫 Only group admins can use the mute command.' }, { quoted: createFakeContact(message) });
+        }
     }
 
     try {

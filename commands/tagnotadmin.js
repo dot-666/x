@@ -1,18 +1,22 @@
 const isAdmin = require('../lib/isAdmin');
+const { isSudo } = require('../lib/index');
 
 const { createFakeContact } = require('../lib/fakeContact');
 async function tagNotAdminCommand(sock, chatId, senderId, message) {
     try {
-        const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
+        const isOwner = message.key.fromMe || await isSudo(senderId);
+        if (!isOwner) {
+            const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
 
-        if (!isBotAdmin) {
-            await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
-            return;
-        }
+            if (!isBotAdmin) {
+                await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: createFakeContact(message) });
+                return;
+            }
 
-        if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: 'Only admins can use the .tagnotadmin command.' }, { quoted: createFakeContact(message) });
-            return;
+            if (!isSenderAdmin) {
+                await sock.sendMessage(chatId, { text: 'Only admins can use the .tagnotadmin command.' }, { quoted: createFakeContact(message) });
+                return;
+            }
         }
 
         const groupMetadata = await sock.groupMetadata(chatId);
