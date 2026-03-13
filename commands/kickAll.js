@@ -3,6 +3,7 @@ const isAdmin = require('../lib/isAdmin');
 
 function normaliseJid(jid) {
     if (!jid) return jid;
+    if (typeof jid !== 'string') return String(jid);
     let [user] = jid.split('@');
     if (user.includes(':')) user = user.split(':')[0];
     return `${user}@s.whatsapp.net`;
@@ -11,94 +12,195 @@ function normaliseJid(jid) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function kickAllCommand(sock, chatId, message, senderId) {
+    // Validate required parameters
+    if (!sock || !chatId || !message) {
+        console.error('Missing required parameters');
+        return;
+    }
+
     const fake = createFakeContact(message);
 
     try {
-        if (!chatId.endsWith('@g.us')) {
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-            return await sock.sendMessage(chatId, {
+        // Ensure chatId is a string
+        const groupId = String(chatId);
+        
+        if (!groupId.endsWith('@g.us')) {
+            await sock.sendMessage(groupId, { 
+                react: { text: '❌', key: message.key } 
+            }).catch(() => {});
+            
+            return await sock.sendMessage(groupId, {
                 text: '🚫 This command only works in groups.'
-            }, { quoted: fake });
+            }, { quoted: fake }).catch(() => {});
         }
 
-        const metadata = await sock.groupMetadata(chatId);
+        // Get group metadata with error handling
+        let metadata;
+        try {
+            metadata = await sock.groupMetadata(groupId);
+        } catch (error) {
+            console.error('Failed to get group metadata:', error);
+            await sock.sendMessage(groupId, { 
+                react: { text: '❌', key: message.key } 
+            }).catch(() => {});
+            
+            return await sock.sendMessage(groupId, {
+                text: '❌ Failed to fetch group information. Make sure I\'m in the group.'
+            }, { quoted: fake }).catch(() => {});
+        }
+
         const participants = metadata.participants || [];
 
-        const botJid = normaliseJid(sock.user.id);
+        // Get bot's JID with proper error handling
+        let botJid;
+        try {
+            botJid = normaliseJid(sock.user?.id);
+            if (!botJid) throw new Error('Could not determine bot JID');
+        } catch (error) {
+            console.error('Failed to get bot JID:', error);
+            return await sock.sendMessage(groupId, {
+                text: '❌ Bot identification failed.'
+            }, { quoted: fake }).catch(() => {});
+        }
+
         const senderNorm = normaliseJid(senderId);
 
-        const isBotAdmin = participants.some(p =>
-            normaliseJid(p.id) === botJid &&
-            (p.admin === 'admin' || p.admin === 'superadmin')
-        );
-
-        // Use the imported isAdmin function instead of manual check
-        const isSenderAdmin = await isAdmin(sock, chatId, senderId);
+        // Check if bot is admin
+        const isBotAdmin = participants.some(p => {
+            try {
+                return p && normaliseJid(p.id) === botJid && 
+                       (p.admin === 'admin' || p.admin === 'superadmin');
+            } catch {
+                return false;
+            }
+        });
 
         if (!isBotAdmin) {
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-            return await sock.sendMessage(chatId, {
-                text: '🚫 I need to be a group admin to kick members.'
-            }, { quoted: fake });
+            await sock.sendMessage(groupId, { 
+                react: { text: '❌', key: message.key } 
+            }).catch(() => {});
+            
+            return await sock.sendMessage(groupId, {
+                text: '🚫 I need to be an admin to use .kickall.'
+            }, { quoted: fake }).catch(() => {});
+        }
+
+        // Check if sender is admin
+        let isSenderAdmin = false;
+        try {
+            isSenderAdmin = await isAdmin(sock, groupId, senderId);
+        } catch (error) {
+            console.error('Failed to check sender admin status:', error);
         }
 
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-            return await sock.sendMessage(chatId, {
+            await sock.sendMessage(groupId, { 
+                react: { text: '❌', key: message.key } 
+            }).catch(() => {});
+            
+            return await sock.sendMessage(groupId, {
                 text: '🚫 Only group admins can use .kickall.'
-            }, { quoted: fake });
+            }, { quoted: fake }).catch(() => {});
         }
 
+        // Filter targets with better error handling
         const targets = participants
             .filter(p => {
-                const norm = normaliseJid(p.id);
-                return (
-                    norm !== botJid &&
-                    norm !== senderNorm &&
-                    p.admin !== 'admin' &&
-                    p.admin !== 'superadmin'
-                );
+                try {
+                    if (!p || !p.id) return false;
+                    const norm = normaliseJid(p.id);
+                    return (
+                        norm && 
+                        norm !== botJid &&
+                        norm !== senderNorm &&
+                        p.admin !== 'admin' &&
+                        p.admin !== 'superadmin'
+                    );
+                } catch {
+                    return false;
+                }
             })
-            .map(p => p.id);
+            .map(p => p.id)
+            .filter(Boolean); // Remove any undefined/null values
 
         if (targets.length === 0) {
-            await sock.sendMessage(chatId, { react: { text: '⚠️', key: message.key } });
-            return await sock.sendMessage(chatId, {
+            await sock.sendMessage(groupId, { 
+                react: { text: '⚠️', key: message.key } 
+            }).catch(() => {});
+            
+            return await sock.sendMessage(groupId, {
                 text: '⚠️ No non-admin members to kick.'
-            }, { quoted: fake });
+            }, { quoted: fake }).catch(() => {});
         }
 
-        await sock.sendMessage(chatId, { react: { text: '⏳', key: message.key } });
-        await sock.sendMessage(chatId, {
+        // Send initial messages
+        await sock.sendMessage(groupId, { 
+            react: { text: '⏳', key: message.key } 
+        }).catch(() => {});
+
+        await sock.sendMessage(groupId, {
             text: `⏳ Kicking *${targets.length}* member(s), please wait...`
-        }, { quoted: fake });
+        }, { quoted: fake }).catch(() => {});
 
         let kicked = 0;
         let failed = 0;
+        const failedJids = [];
 
+        // Process kicks with better error handling
         for (const jid of targets) {
             try {
-                await sock.groupParticipantsUpdate(chatId, [jid], 'remove');
+                if (!jid) {
+                    failed++;
+                    continue;
+                }
+                
+                await sock.groupParticipantsUpdate(groupId, [jid], 'remove');
                 kicked++;
-            } catch {
+            } catch (error) {
+                console.error(`Failed to kick ${jid}:`, error.message);
                 failed++;
+                failedJids.push(jid);
             }
+            
+            // Add delay between kicks to avoid rate limiting
             await sleep(700);
         }
 
-        const summary = failed > 0
-            ? `✅ Kicked *${kicked}/${targets.length}* member(s).\n⚠️ ${failed} could not be removed (may have already left or are protected).`
-            : `✅ Successfully kicked all *${kicked}* member(s).`;
+        // Prepare summary message
+        let summary;
+        if (failed > 0) {
+            summary = `✅ Kicked *${kicked}/${targets.length}* member(s).\n⚠️ ${failed} could not be removed`;
+            if (failedJids.length > 0 && failedJids.length <= 3) {
+                // Show first few failed JIDs for debugging
+                summary += `\nFailed JIDs: ${failedJids.join(', ')}`;
+            }
+        } else {
+            summary = `✅ Successfully kicked all *${kicked}* member(s).`;
+        }
 
-        await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
-        return await sock.sendMessage(chatId, { text: summary }, { quoted: fake });
+        // Send final messages
+        await sock.sendMessage(groupId, { 
+            react: { text: kicked > 0 ? '✅' : '⚠️', key: message.key } 
+        }).catch(() => {});
+
+        return await sock.sendMessage(groupId, { 
+            text: summary 
+        }, { quoted: fake }).catch(() => {});
 
     } catch (err) {
         console.error('kickAllCommand error:', err);
-        await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-        return await sock.sendMessage(chatId, {
-            text: `❌ Error: ${err.message || 'Unknown error'}`
-        }, { quoted: fake });
+        
+        try {
+            await sock.sendMessage(chatId, { 
+                react: { text: '❌', key: message?.key } 
+            }).catch(() => {});
+            
+            return await sock.sendMessage(chatId, {
+                text: `❌ Error: ${err?.message || 'Unknown error occurred'}`
+            }, { quoted: fake }).catch(() => {});
+        } catch (finalError) {
+            console.error('Failed to send error message:', finalError);
+        }
     }
 }
 
