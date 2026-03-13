@@ -1,13 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { isSudo } = require('../lib/index');
 
-async function ensureGroupAndAdmin(sock, chatId, senderId) {
+async function ensureGroupAndAdmin(sock, chatId, senderId, message) {
     const isGroup = chatId.endsWith('@g.us');
     if (!isGroup) {
         await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' });
         return { ok: false };
     }
+    const isOwner = (message && message.key.fromMe) || await isSudo(senderId);
+    if (isOwner) return { ok: true };
     // Check admin status of sender and bot
     const isAdmin = require('../lib/isAdmin');
     const adminStatus = await isAdmin(sock, chatId, senderId);
@@ -23,7 +26,7 @@ async function ensureGroupAndAdmin(sock, chatId, senderId) {
 }
 
 async function setGroupDescription(sock, chatId, senderId, text, message) {
-    const check = await ensureGroupAndAdmin(sock, chatId, senderId);
+    const check = await ensureGroupAndAdmin(sock, chatId, senderId, message);
     if (!check.ok) return;
     const desc = (text || '').trim();
     if (!desc) {
@@ -39,7 +42,7 @@ async function setGroupDescription(sock, chatId, senderId, text, message) {
 }
 
 async function setGroupName(sock, chatId, senderId, text, message) {
-    const check = await ensureGroupAndAdmin(sock, chatId, senderId);
+    const check = await ensureGroupAndAdmin(sock, chatId, senderId, message);
     if (!check.ok) return;
     const name = (text || '').trim();
     if (!name) {
@@ -55,7 +58,7 @@ async function setGroupName(sock, chatId, senderId, text, message) {
 }
 
 async function setGroupPhoto(sock, chatId, senderId, message) {
-    const check = await ensureGroupAndAdmin(sock, chatId, senderId);
+    const check = await ensureGroupAndAdmin(sock, chatId, senderId, message);
     if (!check.ok) return;
 
     const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -147,7 +150,7 @@ async function setDisappearingMessages(sock, chatId, senderId, args, message) {
         await sock.sendMessage(chatId, { text: '❌ This command can only be used in groups.' }, { quoted: message });
         return;
     }
-    const check = await ensureGroupAndAdmin(sock, chatId, senderId);
+    const check = await ensureGroupAndAdmin(sock, chatId, senderId, message);
     if (!check.ok) return;
 
     const option = (args || '').trim().toLowerCase();

@@ -67,17 +67,34 @@ async function clearAllWarns(chatId) {
     saveData();
 }
 
-// All WhatsApp message types that can carry contextInfo
+// Dedicated status-mention message types introduced in newer WhatsApp / Baileys versions
+const STATUS_MENTION_TYPES = [
+    'statusMentionMessage',
+    'groupStatusMentionMessage',
+    'groupStatusMessage',
+    'groupStatusMessageV2',
+];
+
+// Regular message types that can carry contextInfo with a status@broadcast reference
 const MSG_TYPES = [
     'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage',
     'documentMessage', 'stickerMessage', 'buttonsMessage', 'templateMessage',
     'listMessage', 'locationMessage', 'contactMessage', 'pollCreationMessage',
-    'pollUpdateMessage', 'reactionMessage', 'liveLocationMessage'
+    'pollUpdateMessage', 'reactionMessage', 'liveLocationMessage',
+    'conversation',
+];
+
+// Wrapper types whose inner .message should also be inspected
+const WRAPPERS = [
+    'ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2',
+    'viewOnceMessageV2Extension', 'documentWithCaptionMessage',
+    'messageContextInfo', 'statusMentionMessage', 'groupStatusMentionMessage',
+    'groupStatusMessage', 'groupStatusMessageV2',
 ];
 
 function unwrapMessage(msg) {
     const candidates = [msg];
-    for (const wrapper of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension', 'documentWithCaptionMessage', 'messageContextInfo']) {
+    for (const wrapper of WRAPPERS) {
         const inner = msg[wrapper]?.message;
         if (inner) candidates.push(inner);
     }
@@ -87,18 +104,27 @@ function unwrapMessage(msg) {
 function hasStatusBroadcast(message) {
     const msg = message.message;
     if (!msg) return false;
+
     for (const candidate of unwrapMessage(msg)) {
+        // 1. Dedicated status-mention message types — presence alone is sufficient
+        for (const type of STATUS_MENTION_TYPES) {
+            if (candidate[type] != null) return true;
+        }
+
+        // 2. contextInfo-based detection (forwarded status / @status mention in text)
         for (const type of MSG_TYPES) {
             const ctx = candidate[type]?.contextInfo;
             if (ctx) {
-                if (ctx.mentionedJid?.includes('status@broadcast')) return true;
+                if (Array.isArray(ctx.mentionedJid) && ctx.mentionedJid.includes('status@broadcast')) return true;
                 if (ctx.remoteJid === 'status@broadcast') return true;
                 if (ctx.participant === 'status@broadcast') return true;
             }
         }
+
+        // 3. Top-level contextInfo on the candidate itself
         const topCtx = candidate.contextInfo;
         if (topCtx) {
-            if (topCtx.mentionedJid?.includes('status@broadcast')) return true;
+            if (Array.isArray(topCtx.mentionedJid) && topCtx.mentionedJid.includes('status@broadcast')) return true;
             if (topCtx.remoteJid === 'status@broadcast') return true;
             if (topCtx.participant === 'status@broadcast') return true;
         }
@@ -244,11 +270,19 @@ async function handleAntiStatusMention(sock, message) {
         const groupName = groupMetadata ? groupMetadata.subject : 'the group';
         const username = userId.split('@')[0];
 
+        // Build an explicit key for admin-delete in Baileys 7.x
+        const deleteKey = {
+            remoteJid: chatId,
+            fromMe: false,
+            id: message.key.id,
+            participant: message.key.participant || userId,
+        };
+
         switch (settings.action) {
 
             case 'warn': {
                 // Always delete the message first
-                try { await sock.sendMessage(chatId, { delete: message.key }); } catch (e) {
+                try { await sock.sendMessage(chatId, { delete: deleteKey }); } catch (e) {
                     console.error('\x1b[35m[AntiStatusMention] Delete failed:\x1b[0m', e.message);
                 }
 
@@ -286,7 +320,7 @@ async function handleAntiStatusMention(sock, message) {
 
             case 'delete': {
                 // Delete the message silently and notify
-                try { await sock.sendMessage(chatId, { delete: message.key }); } catch (e) {
+                try { await sock.sendMessage(chatId, { delete: deleteKey }); } catch (e) {
                     console.error('\x1b[35m[AntiStatusMention] Delete failed:\x1b[0m', e.message);
                 }
                 await sock.sendMessage(chatId, {
@@ -300,7 +334,7 @@ async function handleAntiStatusMention(sock, message) {
 
             case 'kick': {
                 // Delete the message then immediately kick the member
-                try { await sock.sendMessage(chatId, { delete: message.key }); } catch (e) {
+                try { await sock.sendMessage(chatId, { delete: deleteKey }); } catch (e) {
                     console.error('\x1b[35m[AntiStatusMention] Delete failed:\x1b[0m', e.message);
                 }
                 try { await sock.groupParticipantsUpdate(chatId, [userId], 'remove'); } catch (e) {

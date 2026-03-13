@@ -1,5 +1,6 @@
 const { setAntiimage, getAntiimage, removeAntiimage } = require('../lib/database');
 const isAdmin = require('../lib/isAdmin');
+const { isSudo } = require('../lib/index');
 
 async function antiimageCommand(sock, chatId, msg, senderId) {
   const fakeContact = (m) => {
@@ -18,9 +19,12 @@ async function antiimageCommand(sock, chatId, msg, senderId) {
 
   const quoted = fakeContact(msg);
   try {
-    const { isSenderAdmin } = await isAdmin(sock, chatId, senderId);
-    if (!isSenderAdmin)
-      return sock.sendMessage(chatId, { text: '❌ Admins only' }, { quoted });
+    const isOwner = msg.key.fromMe || await isSudo(senderId);
+    if (!isOwner) {
+      const { isSenderAdmin } = await isAdmin(sock, chatId, senderId);
+      if (!isSenderAdmin)
+        return sock.sendMessage(chatId, { text: '❌ Admins only' }, { quoted });
+    }
 
     const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
     const [action, sub] = text.trim().split(/\s+/).slice(1);

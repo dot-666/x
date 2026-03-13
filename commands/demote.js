@@ -1,4 +1,5 @@
 const isAdmin = require('../lib/isAdmin');
+const { isSudo } = require('../lib/index');
 
 const { createFakeContact } = require('../lib/fakeContact');
 async function demoteCommand(sock, chatId, mentionedJids, message) {
@@ -10,28 +11,32 @@ async function demoteCommand(sock, chatId, mentionedJids, message) {
             return;
         }
 
-        try {
-            const adminStatus = await isAdmin(sock, chatId, message.key.participant || message.key.remoteJid);
-            
-            if (!adminStatus.isBotAdmin) {
-                await sock.sendMessage(chatId, { 
-                    text: ' Please make the bot an admin first to use this command.'
-                }, { quoted: createFakeContact(message) });
-                return;
-            }
+        const senderId = message.key.participant || message.key.remoteJid;
+        const isOwner = message.key.fromMe || await isSudo(senderId);
+        if (!isOwner) {
+            try {
+                const adminStatus = await isAdmin(sock, chatId, senderId);
+                
+                if (!adminStatus.isBotAdmin) {
+                    await sock.sendMessage(chatId, { 
+                        text: ' Please make the bot an admin first to use this command.'
+                    }, { quoted: createFakeContact(message) });
+                    return;
+                }
 
-            if (!adminStatus.isSenderAdmin) {
+                if (!adminStatus.isSenderAdmin) {
+                    await sock.sendMessage(chatId, { 
+                        text: '❌ Error: Only group admins can use the demote command.'
+                    }, { quoted: createFakeContact(message) });
+                    return;
+                }
+            } catch (adminError) {
+                console.error('Error checking admin status:', adminError);
                 await sock.sendMessage(chatId, { 
-                    text: '❌ Error: Only group admins can use the demote command.'
+                    text: ' Please make sure the bot is an admin of this group.'
                 }, { quoted: createFakeContact(message) });
                 return;
             }
-        } catch (adminError) {
-            console.error('Error checking admin status:', adminError);
-            await sock.sendMessage(chatId, { 
-                text: ' Please make sure the bot is an admin of this group.'
-            }, { quoted: createFakeContact(message) });
-            return;
         }
 
         let userToDemote = [];
