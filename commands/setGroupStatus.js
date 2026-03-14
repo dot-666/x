@@ -8,8 +8,33 @@ const ffmpeg = require('fluent-ffmpeg');
 const { PassThrough } = require('stream');
 const { createFakeContact } = require('../lib/fakeContact');
 
-// WhatsApp green background (ARGB hex used by Baileys)
-const GREEN_BG = '#25D366';
+// Named colour map — first word after command can be a colour name
+const COLOR_MAP = {
+    green:   '#25D366',
+    darkgreen: '#128C7E',
+    teal:    '#128C7E',
+    black:   '#000000',
+    white:   '#FFFFFF',
+    red:     '#E53935',
+    blue:    '#1565C0',
+    purple:  '#6A1B9A',
+    orange:  '#E65100',
+    pink:    '#E91E63',
+    yellow:  '#F9A825',
+    grey:    '#424242',
+    gray:    '#424242',
+};
+const GREEN_BG = COLOR_MAP.green;
+
+// Parse optional colour prefix: ".togroupstatus green hello" → { bg: '#25D366', text: 'hello' }
+function parseColorAndText(raw) {
+    const parts = raw.split(/\s+/);
+    const maybeColor = parts[0]?.toLowerCase();
+    if (maybeColor && COLOR_MAP[maybeColor]) {
+        return { bg: COLOR_MAP[maybeColor], text: parts.slice(1).join(' ').trim() };
+    }
+    return { bg: GREEN_BG, text: raw };
+}
 
 // ================================================
 // Main command
@@ -36,8 +61,8 @@ async function setGroupStatusCommand(sock, chatId, msg) {
         const messageText = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
         const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-        // Regex covers all valid command aliases including togroupstatus
-        const commandRegex = /^[.!#/]?(togroupstatus|togstatus|swgc|groupstatus|tosgroup)\s*/i;
+        // Regex covers all valid command aliases including togroupstatus and setgstatus
+        const commandRegex = /^[.!#/]?(togroupstatus|setgstatus|togstatus|swgc|groupstatus|tosgroup)\s*/i;
         const isCommandOnly = messageText.trim().match(commandRegex) &&
                               messageText.trim().replace(commandRegex, '').trim() === '';
 
@@ -65,10 +90,14 @@ async function setGroupStatusCommand(sock, chatId, msg) {
                 }
             }
         } else if (textAfterCommand) {
-            // Plain text with green background
+            // Allow optional colour name as first word: .togroupstatus green hello world
+            const { bg, text } = parseColorAndText(textAfterCommand);
+            if (!text) {
+                return sock.sendMessage(chatId, { text: getHelpText() }, { quoted: msg });
+            }
             payload = {
-                text: textAfterCommand,
-                backgroundColor: GREEN_BG,
+                text,
+                backgroundColor: bg,
                 font: 2
             };
         }
@@ -98,12 +127,15 @@ async function setGroupStatusCommand(sock, chatId, msg) {
 
 function getHelpText() {
     return `✦ *GROUP STATUS* ✦\n\n` +
-           `Commands:\n` +
-           `✦ .togroupstatus / .tosgroup\n\n` +
-           `Usage:\n` +
-           `✦ .togroupstatus <text> — post text with green background\n` +
-           `✦ Reply to image/video/audio/sticker with .togroupstatus\n` +
-           `✦ Add a caption after the command when replying to media`;
+           `Commands: .togroupstatus / .tosgroup / .setgstatus\n\n` +
+           `*Text status:*\n` +
+           `✦ .togroupstatus hello world — green bg (default)\n` +
+           `✦ .togroupstatus red hello world — custom colour\n\n` +
+           `*Colours:* green, darkgreen, teal, black, white,\n` +
+           `red, blue, purple, orange, pink, yellow, grey\n\n` +
+           `*Media status:*\n` +
+           `✦ Reply to image/video/audio with .togroupstatus\n` +
+           `✦ Add caption: .togroupstatus <caption> (when replying)`;
 }
 
 // Build message payload from a quoted message
