@@ -90,7 +90,7 @@ function getCachedModeData() {
         return _cache.modeData;
     }
     try {
-        _cache.modeData = JSON.parse(fs.readFileSync('./data/botMode.json'));
+        _cache.modeData = JSON.parse(fs.readFileSync('./data/messageCount.json'));
         _cache.modeDataTime = now;
     } catch (e) {
         _cache.modeData = { isPublic: true, mode: 'public' };
@@ -217,10 +217,7 @@ const {
  handleAreactCommand 
 } = require('./lib/reactions');
 
-const { 
-    registerListeners, 
-    fancyCommand 
-} = require('./commands/fancy');
+const { fancyCommand, replyHandlers: fancyReplyHandlers } = require('./commands/fancy');
   
 const {
   autoStatusCommand, 
@@ -395,6 +392,7 @@ const transcribeCommand = require('./commands/transcribe');
 const onlineCommand = require('./commands/online');
 const lastseenCommand = require('./commands/lastseen');
 const { antidemoteCommand, handleAntidemote } = require('./commands/antidemote');
+const { antipromoteCommand, handleAntipromote } = require('./commands/antipromote');
 const { setbotconfigCommand, setmenuimageCommand } = require('./commands/menuimage');
 const vv2Command = require('./commands/vv2');
 const moviesCommand = require('./commands/movies');
@@ -577,40 +575,13 @@ const fake = createFakeContact(message);
         }
         
 
-        // Passive group monitoring — runs regardless of bot mode
-        // These are group-level protections set by group admins and must always be enforced
-        if (isGroup && !message.key.fromMe) {
-            const passiveChecks = [
-                handleLinkDetection(sock, chatId, message, userMessage, senderId),
-                handleTagDetection(sock, chatId, message, senderId),
-                handleMentionDetection(sock, chatId, message),
-                handleStickerDetection(sock, chatId, message, senderId),
-                handleImageDetection(sock, chatId, message, senderId)
-            ];
-            if (userMessage) {
-                passiveChecks.push(handleBadwordDetection(sock, chatId, message, userMessage, senderId));
-            }
-            if (!userMessage.startsWith(prefix)) {
-                passiveChecks.push(handleChatbotResponse(sock, chatId, message, userMessage, senderId));
-            }
-            await Promise.allSettled(passiveChecks);
-        }
-
-        // Enforce bot mode BEFORE command processing (except owner/sudo)
+        // Enforce private mode BEFORE any replies (except owner/sudo)
         try {
             const data = getCachedModeData();
 
             if (data.mode === 'group' && !isGroup) return;
             if (data.mode === 'pm' && isGroup) return;
-            if (data.mode === 'private' && !message.key.fromMe && !senderIsSudo) {
-                // In private mode, still allow group admins to use group commands
-                if (isGroup) {
-                    const adminStatus = await isAdmin(sock, chatId, senderId, message);
-                    if (!adminStatus.isSenderAdmin) return;
-                } else {
-                    return;
-                }
-            }
+            if (data.mode === 'private' && !message.key.fromMe && !senderIsSudo) return;
         } catch (error) {
             console.error('Error checking access mode:', error);
         }
@@ -624,6 +595,13 @@ const fake = createFakeContact(message);
                     ...channelInfo
                 });
             }
+            return;
+        }
+
+        // Intercept replies to fancy styles list
+        const fancyStanzaId = message.message?.extendedTextMessage?.contextInfo?.stanzaId;
+        if (fancyStanzaId && fancyReplyHandlers.has(fancyStanzaId)) {
+            await fancyReplyHandlers.get(fancyStanzaId)(message);
             return;
         }
 /*
@@ -650,6 +628,14 @@ if (userMessage && !userMessage.startsWith(prefix)) {
 
         if (!message.key.fromMe) incrementMessageCount(chatId, senderId);
 
+        if (isGroup && userMessage) {
+            await handleBadwordDetection(sock, chatId, message, userMessage, senderId);
+        }
+        // Run link detection for ALL group messages (links can appear in captions, link previews, documents, etc.)
+        if (isGroup && !message.key.fromMe) {
+            await handleLinkDetection(sock, chatId, message, userMessage, senderId);
+        }
+
         // PM blocker: silently block non-owner DMs when enabled
         if (!isGroup && !message.key.fromMe && !senderIsSudo) {
             try {
@@ -664,7 +650,7 @@ if (userMessage && !userMessage.startsWith(prefix)) {
         /*━━━━━━━━━━━━━━━━━━━━*/
         // Check for command prefix
         /*━━━━━━━━━━━━━━━━━━━━*/
-        if (!userMessage.startsWith(prefix)) {
+    if (!userMessage.startsWith(prefix)) {
             // Show one presence indicator in background (mutually exclusive)
             if (isAutobothEnabled()) {
                 sendBothStart(sock, chatId);
@@ -674,7 +660,16 @@ if (userMessage && !userMessage.startsWith(prefix)) {
             } else if (isAutorecordingEnabled()) {
                 sendRecording(sock, chatId);
             }
-            return;
+ if (isGroup) {
+                await Promise.allSettled([
+                    handleChatbotResponse(sock, chatId, message, userMessage, senderId),
+                    handleTagDetection(sock, chatId, message, senderId),
+                    handleMentionDetection(sock, chatId, message),
+                    handleStickerDetection(sock, chatId, message, senderId),
+                    handleImageDetection(sock, chatId, message, senderId)
+                ]);
+            }
+return;
         }
 
         // List of admin commands
@@ -727,40 +722,31 @@ if (userMessage && !userMessage.startsWith(prefix)) {
         let isSenderAdmin = false;
         let isBotAdmin = false;
 
-        const isOwnerOrSudoSender = message.key.fromMe || senderIsSudo;
-
         // Check admin status only for admin commands in groups
         if (isGroup && isAdminCommand) {
-            if (isOwnerOrSudoSender) {
-                // Owner/sudo can run any admin command — treat as group admin
-                isSenderAdmin = true;
-                const adminStatus = await isAdmin(sock, chatId, senderId, message);
-                isBotAdmin = adminStatus.isBotAdmin;
-            } else {
-                const adminStatus = await isAdmin(sock, chatId, senderId, message);
-                isSenderAdmin = adminStatus.isSenderAdmin;
-                isBotAdmin = adminStatus.isBotAdmin;
+            const adminStatus = await isAdmin(sock, chatId, senderId, message);
+            isSenderAdmin = adminStatus.isSenderAdmin;
+            isBotAdmin = adminStatus.isBotAdmin;
 
-                if (!isBotAdmin) {
-                    await sock.sendMessage(chatId, { text: 'Please make the bot an admin to use admin commands.', ...channelInfo }, { quoted: fake });
+            if (!isBotAdmin) {
+                await sock.sendMessage(chatId, { text: 'Please make the bot an admin to use admin commands.', ...channelInfo }, { quoted: fake });
+                return;
+            }
+
+            if (
+                userMessage.startsWith(`${prefix}mute`) ||
+                userMessage === `${prefix}unmute` ||
+                userMessage.startsWith(`${prefix}ban`) ||
+                userMessage.startsWith(`${prefix}unban`) ||
+                userMessage.startsWith(`${prefix}promote`) ||
+                userMessage.startsWith(`${prefix}demote`)
+            ) {
+                if (!isSenderAdmin && !message.key.fromMe && !senderIsSudo) {
+                    await sock.sendMessage(chatId, {
+                        text: 'Sorry, only group admins can use this command.',
+                        ...channelInfo
+                    }, { quoted: message });
                     return;
-                }
-
-                if (
-                    userMessage.startsWith(`${prefix}mute`) ||
-                    userMessage === `${prefix}unmute` ||
-                    userMessage.startsWith(`${prefix}ban`) ||
-                    userMessage.startsWith(`${prefix}unban`) ||
-                    userMessage.startsWith(`${prefix}promote`) ||
-                    userMessage.startsWith(`${prefix}demote`)
-                ) {
-                    if (!isSenderAdmin) {
-                        await sock.sendMessage(chatId, {
-                            text: 'Sorry, only group admins can use this command.',
-                            ...channelInfo
-                        }, { quoted: message });
-                        return;
-                    }
                 }
             }
         }
@@ -941,6 +927,10 @@ if (userMessage && !userMessage.startsWith(prefix)) {
                 await ttsCommand(sock, chatId, text, message);
                 break;
 
+            case userMessage.startsWith(`${prefix}fancy`):
+                await fancyCommand(sock, chatId, message);
+                break;
+
             case userMessage.startsWith(`${prefix}delete`) || userMessage.startsWith(`${prefix}del`):
                 await deleteCommand(sock, chatId, message, senderId);
                 break;
@@ -983,6 +973,10 @@ if (userMessage && !userMessage.startsWith(prefix)) {
             case userMessage.startsWith(`${prefix}antidemote`):
                 await antidemoteCommand(sock, chatId, message, senderId);
                 break;
+
+            case userMessage.startsWith(`${prefix}antipromote`):
+                await antipromoteCommand(sock, chatId, message, senderId);
+                break;
                 
             /*━━━━━━━━━━━━━━━━━━━━*/
             // Settings
@@ -1004,9 +998,11 @@ if (userMessage && !userMessage.startsWith(prefix)) {
     // Read current data first
     let data;
     try {
-        data = JSON.parse(fs.readFileSync('./data/botMode.json'));
+        data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
     } catch (error) {
-        data = { mode: 'public', isPublic: true };
+        console.error('Error reading access mode:', error);
+        await sock.sendMessage(chatId, { text: 'Failed to read bot mode status' }, { quoted: fake });
+        return;
     }
 
     const action = userMessage.split(' ')[1]?.toLowerCase();
@@ -1054,11 +1050,8 @@ if (userMessage && !userMessage.startsWith(prefix)) {
         data.mode = action;
         data.isPublic = (action === 'public'); // backward compatibility
 
-        // Save to dedicated botMode.json (separate from messageCount to prevent overwrites)
-        fs.writeFileSync('./data/botMode.json', JSON.stringify(data, null, 2));
-        // Invalidate in-memory cache so next message picks up new mode immediately
-        _cache.modeData = null;
-        _cache.modeDataTime = 0;
+        // Save updated data
+        fs.writeFileSync('./data/messageCount.json', JSON.stringify(data, null, 2));
 
         await sock.sendMessage(chatId, {
             text: `✅ *Mode updated successfully!*\n\n${modeDescriptions[action]}`
@@ -1860,7 +1853,7 @@ case userMessage === `${prefix}forfeit` ||
 
            case userMessage === `${prefix}removeall` || 
                 userMessage === `${prefix}killall`:
-                await kickAllCommand(sock, chatId, message);
+                await kickAllCommand(sock, chatId, message, senderId);
                 break;
 
               
@@ -2356,10 +2349,11 @@ case userMessage === `${prefix}forfeit` ||
                 {
                     const parts = rawText.trim().split(/\s+/);
                     const zipArg = parts[1] && parts[1].startsWith('http') ? parts[1] : '';
-                    await updateCommand(sock, chatId, message, senderIsSudo, zipArg);
+                    await updateCommand(sock, chatId, message,  zipArg);
                 }
                 commandExecuted = true;
                 break;
+                
             case userMessage.startsWith('.removebg') || userMessage.startsWith('.rmbg') || userMessage.startsWith(`${prefix}nobg`):
                 await removebgCommand.exec(sock, message, userMessage.split(' ').slice(1));
                 break;
@@ -2444,6 +2438,8 @@ async function handleGroupParticipantUpdate(sock, update) {
 
         // Handle promotion events
         if (action === 'promote') {
+            const blocked = await handleAntipromote(sock, id, participants, author);
+            if (blocked) return;
             if (!isPublic) return;
             await handlePromotionEvent(sock, id, participants, author);
             return;
@@ -2451,6 +2447,8 @@ async function handleGroupParticipantUpdate(sock, update) {
 
         // Handle demotion events
         if (action === 'demote') {
+            const protected_ = await handleAntidemote(sock, id, participants, author);
+            if (protected_) return;
             if (!isPublic) return;
             await handleDemotionEvent(sock, id, participants, author);
             return;
