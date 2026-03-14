@@ -156,7 +156,7 @@ const COMMAND_CATEGORIES = {
     ]
 };
 
-const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted) => {
+const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, prefix = '.') => {
     const memoryUsage = process.memoryUsage();
     const botUsedMemory = memoryUsage.heapUsed;
     const totalMemory = os.totalmem();
@@ -358,7 +358,7 @@ async function helpCommand(sock, chatId, message) {
 
     let botModeData = { mode: 'public', isPublic: true };
     try {
-        const modeFilePath = path.join(__dirname, '../data/botMode.json');
+        const modeFilePath = path.join(__dirname, '../data/messageCount.json');
         const raw = JSON.parse(fs.readFileSync(modeFilePath, 'utf8'));
         if (raw && raw.mode) botModeData = raw;
     } catch (_) {}
@@ -391,7 +391,7 @@ async function helpCommand(sock, chatId, message) {
 
     // Send reaction
     await sock.sendMessage(chatId, {
-        react: { text: '🤸', key: message.key }
+        react: { text: '🪐', key: message.key }
     });
 
     try {
@@ -403,7 +403,7 @@ async function helpCommand(sock, chatId, message) {
 
         // Success reaction
         await sock.sendMessage(chatId, {
-            react: { text: '💯', key: message.key }
+            react: { text: '☄️', key: message.key }
         });
 
     } catch (error) {
