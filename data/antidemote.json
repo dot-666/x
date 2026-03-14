@@ -1,0 +1,48 @@
+{
+  "120363424143346950@g.us": {
+    "enabled": true,
+    "status": "on",
+    "updatedAt": "2026-03-13T19:57:15.394Z",
+    "updatedBy": "272473278947515@lid",
+    "kickCount": 5,
+    "protectedCount": 5,
+    "kickRecords": [
+      {
+        "userId": "51338398400730@lid",
+        "kickedBy": "136129676312603@lid",
+        "reason": "demote",
+        "timestamp": "2026-03-13T20:29:18.166Z",
+        "repromoted": true
+      },
+      {
+        "userId": "51338398400730@lid",
+        "kickedBy": "136129676312603@lid",
+        "reason": "demote",
+        "timestamp": "2026-03-13T20:25:00.933Z",
+        "repromoted": true
+      },
+      {
+        "userId": "51338398400730@lid",
+        "kickedBy": "136129676312603@lid",
+        "reason": "demote",
+        "timestamp": "2026-03-13T20:16:34.769Z",
+        "repromoted": true
+      },
+      {
+        "userId": "130688003084487@lid",
+        "kickedBy": "272473278947515@lid",
+        "reason": "demote",
+        "timestamp": "2026-03-13T20:00:56.582Z",
+        "repromoted": true
+      },
+      {
+        "userId": "74346471137370@lid",
+        "kickedBy": "136129676312603@lid",
+        "reason": "demote",
+        "timestamp": "2026-03-13T19:58:42.274Z",
+        "repromoted": true
+      }
+    ],
+    "bannedUsers": []
+  }
+}

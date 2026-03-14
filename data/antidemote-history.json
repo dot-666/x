@@ -1,0 +1,233 @@
+{
+  "120363424143346950@g.us": [
+    {
+      "action": "kick",
+      "kickedUser": "51338398400730@lid",
+      "kickedBy": "136129676312603@lid",
+      "reason": "demote",
+      "timestamp": "2026-03-13T20:29:18.167Z"
+    },
+    {
+      "action": "kick",
+      "kickedUser": "51338398400730@lid",
+      "kickedBy": "136129676312603@lid",
+      "reason": "demote",
+      "timestamp": "2026-03-13T20:25:00.933Z"
+    },
+    {
+      "action": "kick",
+      "kickedUser": "51338398400730@lid",
+      "kickedBy": "136129676312603@lid",
+      "reason": "demote",
+      "timestamp": "2026-03-13T20:16:34.770Z"
+    },
+    {
+      "action": "kick",
+      "kickedUser": "130688003084487@lid",
+      "kickedBy": "272473278947515@lid",
+      "reason": "demote",
+      "timestamp": "2026-03-13T20:00:56.582Z"
+    },
+    {
+      "action": "kick",
+      "kickedUser": "74346471137370@lid",
+      "kickedBy": "136129676312603@lid",
+      "reason": "demote",
+      "timestamp": "2026-03-13T19:58:42.281Z"
+    },
+    {
+      "action": "enable",
+      "previousState": null,
+      "newState": {
+        "enabled": true,
+        "status": "on",
+        "updatedAt": "2026-03-13T19:57:15.394Z",
+        "updatedBy": "272473278947515@lid",
+        "kickCount": 0,
+        "protectedCount": 0,
+        "kickRecords": [],
+        "bannedUsers": []
+      },
+      "timestamp": "2026-03-13T19:57:15.395Z",
+      "userId": "272473278947515@lid"
+    },
+    {
+      "action": "remove",
+      "previousState": {
+        "enabled": true,
+        "status": "on",
+        "updatedAt": "2026-03-13T19:30:37.371Z",
+        "updatedBy": "272473278947515@lid",
+        "kickCount": 40,
+        "protectedCount": 40,
+        "kickRecords": [
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:33.337Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:32.265Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:31.222Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:30.164Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:29.076Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:27.942Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:26.811Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:25.649Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:24.550Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:23.490Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:22.444Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:21.377Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:20.302Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:19.252Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:18.148Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:17.031Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:15.836Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:14.546Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:13.217Z",
+            "repromoted": true
+          },
+          {
+            "userId": "130688003084487@lid",
+            "kickedBy": "272473278947515@lid",
+            "reason": "demote",
+            "timestamp": "2026-03-13T19:50:12.041Z",
+            "repromoted": true
+          }
+        ],
+        "bannedUsers": []
+      },
+      "newState": null,
+      "timestamp": "2026-03-13T19:50:33.608Z",
+      "userId": "272473278947515@lid"
+    },
+    {
+      "action": "kick",
+      "kickedUser": "130688003084487@lid",
+      "kickedBy": "272473278947515@lid",
+      "reason": "demote",
+      "timestamp": "2026-03-13T19:50:33.338Z"
+    },
+    {
+      "action": "kick",
+      "kickedUser": "130688003084487@lid",
+      "kickedBy": "272473278947515@lid",
+      "reason": "demote",
+      "timestamp": "2026-03-13T19:50:32.266Z"
+    },
+    {
+      "action": "kick",
+      "kickedUser": "130688003084487@lid",
+      "kickedBy": "272473278947515@lid",
+      "reason": "demote",
+      "timestamp": "2026-03-13T19:50:31.222Z"
+    }
+  ]
+}
