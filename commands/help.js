@@ -7,7 +7,7 @@ const settings = require('../settings');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { getMenuStyle, getMenuSettings, getMenuImage, MENU_STYLES } = require('./menuSettings');
+const { getMenuStyle, getMenuSettings, MENU_STYLES } = require('./menuSettings');
 const { generateWAMessageFromContent } = require('@whiskeysockets/baileys');
 const { getPrefix, handleSetPrefixCommand } = require('./setprefix');
 const { getOwnerName, handleSetOwnerCommand } = require('./setowner');
@@ -156,7 +156,7 @@ const COMMAND_CATEGORIES = {
     ]
 };
 
-const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, prefix = '.') => {
+const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted) => {
     const memoryUsage = process.memoryUsage();
     const botUsedMemory = memoryUsage.heapUsed;
     const totalMemory = os.totalmem();
@@ -357,9 +357,13 @@ async function helpCommand(sock, chatId, message) {
     const uptimeFormatted = formatTime(uptimeInSeconds);
 
     let botModeData = { mode: 'public', isPublic: true };
-    try { botModeData = JSON.parse(fs.readFileSync('./data/botMode.json', 'utf8')); } catch (_) {}
+    try {
+        const modeFilePath = path.join(__dirname, '../data/botMode.json');
+        const raw = JSON.parse(fs.readFileSync(modeFilePath, 'utf8'));
+        if (raw && raw.mode) botModeData = raw;
+    } catch (_) {}
     const modeMap = { public: 'Public', private: 'Private', group: 'Group', pm: 'PM' };
-    const rawMode = botModeData.mode || (botModeData.isPublic ? 'public' : 'private');
+    const rawMode = (botModeData.mode || (botModeData.isPublic ? 'public' : 'private')).toLowerCase();
     const currentMode = modeMap[rawMode] || rawMode.charAt(0).toUpperCase() + rawMode.slice(1);
     const hostName = detectPlatform();
     
@@ -387,7 +391,7 @@ async function helpCommand(sock, chatId, message) {
 
     // Send reaction
     await sock.sendMessage(chatId, {
-        react: { text: '🗝️', key: message.key }
+        react: { text: '🤸', key: message.key }
     });
 
     try {
@@ -399,7 +403,7 @@ async function helpCommand(sock, chatId, message) {
 
         // Success reaction
         await sock.sendMessage(chatId, {
-            react: { text: '⚧️', key: message.key }
+            react: { text: '💯', key: message.key }
         });
 
     } catch (error) {
