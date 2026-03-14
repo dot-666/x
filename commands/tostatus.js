@@ -16,19 +16,31 @@ function randomFont() {
     return Math.floor(Math.random() * 8);
 }
 
+// Build the full list of JIDs that should be able to see the status.
+// Merges store contacts + private chat JIDs + the bot's own JID so the
+// status is broadcast to every reachable contact, not just a subset.
 function buildStatusJidList(sock) {
+    const list = new Set();
+
+    // All synced contacts
     const contacts = store.contacts || {};
-    const list = Object.keys(contacts).filter(jid => jid.endsWith('@s.whatsapp.net'));
-
-    const selfJid = sock?.user?.id
-        ? sock.user.id.split(':')[0] + '@s.whatsapp.net'
-        : null;
-
-    if (selfJid && !list.includes(selfJid)) {
-        list.push(selfJid);
+    for (const jid of Object.keys(contacts)) {
+        if (jid.endsWith('@s.whatsapp.net')) list.add(jid);
     }
 
-    return list.length > 0 ? list : (selfJid ? [selfJid] : []);
+    // Private chats (covers people who messaged the bot even if not in contacts)
+    const chats = store.chats || {};
+    for (const jid of Object.keys(chats)) {
+        if (jid.endsWith('@s.whatsapp.net')) list.add(jid);
+    }
+
+    // Always include self
+    if (sock?.user?.id) {
+        const selfJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+        list.add(selfJid);
+    }
+
+    return [...list];
 }
 
 async function tostatusCommand(sock, chatId, message) {
@@ -61,7 +73,8 @@ async function tostatusCommand(sock, chatId, message) {
         const statusJidList = buildStatusJidList(sock);
 
         if (quoted) {
-            // Reconstruct the quoted message with the correct remoteJid (the chat, not the participant)
+            // Reconstruct quoted message key correctly:
+            // remoteJid = the chat (not the participant), participant = sender in groups
             const quotedMsg = {
                 key: {
                     remoteJid: chatId,
@@ -72,14 +85,12 @@ async function tostatusCommand(sock, chatId, message) {
                 message: quoted
             };
 
-            const getBuffer = async () => {
-                return await downloadMediaMessage(
-                    quotedMsg,
-                    'buffer',
-                    {},
-                    { reuploadRequest: sock.updateMediaMessage }
-                );
-            };
+            const getBuffer = async () => downloadMediaMessage(
+                quotedMsg,
+                'buffer',
+                {},
+                { reuploadRequest: sock.updateMediaMessage }
+            );
 
             // Image
             if (quoted.imageMessage) {
@@ -130,7 +141,7 @@ async function tostatusCommand(sock, chatId, message) {
                 return await sock.sendMessage(chatId, { text: '✅ Audio posted to your story.' }, { quoted: fake });
             }
 
-            // Text (quoted or caption)
+            // Text (quoted text or caption)
             const quotedText =
                 quoted.conversation ||
                 quoted.extendedTextMessage?.text || '';
@@ -156,7 +167,7 @@ async function tostatusCommand(sock, chatId, message) {
             }, { quoted: fake });
         }
 
-        // No quoted message — post caption as text story
+        // No quoted message — post caption as a text story
         await sock.sendMessage(
             'status@broadcast',
             {

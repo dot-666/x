@@ -1,57 +1,47 @@
-const { downloadContentFromMessage, generateWAMessageContent, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
+const {
+    downloadContentFromMessage,
+    generateWAMessageContent,
+    generateWAMessageFromContent
+} = require('@whiskeysockets/baileys');
 const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const { PassThrough } = require('stream');
-const fetch = require('node-fetch');
-
-//================================================
-// Sticker conversion (simple fallback)
-//================================================
 const { createFakeContact } = require('../lib/fakeContact');
-async function convertStickerToImageSimple(stickerBuffer) {
-    if (stickerBuffer.slice(0, 12).toString('hex').includes('52494646')) { // RIFF header
-        console.log('Detected WebP sticker, using fallback conversion');
-        return stickerBuffer; 
-    }
-    return stickerBuffer;
-}
 
-async function convertStickerToImage(stickerBuffer, mimetype = 'image/webp') {
-    try {
-        return await convertStickerToImageSimple(stickerBuffer);
-    } catch (error) {
-        console.error('Sticker conversion failed:', error);
-        throw new Error(`Sticker conversion failed: ${error.message}`);
-    }
-}
+// WhatsApp green background (ARGB hex used by Baileys)
+const GREEN_BG = '#25D366';
 
 // ================================================
 // Main command
 // ================================================
 async function setGroupStatusCommand(sock, chatId, msg) {
     try {
-        // ✅ Group check
+        // Group check
         const isGroup = chatId.endsWith('@g.us');
         if (!isGroup) {
-            return sock.sendMessage(chatId, { text: '❌ Groups only!' }, { quoted: msg });
+            return sock.sendMessage(chatId, { text: '❌ This command only works in groups!' }, { quoted: msg });
         }
 
-        // ✅ Admin check
-        const participant = await sock.groupMetadata(chatId).then(metadata =>
-            metadata.participants.find(p => p.id === msg.key.participant || p.id === msg.key.remoteJid)
-        );
+        // Admin / sudo check
+        const metadata = await sock.groupMetadata(chatId);
+        const senderJid = msg.key.participant || msg.key.remoteJid;
+        const participant = metadata.participants.find(p => p.id === senderJid);
         const isAdmin = participant && (participant.admin === 'admin' || participant.admin === 'superadmin');
         const { isSudo: isSudoCheck } = require('../lib/index');
-        const senderJid = msg.key.participant || msg.key.remoteJid;
+
         if (!isAdmin && !msg.key.fromMe && !(await isSudoCheck(senderJid))) {
-            return sock.sendMessage(chatId, { text: '❌ Admins only!' }, { quoted: msg });
+            return sock.sendMessage(chatId, { text: '❌ Only group admins can use this command!' }, { quoted: msg });
         }
 
         const messageText = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
         const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-        const commandRegex = /^[.!#/]?(togstatus|swgc|groupstatus|tosgroup)\s*/i;
 
-        if (!quotedMessage && (!messageText.trim() || messageText.trim().match(commandRegex))) {
+        // Regex covers all valid command aliases including togroupstatus
+        const commandRegex = /^[.!#/]?(togroupstatus|togstatus|swgc|groupstatus|tosgroup)\s*/i;
+        const isCommandOnly = messageText.trim().match(commandRegex) &&
+                              messageText.trim().replace(commandRegex, '').trim() === '';
+
+        if (!quotedMessage && (!messageText.trim() || isCommandOnly)) {
             return sock.sendMessage(chatId, { text: getHelpText() }, { quoted: msg });
         }
 
@@ -65,28 +55,33 @@ async function setGroupStatusCommand(sock, chatId, msg) {
 
         if (quotedMessage) {
             payload = await buildPayloadFromQuoted(quotedMessage);
+            // Attach caption override if provided with the command
             if (textAfterCommand && payload) {
-                if (payload.video || payload.image || (payload.convertedSticker && payload.image)) {
+                if (payload.video || payload.image) {
                     payload.caption = textAfterCommand;
+                } else if (payload.text !== undefined) {
+                    // Override text too if replying to text
+                    payload.text = textAfterCommand || payload.text;
                 }
             }
-        } else if (messageText.trim()) {
-            if (textAfterCommand) {
-                payload = { text: textAfterCommand };
-            } else {
-                return sock.sendMessage(chatId, { text: getHelpText() }, { quoted: msg });
-            }
+        } else if (textAfterCommand) {
+            // Plain text with green background
+            payload = {
+                text: textAfterCommand,
+                backgroundColor: GREEN_BG,
+                font: 2
+            };
         }
 
         if (!payload) {
             return sock.sendMessage(chatId, { text: getHelpText() }, { quoted: msg });
         }
 
-        // ✅ Send group status
+        // Send group status
         await sendGroupStatus(sock, chatId, payload);
 
         const mediaType = detectMediaType(quotedMessage, payload);
-        let successMsg = `✅ ${mediaType} sent!`;
+        let successMsg = `✅ ${mediaType} sent to group status!`;
         if (payload.caption) successMsg += `\n📝 "${payload.caption}"`;
         if (payload.convertedSticker) successMsg += `\n(sticker → image)`;
 
@@ -94,107 +89,115 @@ async function setGroupStatusCommand(sock, chatId, msg) {
 
     } catch (error) {
         console.error('Error in group status command:', error);
-        await sock.sendMessage(chatId, { text: `❌ Error: ${error.message}` }, { quoted: createFakeContact(message) });
+        // Use msg (not the undefined `message`) in the catch block
+        await sock.sendMessage(chatId, { text: `❌ Error: ${error.message}` }, { quoted: msg });
     }
 }
 
 /* ------------------ Helpers ------------------ */
 
-// 📌 Short help text
 function getHelpText() {
-    return `
-✦ *GROUP STATUS* ✦
-
-Commands:
-✦ togroupstatus / .tosgroup
-
-Usage:
-✦ tosgroup text
-✦ Reply to media/sticker with .tosgroup
-✦ Add caption after command`;
+    return `✦ *GROUP STATUS* ✦\n\n` +
+           `Commands:\n` +
+           `✦ .togroupstatus / .tosgroup\n\n` +
+           `Usage:\n` +
+           `✦ .togroupstatus <text> — post text with green background\n` +
+           `✦ Reply to image/video/audio/sticker with .togroupstatus\n` +
+           `✦ Add a caption after the command when replying to media`;
 }
 
-// 📌 Build payload from quoted message
+// Build message payload from a quoted message
 async function buildPayloadFromQuoted(quotedMessage) {
     if (quotedMessage.videoMessage) {
         const buffer = await downloadToBuffer(quotedMessage.videoMessage, 'video');
-        return { 
-            video: buffer, 
+        return {
+            video: buffer,
             caption: quotedMessage.videoMessage.caption || '',
             gifPlayback: quotedMessage.videoMessage.gifPlayback || false,
             mimetype: quotedMessage.videoMessage.mimetype || 'video/mp4'
         };
-    } else if (quotedMessage.imageMessage) {
+    }
+
+    if (quotedMessage.imageMessage) {
         const buffer = await downloadToBuffer(quotedMessage.imageMessage, 'image');
-        return { 
-            image: buffer, 
+        return {
+            image: buffer,
             caption: quotedMessage.imageMessage.caption || '',
             mimetype: quotedMessage.imageMessage.mimetype || 'image/jpeg'
         };
-    } else if (quotedMessage.audioMessage) {
+    }
+
+    if (quotedMessage.audioMessage) {
         const buffer = await downloadToBuffer(quotedMessage.audioMessage, 'audio');
         if (quotedMessage.audioMessage.ptt) {
             const audioVn = await toVN(buffer);
-            return { audio: audioVn, mimetype: "audio/ogg; codecs=opus", ptt: true };
-        } else {
-            return { audio: buffer, mimetype: quotedMessage.audioMessage.mimetype || 'audio/mpeg', ptt: false };
+            return { audio: audioVn, mimetype: 'audio/ogg; codecs=opus', ptt: true };
         }
-    } else if (quotedMessage.stickerMessage) {
+        return { audio: buffer, mimetype: quotedMessage.audioMessage.mimetype || 'audio/mpeg', ptt: false };
+    }
+
+    if (quotedMessage.stickerMessage) {
         try {
             const buffer = await downloadToBuffer(quotedMessage.stickerMessage, 'sticker');
-            const imageBuffer = await convertStickerToImage(buffer, quotedMessage.stickerMessage.mimetype);
-            return { 
-                image: imageBuffer, 
-                caption: quotedMessage.stickerMessage.caption || '',
-                mimetype: 'image/png',
-                convertedSticker: true,
-                originalMimetype: quotedMessage.stickerMessage.mimetype
+            return {
+                image: buffer,
+                caption: '',
+                mimetype: 'image/webp',
+                convertedSticker: true
             };
-        } catch (conversionError) {
-            console.error('Sticker conversion failed:', conversionError);
-            return { text: `⚠️ Sticker conversion failed (${quotedMessage.stickerMessage.mimetype || 'unknown'})` };
+        } catch (err) {
+            console.error('Sticker download failed:', err);
+            return { text: '⚠️ Could not download sticker.', backgroundColor: GREEN_BG, font: 2 };
         }
-    } else if (quotedMessage.conversation || quotedMessage.extendedTextMessage?.text) {
-        const textContent = quotedMessage.conversation || quotedMessage.extendedTextMessage?.text || '';
-        return { text: textContent };
     }
+
+    const textContent =
+        quotedMessage.conversation ||
+        quotedMessage.extendedTextMessage?.text || '';
+
+    if (textContent) {
+        return { text: textContent, backgroundColor: GREEN_BG, font: 2 };
+    }
+
     return null;
 }
 
-// 📌 Detect media type
-function detectMediaType(quotedMessage, payload = null) {
+function detectMediaType(quotedMessage, payload) {
     if (!quotedMessage) return 'Text';
     if (quotedMessage.videoMessage) return 'Video';
     if (quotedMessage.imageMessage) return 'Image';
     if (quotedMessage.audioMessage) return 'Audio';
-    if (quotedMessage.stickerMessage) {
-        if (payload && payload.convertedSticker) return 'Sticker → Image';
-        return 'Sticker';
-    }
+    if (quotedMessage.stickerMessage) return payload?.convertedSticker ? 'Sticker (as image)' : 'Sticker';
     return 'Text';
 }
 
-// 📌 Download message content
-async function downloadToBuffer(message, type) {
-    const stream = await downloadContentFromMessage(message, type);
-    let buffer = Buffer.from([]);
-    for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-    return buffer;
+// Download any media message type to a buffer
+async function downloadToBuffer(msgObj, type) {
+    const stream = await downloadContentFromMessage(msgObj, type);
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    return Buffer.concat(chunks);
 }
 
-// 📌 Send group status
+// Send a group channel status update (groupStatusMessageV2)
 async function sendGroupStatus(conn, jid, content) {
     const inside = await generateWAMessageContent(content, { upload: conn.waUploadToServer });
     const messageSecret = crypto.randomBytes(32);
-    const m = generateWAMessageFromContent(jid, {
-        messageContextInfo: { messageSecret },
-        groupStatusMessageV2: { message: { ...inside, messageContextInfo: { messageSecret } } }
-    }, {});
+    const m = generateWAMessageFromContent(
+        jid,
+        {
+            messageContextInfo: { messageSecret },
+            groupStatusMessageV2: {
+                message: { ...inside, messageContextInfo: { messageSecret } }
+            }
+        },
+        {}
+    );
     await conn.relayMessage(jid, m.message, { messageId: m.key.id });
     return m;
 }
 
-// 📌 Convert audio to voice note
+// Convert audio buffer to OGG voice note format
 async function toVN(inputBuffer) {
     return new Promise((resolve, reject) => {
         const inStream = new PassThrough();
@@ -203,15 +206,15 @@ async function toVN(inputBuffer) {
         const chunks = [];
         ffmpeg(inStream)
             .noVideo()
-            .audioCodec("libopus")
-            .format("ogg")
-            .audioBitrate("48k")
+            .audioCodec('libopus')
+            .format('ogg')
+            .audioBitrate('48k')
             .audioChannels(1)
             .audioFrequency(48000)
-            .on("error", reject)
-            .on("end", () => resolve(Buffer.concat(chunks)))
+            .on('error', reject)
+            .on('end', () => resolve(Buffer.concat(chunks)))
             .pipe(outStream, { end: true });
-        outStream.on("data", chunk => chunks.push(chunk));
+        outStream.on('data', chunk => chunks.push(chunk));
     });
 }
 
