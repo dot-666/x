@@ -2353,7 +2353,7 @@ case userMessage === `${prefix}forfeit` ||
                 {
                     const parts = rawText.trim().split(/\s+/);
                     const zipArg = parts[1] && parts[1].startsWith('http') ? parts[1] : '';
-                    await updateCommand(sock, chatId, message, senderIsSudo, zipArg);
+                    await updateCommand(sock, chatId, message, zipArg);
                 }
                 commandExecuted = true;
                 break;
