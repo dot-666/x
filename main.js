@@ -1672,7 +1672,9 @@ case userMessage === `${prefix}forfeit` ||
                 break;
 
                 
-            case userMessage.startsWith(`${prefix}antistatusmention`):
+            case userMessage.startsWith(`${prefix}antistatusmention`) ||
+                 userMessage.startsWith(`${prefix}antigroupmention`) ||
+                 userMessage.startsWith(`${prefix}antimentionstatus`):
                 await antistatusmentionCommand(sock, chatId, message);
                 break;
 
