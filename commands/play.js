@@ -46,7 +46,7 @@ async function playCommand(sock, chatId, message) {
         // Try multiple APIs with fallbacks
         let downloadUrl, videoTitle;
         const apis = [
-            `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
+            `https://media.cypherxbot.space/download/youtube/audio?url=${encodeURIComponent(video.url)}`,
             `https://apis.xwolf.space/download/audio?url=${encodeURIComponent(video.url)}`,
             `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`
         ];
@@ -54,9 +54,9 @@ async function playCommand(sock, chatId, message) {
         for (const api of apis) {
             try {
                 const response = await axios.get(api, { timeout: 30000 });
-                if (api.includes("keith") && response.data?.status) {
-                    downloadUrl = response.data.result;
-                    videoTitle = response.data.title || video.title;
+                if (api.includes("cypherx") && response.data?.status) {
+                    downloadUrl = response.data.result.download_url;
+                    videoTitle = response.data.result.title || video.title;
                     break;
                 } else if (api.includes("wolf") && response.data?.success && response.data?.downloadUrl) {
                     downloadUrl = response.data.downloadUrl;
