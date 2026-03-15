@@ -2,6 +2,7 @@ const axios = require('axios');
 const yts = require('yt-search');
 
 const { createFakeContact } = require('../lib/fakeContact');
+
 async function videoCommand(sock, chatId, message) {
     try {
         // Initial reaction
@@ -45,8 +46,8 @@ async function videoCommand(sock, chatId, message) {
             text: `_Downloading: ${video.title}_._`
         }, { quoted: createFakeContact(message) });
 
-        // API call (no 100MB limit)
-        const apiUrl = `https://media.cypherxbot.space/download/youtube/video?url=${encodeURIComponent(video.url)}`;
+        // API call
+        const apiUrl = `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`;
 
         let response;
         try {
@@ -73,33 +74,35 @@ async function videoCommand(sock, chatId, message) {
         }
 
         const caption = `Title: ${video.title}\nDuration: ${video.timestamp}`;
-        const vid = apiData.result.download_url;
+        const videoUrl = apiData.result;
 
-        // Try sending as document first
+        // Send as document
         try {
             await sock.sendMessage(chatId, {
-                document: { url: vid },
+                document: { url: videoUrl },
                 mimetype: "video/mp4",
                 fileName: `${video.title.replace(/[^\w\s]/gi, '').substring(0, 80)}.mp4`,
-                caption
+                caption: `${caption}\n(Sent as document)`
             }, { quoted: fake, timeout: 300000 });
-
-            await sock.sendMessage(chatId, {
-                react: { text: '✅', key: message.key }
-            });
-            
         } catch (docError) {
-            // Fallback to video format
+            console.log("Document send failed:", docError.message);
+        }
+
+        // Send as video
+        try {
             await sock.sendMessage(chatId, {
-                video: { url: apiData.result.download_url },
+                video: { url: videoUrl },
                 caption: `${caption}\n(Sent as video)`,
                 mimetype: "video/mp4"
             }, { quoted: fake, timeout: 300000 });
-
-            await sock.sendMessage(chatId, {
-                react: { text: '✅', key: message.key }
-            });
+        } catch (videoError) {
+            console.log("Video send failed:", videoError.message);
         }
+
+        // Send success reaction if at least one format was sent
+        await sock.sendMessage(chatId, {
+            react: { text: '✅', key: message.key }
+        });
 
     } catch (error) {
         let errorMessage = `Error: ${error.message}`;
