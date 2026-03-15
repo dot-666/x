@@ -5,6 +5,10 @@ const path = require("path");
 const os = require("os");
 
 const { createFakeContact } = require('../lib/fakeContact');
+
+// Browser-like User-Agent to avoid blocking
+const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 async function playCommand(sock, chatId, message) {
     try {
         const fkontak = createFakeContact(message);
@@ -43,7 +47,7 @@ async function playCommand(sock, chatId, message) {
 
         const video = searchResult;
 
-        // Try multiple APIs with fallbacks
+        // Try multiple APIs with fallbacks, now including a browser User-Agent
         let downloadUrl, videoTitle;
         const apis = [
             `https://media.cypherxbot.space/download/youtube/audio?url=${encodeURIComponent(video.url)}`,
@@ -53,7 +57,10 @@ async function playCommand(sock, chatId, message) {
 
         for (const api of apis) {
             try {
-                const response = await axios.get(api, { timeout: 30000 });
+                const response = await axios.get(api, { 
+                    timeout: 30000,
+                    headers: { "User-Agent": USER_AGENT }  // added browser agent
+                });
                 if (api.includes("cypherx") && response.data?.status) {
                     downloadUrl = response.data.result.download_url;
                     videoTitle = response.data.result.title || video.title;
@@ -76,7 +83,7 @@ async function playCommand(sock, chatId, message) {
 
         const filePath = path.join(tempDir, `audio_${Date.now()}.mp3`);
 
-        // Download MP3
+        // Download MP3 with the same browser User-Agent
         const audioResponse = await axios({
             method: "get",
             url: downloadUrl,
@@ -84,7 +91,7 @@ async function playCommand(sock, chatId, message) {
             timeout: 900000,
             maxContentLength: Infinity,
             maxBodyLength: Infinity,
-            headers: { "User-Agent": "Mozilla/5.0" }
+            headers: { "User-Agent": USER_AGENT }  // consistent agent
         });
 
         const writer = fs.createWriteStream(filePath);
