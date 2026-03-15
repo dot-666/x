@@ -48,12 +48,12 @@ async function playCommand(sock, chatId, message) {
         // API fallbacks with improved parsing
         const apis = [
             {
-                url: `https://media.cypherxbot.space/download/youtube/audio?url=${encodeURIComponent(video.url)}`,
+                url: `https://apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
                 parse: (res) => {
-                    if (res.data?.status && res.data?.result?.download_url) {
+                    if (res.data?.status && res.data?.result) {
                         return {
-                            downloadUrl: res.data.result.download_url,
-                            title: res.data.result.title || video.title
+                            downloadUrl: res.data.result,
+                            title: res.data.title || video.title
                         };
                     }
                     return null;
