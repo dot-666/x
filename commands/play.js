@@ -4,37 +4,35 @@ const yts = require("yt-search");
 const path = require("path");
 const os = require("os");
 
-const { createFakeContact } = require('../lib/fakeContact');
-
-// Browser-like User-Agent
-const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const { createFakeContact } = require("../lib/fakeContact");
 
 async function playCommand(sock, chatId, message) {
-    try {
-        const fkontak = createFakeContact(message);
+    const fkontak = createFakeContact(message);
 
+    try {
+        // React to command
         await sock.sendMessage(chatId, {
             react: { text: "🎼", key: message.key }
-        }, { quoted: createFakeContact(message) });
+        }, { quoted: fkontak });
 
-        // Use system temp directory
+        // Prepare temp dir
         const tempDir = path.join(os.tmpdir(), "june-x-temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
         // Extract query
-        let text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-        let query = text ? text.split(" ").slice(1).join(" ").trim() : null;
+        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
+        const query = text ? text.split(" ").slice(1).join(" ").trim() : null;
 
         if (!query) {
-            return await sock.sendMessage(chatId, {
+            return sock.sendMessage(chatId, {
                 text: "🎵 Provide a song name!\nExample: .play Not Like Us"
-            }, { quoted: createFakeContact(message) });
+            }, { quoted: fkontak });
         }
 
         if (query.length > 100) {
-            return await sock.sendMessage(chatId, {
+            return sock.sendMessage(chatId, {
                 text: "📝 Song name too long! Max 100 chars."
-            }, { quoted: createFakeContact(message) });
+            }, { quoted: fkontak });
         }
 
         // Search YouTube
@@ -42,80 +40,163 @@ async function playCommand(sock, chatId, message) {
         if (!searchResult) {
             return sock.sendMessage(chatId, {
                 text: "😕 Couldn't find that song. Try another one!"
-            }, { quoted: createFakeContact(message) });
+            }, { quoted: fkontak });
         }
 
         const video = searchResult;
 
-        // Use only the first API (cypherx)
-        const apiUrl = `https://media.cypherxbot.space/download/youtube/audio?url=${encodeURIComponent(video.url)}`;
-        
-        let downloadUrl, videoTitle;
-        try {
-            const response = await axios.get(apiUrl, { 
-                timeout: 30000,
-                headers: { "User-Agent": USER_AGENT }
-            });
-            
-            if (response.data?.status) {
-                downloadUrl = response.data.result.download_url;
-                videoTitle = response.data.result.title || video.title;
-            } else {
-                throw new Error("API returned unsuccessful status");
+        // API fallbacks with improved parsing
+        const apis = [
+            {
+                url: `https://media.cypherxbot.space/download/youtube/audio?url=${encodeURIComponent(video.url)}`,
+                parse: (res) => {
+                    if (res.data?.status && res.data?.result?.download_url) {
+                        return {
+                            downloadUrl: res.data.result.download_url,
+                            title: res.data.result.title || video.title
+                        };
+                    }
+                    return null;
+                }
+            },
+            {
+                url: `https://apis.xwolf.space/download/audio?url=${encodeURIComponent(video.url)}`,
+                parse: (res) => {
+                    if (res.data?.success && res.data?.downloadUrl) {
+                        return {
+                            downloadUrl: res.data.downloadUrl,
+                            title: res.data.title || video.title
+                        };
+                    }
+                    return null;
+                }
+            },
+            {
+                url: `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`,
+                parse: (res) => {
+                    if (res.data?.status && res.data?.result?.download_url) {
+                        return {
+                            downloadUrl: res.data.result.download_url,
+                            title: res.data.result.title || video.title
+                        };
+                    }
+                    return null;
+                }
             }
-        } catch (e) {
-            throw new Error("Primary API failed: " + e.message);
+        ];
+
+        let downloadUrl, videoTitle;
+        for (const api of apis) {
+            try {
+                const res = await axios.get(api.url, { 
+                    timeout: 30000,
+                    headers: { 'User-Agent': 'Mozilla/5.0' } // Add user agent to avoid blocks
+                });
+                const parsed = api.parse(res);
+                if (parsed) {
+                    downloadUrl = parsed.downloadUrl;
+                    videoTitle = parsed.title;
+                    break;
+                }
+            } catch (error) {
+                console.log(`API failed: ${api.url.split('/')[2]} - ${error.message}`);
+                continue;
+            }
         }
 
-        if (!downloadUrl) throw new Error("No download URL received from API");
+        if (!downloadUrl) {
+            throw new Error("Could not fetch audio from any available source");
+        }
 
+        // Download MP3 (30 min timeout)
         const filePath = path.join(tempDir, `audio_${Date.now()}.mp3`);
+        await downloadFile(downloadUrl, filePath);
 
-        // Download MP3
-        const audioResponse = await axios({
-            method: "get",
-            url: downloadUrl,
-            responseType: "stream",
-            timeout: 900000,
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            headers: { "User-Agent": USER_AGENT }
-        });
+        const title = (videoTitle || video.title).substring(0, 100).replace(/[<>:"/\\|?*]/g, '_'); // Sanitize filename
 
-        const writer = fs.createWriteStream(filePath);
-        audioResponse.data.pipe(writer);
+        // Create metadata document
+        const docPath = path.join(tempDir, `info_${Date.now()}.txt`);
+        fs.writeFileSync(
+            docPath,
+            `🎶 Track Info\n\nTitle: ${title}\nYouTube: ${video.url}\nDuration: ${video.timestamp || 'Unknown'}\nViews: ${video.views || 'Unknown'}`
+        );
 
-        await new Promise((resolve, reject) => {
-            writer.on("finish", resolve);
-            writer.on("error", (err) => {
-                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                reject(err);
-            });
-        });
-
-        if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
-            throw new Error("Download failed or empty file!");
-        }
-
-        const title = (videoTitle || video.title).substring(0, 100);
-
+        // Notify user
         await sock.sendMessage(chatId, {
             text: `_🎶 Track ready:_\n_${title}_`
-        }, { quoted: createFakeContact(message) });
+        }, { quoted: fkontak });
 
+        // Send audio
         await sock.sendMessage(chatId, {
             document: { url: filePath },
             mimetype: "audio/mpeg",
             fileName: `${title}.mp3`
-        }, { quoted: createFakeContact(message) });
+        }, { quoted: fkontak });
 
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        // Send metadata doc
+        await sock.sendMessage(chatId, {
+            document: { url: docPath },
+            mimetype: "text/plain",
+            fileName: `${title}_info.txt`
+        }, { quoted: fkontak });
+
+        // Cleanup
+        [filePath, docPath].forEach(p => {
+            if (fs.existsSync(p)) {
+                try {
+                    fs.unlinkSync(p);
+                } catch (err) {
+                    console.log(`Failed to delete ${p}: ${err.message}`);
+                }
+            }
+        });
 
     } catch (error) {
         console.error("Play command error:", error);
-        return await sock.sendMessage(chatId, {
+        return sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
-        }, { quoted: createFakeContact(message) });
+        }, { quoted: fkontak });
+    }
+}
+
+// Helper: download file to disk with 30 min timeout
+async function downloadFile(url, filePath) {
+    try {
+        const response = await axios({
+            method: "get",
+            url,
+            responseType: "stream",
+            timeout: 1800000, // 30 minutes
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+
+        const writer = fs.createWriteStream(filePath);
+        response.data.pipe(writer);
+
+        return new Promise((resolve, reject) => {
+            writer.on("finish", resolve);
+            writer.on("error", (err) => {
+                if (fs.existsSync(filePath)) {
+                    try {
+                        fs.unlinkSync(filePath);
+                    } catch (unlinkErr) {
+                        console.log(`Failed to delete incomplete file: ${unlinkErr.message}`);
+                    }
+                }
+                reject(err);
+            });
+        });
+    } catch (error) {
+        if (fs.existsSync(filePath)) {
+            try {
+                fs.unlinkSync(filePath);
+            } catch (unlinkErr) {
+                console.log(`Failed to delete incomplete file: ${unlinkErr.message}`);
+            }
+        }
+        throw error;
     }
 }
 
