@@ -7,21 +7,21 @@ const os = require("os");
 const { createFakeContact } = require("../lib/fakeContact");
 
 async function playCommand(sock, chatId, message) {
-    const fkontak = createFakeContact(message);
-
     try {
+        const fkontak = createFakeContact(message);
+
         // React to command
         await sock.sendMessage(chatId, {
             react: { text: "🎼", key: message.key }
         }, { quoted: fkontak });
 
-        // Prepare temp dir
+        // Temp directory
         const tempDir = path.join(os.tmpdir(), "june-x-temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
         // Extract query
-        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-        const query = text ? text.split(" ").slice(1).join(" ").trim() : null;
+        let text = message.message?.conversation || message.message?.extendedTextMessage?.text;
+        let query = text ? text.split(" ").slice(1).join(" ").trim() : null;
 
         if (!query) {
             return sock.sendMessage(chatId, {
@@ -48,158 +48,104 @@ async function playCommand(sock, chatId, message) {
         // API fallbacks
         const apis = [
             {
-                url: `https://apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
-                parse: (res) => {
-                    if (res.data?.status && res.data?.result) {
-                        return {
-                            downloadUrl: res.data.result,
-                            title: res.data.title || video.title
-                        };
-                    }
-                    return null;
-                }
+                name: "keith",
+                url: `https://www.apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`
             },
             {
-                url: `https://apis.xwolf.space/download/audio?url=${encodeURIComponent(video.url)}`,
-                parse: (res) => {
-                    if (res.data?.success && res.data?.downloadUrl) {
-                        return {
-                            downloadUrl: res.data.downloadUrl,
-                            title: res.data.title || video.title
-                        };
-                    }
-                    return null;
-                }
+                name: "wolf",
+                url: `https://apis.xwolf.space/download/audio?url=${encodeURIComponent(video.url)}`
             },
             {
-                url: `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`,
-                parse: (res) => {
-                    if (res.data?.status && res.data?.result?.download_url) {
-                        return {
-                            downloadUrl: res.data.result.download_url,
-                            title: res.data.result.title || video.title
-                        };
-                    }
-                    return null;
-                }
+                name: "gifted",
+                url: `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`
             }
         ];
 
         let downloadUrl, videoTitle;
+
         for (const api of apis) {
             try {
-                const res = await axios.get(api.url, { 
-                    timeout: 30000,
-                    headers: { 'User-Agent': 'Mozilla/5.0' }
-                });
-                const parsed = api.parse(res);
-                if (parsed) {
-                    downloadUrl = parsed.downloadUrl;
-                    videoTitle = parsed.title;
+                const response = await axios.get(api.url, { timeout: 30000 });
+
+                if (api.name === "keith" && response.data?.status) {
+                    downloadUrl = response.data.result;
+                    videoTitle = response.data.title || video.title;
                     break;
                 }
-            } catch (error) {
-                console.log(`API failed: ${api.url.split('/')[2]} - ${error.message}`);
+                if (api.name === "wolf" && response.data?.success && response.data?.downloadUrl) {
+                    downloadUrl = response.data.downloadUrl;
+                    videoTitle = response.data.title || video.title;
+                    break;
+                }
+                if (api.name === "gifted" && response.data?.status && response.data?.result?.download_url) {
+                    downloadUrl = response.data.result.download_url;
+                    videoTitle = response.data.result.title || video.title;
+                    break;
+                }
+            } catch {
                 continue;
             }
         }
 
-        if (!downloadUrl) {
-            throw new Error("Could not fetch audio from any available source");
+        if (!downloadUrl) throw new Error("API failed to fetch track!");
+
+        const filePath = path.join(tempDir, `audio_${Date.now()}.mp3`);
+
+        // Download MP3 with 30min timeout
+        const audioResponse = await axios({
+            method: "get",
+            url: downloadUrl,
+            responseType: "stream",
+            timeout: 1800000, // 30 minutes
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
+
+        const writer = fs.createWriteStream(filePath);
+        audioResponse.data.pipe(writer);
+
+        await new Promise((resolve, reject) => {
+            writer.on("finish", resolve);
+            writer.on("error", (err) => {
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                reject(err);
+            });
+        });
+
+        if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
+            throw new Error("Download failed or empty file!");
         }
 
-        // Download MP3
-        const filePath = path.join(tempDir, `audio_${Date.now()}.mp3`);
-        await downloadFile(downloadUrl, filePath);
+        const title = (videoTitle || video.title).substring(0, 100);
 
-        const title = (videoTitle || video.title).substring(0, 100).replace(/[<>:"/\\|?*]/g, '_');
-
-        // Create metadata document
-        const docPath = path.join(tempDir, `info_${Date.now()}.txt`);
-        fs.writeFileSync(
-            docPath,
-            `🎶 Track Info\n\nTitle: ${title}\nYouTube: ${video.url}\nDuration: ${video.timestamp || 'Unknown'}\nViews: ${video.views || 'Unknown'}`
-        );
-
-        // Notify user
+        // Notify track ready
         await sock.sendMessage(chatId, {
             text: `_🎶 Track ready:_\n_${title}_`
         }, { quoted: fkontak });
 
-        // Send audio properly
+        // Send as audio (playable in chat)
         await sock.sendMessage(chatId, {
             audio: { url: filePath },
             mimetype: "audio/mpeg",
-            fileName: `${title}.mp3`,
-            ptt: false
+            fileName: `${title}.mp3`
         }, { quoted: fkontak });
 
-        // Send metadata doc
+        // Send as document (downloadable)
         await sock.sendMessage(chatId, {
-            document: { url: docPath },
-            mimetype: "text/plain",
-            fileName: `${title}_info.txt`
+            document: { url: filePath },
+            mimetype: "audio/mpeg",
+            fileName: `${title}.mp3`
         }, { quoted: fkontak });
 
-        // Cleanup after sending
-        setTimeout(() => {
-            [filePath, docPath].forEach(p => {
-                if (fs.existsSync(p)) {
-                    try {
-                        fs.unlinkSync(p);
-                    } catch (err) {
-                        console.log(`Failed to delete ${p}: ${err.message}`);
-                    }
-                }
-            });
-        }, 5000); // wait 5s to ensure sendMessage completes
+        // Cleanup
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
     } catch (error) {
-        console.error("Play command error:", error);
+        const fkontak = createFakeContact(message);
         return sock.sendMessage(chatId, {
             text: `🚫 Error: ${error.message}`
         }, { quoted: fkontak });
-    }
-}
-
-// Helper: download file to disk
-async function downloadFile(url, filePath) {
-    try {
-        const response = await axios({
-            method: "get",
-            url,
-            responseType: "stream",
-            timeout: 1800000,
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-
-        const writer = fs.createWriteStream(filePath);
-        response.data.pipe(writer);
-
-        return new Promise((resolve, reject) => {
-            writer.on("finish", resolve);
-            writer.on("error", (err) => {
-                if (fs.existsSync(filePath)) {
-                    try {
-                        fs.unlinkSync(filePath);
-                    } catch (unlinkErr) {
-                        console.log(`Failed to delete incomplete file: ${unlinkErr.message}`);
-                    }
-                }
-                reject(err);
-            });
-        });
-    } catch (error) {
-        if (fs.existsSync(filePath)) {
-            try {
-                fs.unlinkSync(filePath);
-            } catch (unlinkErr) {
-                console.log(`Failed to delete incomplete file: ${unlinkErr.message}`);
-            }
-        }
-        throw error;
     }
 }
 
