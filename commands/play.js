@@ -45,7 +45,7 @@ async function playCommand(sock, chatId, message) {
 
         const video = searchResult;
 
-        // API fallbacks with improved parsing
+        // API fallbacks
         const apis = [
             {
                 url: `https://apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
@@ -90,7 +90,7 @@ async function playCommand(sock, chatId, message) {
             try {
                 const res = await axios.get(api.url, { 
                     timeout: 30000,
-                    headers: { 'User-Agent': 'Mozilla/5.0' } // Add user agent to avoid blocks
+                    headers: { 'User-Agent': 'Mozilla/5.0' }
                 });
                 const parsed = api.parse(res);
                 if (parsed) {
@@ -108,11 +108,11 @@ async function playCommand(sock, chatId, message) {
             throw new Error("Could not fetch audio from any available source");
         }
 
-        // Download MP3 (30 min timeout)
+        // Download MP3
         const filePath = path.join(tempDir, `audio_${Date.now()}.mp3`);
         await downloadFile(downloadUrl, filePath);
 
-        const title = (videoTitle || video.title).substring(0, 100).replace(/[<>:"/\\|?*]/g, '_'); // Sanitize filename
+        const title = (videoTitle || video.title).substring(0, 100).replace(/[<>:"/\\|?*]/g, '_');
 
         // Create metadata document
         const docPath = path.join(tempDir, `info_${Date.now()}.txt`);
@@ -126,11 +126,12 @@ async function playCommand(sock, chatId, message) {
             text: `_🎶 Track ready:_\n_${title}_`
         }, { quoted: fkontak });
 
-        // Send audio
+        // Send audio properly
         await sock.sendMessage(chatId, {
-            document: { url: filePath },
+            audio: { url: filePath },
             mimetype: "audio/mpeg",
-            fileName: `${title}.mp3`
+            fileName: `${title}.mp3`,
+            ptt: false
         }, { quoted: fkontak });
 
         // Send metadata doc
@@ -140,16 +141,18 @@ async function playCommand(sock, chatId, message) {
             fileName: `${title}_info.txt`
         }, { quoted: fkontak });
 
-        // Cleanup
-        [filePath, docPath].forEach(p => {
-            if (fs.existsSync(p)) {
-                try {
-                    fs.unlinkSync(p);
-                } catch (err) {
-                    console.log(`Failed to delete ${p}: ${err.message}`);
+        // Cleanup after sending
+        setTimeout(() => {
+            [filePath, docPath].forEach(p => {
+                if (fs.existsSync(p)) {
+                    try {
+                        fs.unlinkSync(p);
+                    } catch (err) {
+                        console.log(`Failed to delete ${p}: ${err.message}`);
+                    }
                 }
-            }
-        });
+            });
+        }, 5000); // wait 5s to ensure sendMessage completes
 
     } catch (error) {
         console.error("Play command error:", error);
@@ -159,14 +162,14 @@ async function playCommand(sock, chatId, message) {
     }
 }
 
-// Helper: download file to disk with 30 min timeout
+// Helper: download file to disk
 async function downloadFile(url, filePath) {
     try {
         const response = await axios({
             method: "get",
             url,
             responseType: "stream",
-            timeout: 1800000, // 30 minutes
+            timeout: 1800000,
             maxContentLength: Infinity,
             maxBodyLength: Infinity,
             headers: { 'User-Agent': 'Mozilla/5.0' }
