@@ -18,6 +18,7 @@ if (!fs.existsSync(OWNER_FILE)) {
 }
 
 const { createFakeContact } = require('../lib/fakeContact');
+
 /**
  * Get the current owner name
  */
@@ -32,14 +33,13 @@ function getOwnerName() {
 }
 
 /**
- * Set new owner name
+ * Set new owner name – saves exactly as provided (including spaces)
  */
 function setOwnerName(newOwnerName) {
     try {
-        if (!newOwnerName?.trim() || newOwnerName.trim().length > 20) return false;
+        if (!newOwnerName || newOwnerName.length > 20) return false; // raw length check
         
-        const trimmedName = newOwnerName.trim();
-        fs.writeFileSync(OWNER_FILE, JSON.stringify({ ownerName: trimmedName }, null, 2));
+        fs.writeFileSync(OWNER_FILE, JSON.stringify({ ownerName: newOwnerName }, null, 2));
         return true;
     } catch (error) {
         console.error('Error setting owner name:', error);
@@ -61,17 +61,18 @@ function resetOwnerName() {
 }
 
 /**
- * Validate owner name
+ * Validate owner name – now checks raw length and allows any characters
  */
 function validateOwnerName(name) {
-    if (!name?.trim()) return { isValid: false, message: 'Owner name cannot be empty!' };
+    if (!name) return { isValid: false, message: 'Owner name cannot be empty!' };
     
-    const trimmed = name.trim();
-    if (trimmed.length > 20) return { isValid: false, message: 'Owner name must be 1-20 characters long!' };
+    // Reject if only whitespace
+    if (!name.trim()) return { isValid: false, message: 'Owner name cannot be only spaces!' };
     
-    const invalidChars = /[<>@#\$%\^\*\\\/]/;
-    if (invalidChars.test(trimmed)) return { isValid: false, message: 'Owner name contains invalid characters!' };
+    // Raw length must be 1-20 characters (including spaces)
+    if (name.length > 20) return { isValid: false, message: 'Owner name must be 1-20 characters long!' };
     
+    // No invalid character restrictions – name is saved exactly as typed
     return { isValid: true, message: 'Valid owner name' };
 }
 
@@ -121,9 +122,9 @@ async function handleSetOwnerCommand(sock, chatId, senderId, message, userMessag
         return;
     }
 
-    const success = setOwnerName(input);
+    const success = setOwnerName(input); // saves raw input, no trimming
     const response = success ? 
-        `✅ Owner name successfully set to: *${input.trim()}*` : 
+        `✅ Owner name successfully set to: *${input}*` :  // shows raw input
         '❌ Failed to set owner name!';
     
     await sock.sendMessage(chatId, { text: response }, { quoted: createFakeContact(message) });
