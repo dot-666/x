@@ -80,7 +80,7 @@ async function songCommand(sock, chatId, message) {
         let videoTitle;
         
         const apis = [
-            `https://media.cypherxbot.space/download/youtube/audio?url=${encodeURIComponent(video.url)}`,
+            `https://apiskeith.top/download/audio?url=${encodeURIComponent(video.url)}`,
             `https://apis.xwolf.space/download/audio?url=${encodeURIComponent(video.url)}`,
             `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(video.url)}`
         ];
@@ -89,19 +89,19 @@ async function songCommand(sock, chatId, message) {
             try {
                 const response = await axios.get(api, { timeout: 30000 });
                 
-                if (api.includes('cypherx')) {
+                if (api.includes('one')) {
                     if (response.data && response.data?.status) {
-                        downloadUrl = response.data.result.download_url;
-                        videoTitle = response.data.result.title || video.title;
+                        downloadUrl = response.data.result;
+                        videoTitle = response.data.title || video.title;
                         break;
                     }
-                } else if (api.includes('wolf')) {
+                } else if (api.includes('two')) {
                     if (response.data?.success && response.data?. downloadUrl) {
                         downloadUrl = response.data.downloadUrl;
                         videoTitle = response.data.title || video.title;
                         break;
                     }
-                } else if (api.includes('gifted')) {
+                } else if (api.includes('three')) {
                     if (response.data?.status && response.data?.result?.download_url) {
                         downloadUrl = response.data.result.download_url;
                         videoTitle = response.data.result.title || video.title;
