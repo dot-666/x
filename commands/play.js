@@ -29,7 +29,7 @@ async function playCommand(sock, chatId, message) {
 
         // Notify user about download
         await sock.sendMessage(chatId, { 
-            text: `_downloading 🎵_\n_${title} 🎶_`
+            text: `_Downloading 🎵_\n_${title} 🎶_`
         }, { quoted: fakekontak });
 
         // Fetch audio data from API
