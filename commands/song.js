@@ -44,7 +44,15 @@ async function songCommand(sock, chatId, message) {
 
         const audioUrl = data.result; // ✅ API returns only the download URL
 
-        // Send as document
+        // Send as audio (playable in chat)
+        await sock.sendMessage(chatId, {
+            audio: { url: audioUrl },
+            mimetype: "audio/mpeg",
+            fileName: `${title}.mp3`,
+            caption: `🎵 *${title}*`
+        }, { quoted: fakekontak });
+
+        // Send also as document (downloadable file)
         await sock.sendMessage(chatId, {
             document: { url: audioUrl },
             mimetype: "audio/mpeg",
