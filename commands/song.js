@@ -13,6 +13,10 @@ async function songCommand(sock, chatId, message) {
                 text: "What song do you want to download?"
             }, { quoted: fakekontak });
         }
+        //react 
+                await sock.sendMessage(chatId, {
+            react: { text: "🎶", key: message.key }
+        });
 
         // Search for the song
         const { videos } = await yts(searchQuery);
