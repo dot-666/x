@@ -60,10 +60,6 @@ async function videoCommand(sock, chatId, message) {
             caption: `🎬 *${title}*`
         }, { quoted: fakekontak });
 
-        // ✅ Final reaction/confirmation
-        await sock.sendMessage(chatId, { 
-            text: `✅ Finished playing and sending *${title}* 🎶`
-        }, { quoted: fakekontak });
 
     } catch (error) {
         console.error('Error in videoCommand:', error);
