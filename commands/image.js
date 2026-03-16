@@ -1,6 +1,5 @@
 const gis = require('g-i-s');
 
-const { createFakeContact } = require('../lib/fakeContact');
 function gisSearch(query) {
     return new Promise((resolve, reject) => {
         gis(query, (error, results) => {
@@ -23,19 +22,19 @@ async function imageCommand(sock, chatId, message) {
         if (!query) {
             return await sock.sendMessage(chatId, {
                 text: `📷 *Image Search Command*\n\nUsage:\n.image <search_query>\n\nExample:\n.image cat\n.image beautiful sunset\n.image anime characters`
-            }, { quoted: createFakeContact(message) });
+            });
         }
 
         await sock.sendMessage(chatId, {
             text: `🔍 Searching images for: "${query}"...`
-        }, { quoted: createFakeContact(message) });
+        }, { quoted: message });
 
         const results = await gisSearch(query);
 
         if (!results || results.length === 0) {
             return await sock.sendMessage(chatId, {
                 text: `❌ No images found for "${query}"`
-            }, { quoted: createFakeContact(message) });
+            });
         }
 
         const imageUrls = results
@@ -46,7 +45,7 @@ async function imageCommand(sock, chatId, message) {
         if (imageUrls.length === 0) {
             return await sock.sendMessage(chatId, {
                 text: `❌ No valid images found for "${query}"`
-            }, { quoted: createFakeContact(message) });
+            });
         }
 
         const fancyBotName = `ᴊᴜɴᴇ-𝚇`;
@@ -56,7 +55,7 @@ async function imageCommand(sock, chatId, message) {
                 await sock.sendMessage(chatId, {
                     image: { url },
                     caption: `📸 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝𝐞𝐝 𝐛𝐲 ${fancyBotName}`
-                }, { quoted: createFakeContact(message) });
+                }, { quoted: message });
 
                 await new Promise(res => setTimeout(res, 500));
             } catch (err) {
@@ -67,7 +66,7 @@ async function imageCommand(sock, chatId, message) {
         console.error('Image command error:', error);
         await sock.sendMessage(chatId, {
             text: '❌ An unexpected error occurred. Please try again.'
-        }, { quoted: createFakeContact(message) });
+        });
     }
 }
 
