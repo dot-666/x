@@ -571,10 +571,17 @@ async function startXeonBotInc() {
 
         // --- JUNE MD ORIGINAL HANDLER ---
         const mek = chatUpdate.messages[0];
+
+        // Check for status@broadcast BEFORE the !mek.message guard.
+        // Status messages arrive with type:'append' and often have no .message body,
+        // so checking after the guard causes them to be silently dropped.
+        if (mek.key.remoteJid === 'status@broadcast') {
+            await handleStatus(XeonBotInc, chatUpdate);
+            return;
+        }
+
         if (!mek.message) return;
         mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
-        // This relies on handleStatus and handleMessages being loaded
-        if (mek.key.remoteJid === 'status@broadcast') { await handleStatus(XeonBotInc, chatUpdate); return; }
         try { await handleMessages(XeonBotInc, chatUpdate, true) } catch(e){ log(e.message, 'red', true) }
     });
 
@@ -716,11 +723,23 @@ async function checkSessionIntegrityAndClean() {
  * @private 
  */
 function checkEnvStatus() {
+    // On cloud platforms (Heroku, Render, etc.), env vars are managed via config vars,
+    // not a .env file. Skip the file watcher to prevent deployment from hanging.
+    const isCloudPlatform = process.env.DYNO || process.env.RENDER || process.env.RAILWAY_ENVIRONMENT;
+    if (isCloudPlatform) {
+        log(`║ [WATCHER] Cloud platform detected — .env file watcher skipped ║`, 'yellow');
+        return;
+    }
+
+    // Also skip if .env file does not exist on disk
+    if (!fs.existsSync(envPath)) {
+        log(`║ [WATCHER] No .env file found — watcher skipped ║`, 'yellow');
+        return;
+    }
+
     try {
         log(`║ [WATCHER] .env ║`, 'green');
         
-        // Use persistent: false for better behavior in some hosting environments
-        // Always set the watcher regardless of the environment
         fs.watch(envPath, { persistent: false }, (eventType, filename) => {
             if (filename && eventType === 'change') {
                 log(chalk.bgRed.black('================================================='), 'white');
@@ -728,13 +747,11 @@ function checkEnvStatus() {
                 log(chalk.white.bgRed('Forcing a clean restart to apply new configuration (e.g., SESSION_ID).'), 'white');
                 log(chalk.red.bgBlack('================================================='), 'white');
                 
-                // Use process.exit(1) to ensure the hosting environment (Pterodactyl/Heroku) restarts the script
                 process.exit(1);
             }
         });
     } catch (e) {
         log(`❌ Failed to set up .env file watcher (fs.watch error): ${e.message}`, 'red', true);
-        // Do not exit, as the bot can still run, but notify the user
     }
 }
 // -------------------------------------------------------------
