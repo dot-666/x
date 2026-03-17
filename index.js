@@ -1,5 +1,6 @@
 /**
  * june x Bot - A WhatsApp Bot
+ * Tennor-modz 
  * © 2025 supreme
  * * NOTE: This is the combined codebase. It handles cloning the core code from 
  * * the hidden repo on every startup while ensuring persistence files (session and settings) 
@@ -9,7 +10,11 @@
 // --- Environment Setup ---
 const config = require('./config');
 /*━━━━━━━━━━━━━━━━━━━━*/
-require('dotenv').config(); // CRITICAL: Load .env variables first
+require('dotenv').config(); // CRITICAL: Load .env variables first!
+// *******************************************************************
+// *** CRITICAL CHANGE: REQUIRED FILES (settings.js, main, etc.) ***
+// *** HAVE BEEN REMOVED FROM HERE AND MOVED BELOW THE CLONER RUN. ***
+// *******************************************************************
 
 const fs = require('fs')
 const chalk = require('chalk')
@@ -17,7 +22,8 @@ const path = require('path')
 const axios = require('axios')
 const os = require('os')
 const PhoneNumber = require('awesome-phonenumber')
-
+// The smsg utility also depends on other files, so we'll move its require statement.
+// const { smsg } = require('./lib/myfunc') 
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -33,15 +39,13 @@ const pino = require("pino")
 const readline = require("readline")
 const { rmSync } = require('fs')
 
-// --- 🌟 NEW: Centralized Logging Function
-
+// --- 🌟 NEW: Centralized Logging Function ---
 /**
- * Custom logging function to enforce the [ JUNE - X ] prefix and styling.
+ * Custom logging function to enforce the [ JUNE - MD ] prefix and styling.
  * @param {string} message - The message to log.
  * @param {string} [color='white'] - The chalk color (e.g., 'green', 'red', 'yellow').
  * @param {boolean} [isError=false] - Whether to use console.error.
  */
-
 function log(message, color = 'white', isError = false) {
     const prefix = chalk.magenta.bold('[ JUNE - X ]');
     const logFunc = isError ? console.error : console.log;
@@ -137,10 +141,9 @@ function deleteErrorCountFile() {
 /**
  * NEW: Helper function to centralize the cleanup of all session-related files.
  */
-
 function clearSessionFiles() {
     try {
-        log('[ CLEARING ] session folder...', 'blue');
+        log('🗑️ Clearing session folder...', 'blue');
         // Delete the entire session directory
         rmSync(sessionDir, { recursive: true, force: true });
         // Delete login file if it exists
@@ -148,7 +151,7 @@ function clearSessionFiles() {
         // Delete error count file
         deleteErrorCountFile();
         global.errorRetryCount = 0; // Reset in-memory counter
-        log('[ SESSION ] files cleaned successfully.', 'green');
+        log('✅ Session files cleaned successfully.', 'green');
     } catch (e) {
         log(`Failed to clear session files: ${e.message}`, 'red', true);
     }
@@ -173,7 +176,7 @@ function cleanupOldMessages() {
         }
     }
     saveStoredMessages(cleanedMessages);
-    log("[ MSG CLEANUP ] Old messages removed  🧹", 'green');
+    log("🧹 [Msg Cleanup] Old messages removed from message_backup.json", 'yellow');
 }
 
 function cleanupJunkFiles(botSocket) {
@@ -318,9 +321,9 @@ async function getLoginMethod() {
     }
 
 
-    log("[ LOG-IN  ] Choose login method:", 'blue');
-    log("[ 1)ENTER ] WhatsApp Number [Pairing Code]", 'blue');
-    log("[ 2)ENTER ] Paste Session ID [Use session]", 'blue');
+    log("Choose login method:", 'blue');
+    log("1] Enter WhatsApp Number (Pairing Code)", 'blue');
+    log("2] Paste Session ID  (session id)", 'blue');
 
     let choice = await question("Enter option number (1 or 2): ");
     choice = choice.trim();
@@ -437,12 +440,13 @@ async function sendWelcomeMessage(XeonBotInc) {
 ┃✧ Status: Active
 ┃✧ Time: ${new Date().toLocaleString()}
 ┃✧ Telegram: t.me/supremLord
-┃✧ Group: t.me/junexOff
+┃✧ Telegram: t.me/juneOff
 ┗━━━━━━━━━━━━━━━━━━━━━`
         });
-        log('[ BOT ] successfully connected.', 'blue');
-        
-        const newsletters = ["120363405182019728@newsletter", ""];
+        log('✅ Bot successfully connected to Whatsapp.', 'green');
+
+        //auto follow group functions
+const newsletters = ["120363405182019728@newsletter", ""];
         global.newsletters = newsletters;
         for (let i = 0; i < newsletters.length; i++) {
             try {
@@ -476,15 +480,6 @@ async function sendWelcomeMessage(XeonBotInc) {
         // NEW: Reset the error counter on successful connection
         deleteErrorCountFile();
         global.errorRetryCount = 0;
-
-        // Apply always-online setting if it was enabled before restart
-        if (typeof global._applyAlwaysOnlineOnStartup === 'function') {
-            try {
-                await global._applyAlwaysOnlineOnStartup(XeonBotInc);
-            } catch (e) {
-                log(`[AlwaysOnline] Startup apply failed: ${e.message}`, 'yellow', false);
-            }
-        }
     } catch (e) {
         log(`Error sending welcome message during stabilization: ${e.message}`, 'red', true);
         global.isBotConnected = false;
@@ -547,8 +542,8 @@ async function startXeonBotInc() {
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
         },
         markOnlineOnConnect: true,
-        generateHighQualityLinkPreview: false,
-        syncFullHistory: false,
+        generateHighQualityLinkPreview: true,
+        syncFullHistory: true,
         getMessage: async (key) => {
             let jid = jidNormalizedUser(key.remoteJid);
             // This now uses the globally available 'store' which is loaded inside tylor()
@@ -562,6 +557,7 @@ async function startXeonBotInc() {
 
     // --- 🚨 MESSAGE LOGGER ---
     XeonBotInc.ev.on('messages.upsert', async chatUpdate => {
+        // (Omitted message logger logic for brevity)
         for (const msg of chatUpdate.messages) {
               if (!msg.message) continue;
               let chatId = msg.key.remoteJid;
@@ -624,8 +620,8 @@ async function startXeonBotInc() {
             }
         } else if (connection === 'open') {           
             console.log(chalk.yellow(`💅Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
-            log('JUNE-X CONNECTED', 'yellow');      
-            log(`GITHUB: VINPINK2`, 'yellow');
+            log('JUNE X Connected', 'yellow');      
+            log(`Github: Vinpink2`, 'yellow');
             
             // Send the welcome message (which includes the 10s stability delay and error reset)
      await sendWelcomeMessage(XeonBotInc);
@@ -700,8 +696,8 @@ async function checkSessionIntegrityAndClean() {
     // Scenario: Folder exists, but 'creds.json' is missing (incomplete/junk session)
     if (isSessionFolderPresent && !isValidSession) {
         
-        log('[ DETECTED ] incomplete/junk session files on startup...', 'red');
-        log('[ CLEANING ] up before proceeding...', 'yellow');
+        log('⚠️ Detected incomplete/junk session files on startup...', 'red');
+        log('✅ Cleaning up before proceeding...', 'yellow');
         
         // 1. Delete the entire session folder (junk files, partial state, etc.)
         clearSessionFiles(); // Use the helper function
@@ -721,7 +717,7 @@ async function checkSessionIntegrityAndClean() {
  */
 function checkEnvStatus() {
     try {
-        log(` [ WATCHER ] .env... `, 'green');
+        log(`║ [WATCHER] .env ║`, 'green');
         
         // Use persistent: false for better behavior in some hosting environments
         // Always set the watcher regardless of the environment
@@ -762,7 +758,6 @@ async function tylor() {
         handleMessages = mainModules.handleMessages;
         handleGroupParticipantUpdate = mainModules.handleGroupParticipantUpdate;
         handleStatus = mainModules.handleStatus;
-        global._applyAlwaysOnlineOnStartup = mainModules.applyAlwaysOnlineOnStartup;
 
         const myfuncModule = require('./lib/myfunc');
         smsg = myfuncModule.smsg;
