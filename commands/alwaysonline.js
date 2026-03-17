@@ -28,13 +28,18 @@ function saveConfig(config) {
     }
 }
 
+/**
+ * Always stop the existing interval before starting a new one.
+ * This ensures the latest sock reference is always used,
+ * even after a reconnect that provides a new socket object.
+ */
 function startPresenceBroadcast(sock) {
-    if (presenceInterval) return;
+    stopPresenceBroadcast();
     presenceInterval = setInterval(async () => {
         try {
             await sock.sendPresenceUpdate('available');
         } catch (e) {
-            // Silently ignore errors from presence updates
+            // Silently ignore transient presence errors
         }
     }, 10000);
 }
@@ -44,6 +49,20 @@ function stopPresenceBroadcast() {
         clearInterval(presenceInterval);
         presenceInterval = null;
     }
+}
+
+/**
+ * Robustly extract the command argument from the message,
+ * covering plain text, extended text, and quoted messages.
+ */
+function getArg(message) {
+    const text =
+        message.message?.conversation ||
+        message.message?.extendedTextMessage?.text ||
+        message.message?.imageMessage?.caption ||
+        message.message?.videoMessage?.caption ||
+        '';
+    return text.trim().split(/\s+/)[1]?.toLowerCase() || null;
 }
 
 async function alwaysonlineCommand(sock, chatId, message) {
@@ -57,10 +76,7 @@ async function alwaysonlineCommand(sock, chatId, message) {
             }, { quoted: createFakeContact(message) });
         }
 
-        const rawText = message.message?.conversation ||
-                        message.message?.extendedTextMessage?.text || '';
-        const arg = rawText.trim().split(/\s+/)[1]?.toLowerCase();
-
+        const arg = getArg(message);
         const config = loadConfig();
 
         if (!arg) {
@@ -79,8 +95,12 @@ async function alwaysonlineCommand(sock, chatId, message) {
 
             startPresenceBroadcast(sock);
 
-            await sock.updateLastSeenPrivacy('all');
-            await sock.updateOnlinePrivacy('all');
+            try { await sock.updateLastSeenPrivacy('all'); } catch (e) {
+                console.error('[AlwaysOnline] updateLastSeenPrivacy error:', e.message);
+            }
+            try { await sock.updateOnlinePrivacy('all'); } catch (e) {
+                console.error('[AlwaysOnline] updateOnlinePrivacy error:', e.message);
+            }
 
             return sock.sendMessage(chatId, {
                 text: `✅ *Always Online — ENABLED*\n\n` +
@@ -95,16 +115,13 @@ async function alwaysonlineCommand(sock, chatId, message) {
 
             stopPresenceBroadcast();
 
-            await sock.sendPresenceUpdate('unavailable');
-
-            try {
-                await sock.updateLastSeenPrivacy('none');
-            } catch (e) {
+            try { await sock.sendPresenceUpdate('unavailable'); } catch (e) {
+                console.error('[AlwaysOnline] sendPresenceUpdate error:', e.message);
+            }
+            try { await sock.updateLastSeenPrivacy('none'); } catch (e) {
                 console.error('[AlwaysOnline] updateLastSeenPrivacy error:', e.message);
             }
-            try {
-                await sock.updateOnlinePrivacy('match_last_seen');
-            } catch (e) {
+            try { await sock.updateOnlinePrivacy('match_last_seen'); } catch (e) {
                 console.error('[AlwaysOnline] updateOnlinePrivacy error:', e.message);
             }
 
@@ -133,8 +150,12 @@ async function applyAlwaysOnlineOnStartup(sock) {
         const config = loadConfig();
         if (config.enabled) {
             startPresenceBroadcast(sock);
-            await sock.updateLastSeenPrivacy('all');
-            await sock.updateOnlinePrivacy('all');
+            try { await sock.updateLastSeenPrivacy('all'); } catch (e) {
+                console.error('[AlwaysOnline] Startup updateLastSeenPrivacy error:', e.message);
+            }
+            try { await sock.updateOnlinePrivacy('all'); } catch (e) {
+                console.error('[AlwaysOnline] Startup updateOnlinePrivacy error:', e.message);
+            }
             console.log('[AlwaysOnline] Resumed — broadcasting online presence.');
         }
     } catch (e) {
