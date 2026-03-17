@@ -179,7 +179,7 @@ function cleanupOldMessages() {
         }
     }
     saveStoredMessages(cleanedMessages);
-    log("🧹 [Msg Cleanup] Old messages removed from message_backup.json", 'yellow');
+    log("🧹 [Msg Cleanup] Old messages removed from message_backup.json", 'green');
 }
 
 function cleanupJunkFiles(botSocket) {
@@ -418,7 +418,7 @@ async function sendWelcomeMessage(XeonBotInc, generation) {
 ┃✧ Status: Active
 ┃✧ Time: ${new Date().toLocaleString()}
 ┃✧ Telegram: t.me/supremLord
-┃✧ Telegram: t.me/juneOff
+┃✧ Tel_Group: t.me/juneOff
 ┗━━━━━━━━━━━━━━━━━━━━━`
         });
         log('✅ Bot successfully connected to Whatsapp.', 'green');
@@ -653,8 +653,8 @@ async function startXeonBotInc() {
             }
         } else if (connection === 'open') {           
             console.log(chalk.yellow(`💅Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
-            log('JUNE X Connected', 'yellow');      
-            log(`Github: Vinpink2`, 'yellow');
+            log('[ JUNE X ] Connected', 'yellow');      
+            log(`Github: [ Vinpink2 ]`, 'yellow');
             
             // Pass myGeneration so stale sockets skip the welcome message after reconnects
             await sendWelcomeMessage(XeonBotInc, myGeneration);
@@ -753,18 +753,18 @@ function checkEnvStatus() {
     // not a .env file. Skip the file watcher to prevent deployment from hanging.
     const isCloudPlatform = process.env.DYNO || process.env.RENDER || process.env.RAILWAY_ENVIRONMENT;
     if (isCloudPlatform) {
-        log(`║ [WATCHER] Cloud platform detected — .env file watcher skipped ║`, 'yellow');
+        log(` [WATCHER] Cloud platform detected — .env file watcher skipped `, 'yellow');
         return;
     }
 
     // Also skip if .env file does not exist on disk
     if (!fs.existsSync(envPath)) {
-        log(`║ [WATCHER] No .env file found — watcher skipped ║`, 'yellow');
+        log(` [WATCHER] No .env file found — watcher skipped `, 'yellow');
         return;
     }
 
     try {
-        log(`║ [WATCHER] .env ║`, 'green');
+        log(` [WATCHER] .env `, 'green');
 
         // Record when the watcher starts. On some Linux containers (e.g. Pterodactyl)
         // fs.watch fires a spurious 'change' event immediately after being created.
@@ -773,10 +773,8 @@ function checkEnvStatus() {
 
         fs.watch(envPath, { persistent: false }, (eventType, filename) => {
             if (filename && eventType === 'change' && (Date.now() - watcherStarted) > 3000) {
-                log(chalk.bgRed.black('================================================='), 'white');
                 log(chalk.white.bgRed(' [ENV] env file change detected!'), 'white');
                 log(chalk.white.bgRed('Forcing a clean restart to apply new configuration (e.g., SESSION_ID).'), 'white');
-                log(chalk.red.bgBlack('================================================='), 'white');
                 
                 process.exit(1);
             }
