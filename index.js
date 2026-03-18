@@ -355,7 +355,7 @@ Please enter this code in WhatsApp app:
 1. Open WhatsApp
 2. Go to Settings => Linked Devices
 3. Tap "Link a Device"
-4. Enter the code shown above
+4. Enter the code : ${code} 👈
         `, 'blue');
         return true; 
     } catch (err) { 
