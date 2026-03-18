@@ -3,11 +3,14 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const FormData = require("form-data");
-const sharp = require("sharp");
 const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 const { webp2png } = require("../lib/webp2");
-
+const webp = require("webp-converter");
 const { createFakeContact } = require('../lib/fakeContact');
+
+// Enable experimental features for webp-converter
+webp.grant_permission();
+
 async function gpteditCommand(sock, chatId, message) {
     try {
         // React to command
@@ -79,16 +82,55 @@ async function gpteditCommand(sock, chatId, message) {
             }
         }
 
-        // Convert to JPEG if needed
+        // Convert to JPEG using webp-converter if needed
         let finalImageBuffer = imageBuffer;
-        try {
-            const metadata = await sharp(imageBuffer).metadata();
-            if (metadata.format !== "jpeg" && metadata.format !== "jpg") {
-                finalImageBuffer = await sharp(imageBuffer).jpeg({ quality: 90 }).toBuffer();
+        
+        // Check if it's already a JPEG by looking at the magic numbers
+        const isJPEG = imageBuffer.length > 2 && 
+                      imageBuffer[0] === 0xFF && 
+                      imageBuffer[1] === 0xD8 && 
+                      imageBuffer[imageBuffer.length - 2] === 0xFF && 
+                      imageBuffer[imageBuffer.length - 1] === 0xD9;
+        
+        const isPNG = imageBuffer.length > 8 && 
+                     imageBuffer[0] === 0x89 && 
+                     imageBuffer[1] === 0x50 && 
+                     imageBuffer[2] === 0x4E && 
+                     imageBuffer[3] === 0x47;
+
+        // If not JPEG, convert using webp-converter
+        if (!isJPEG) {
+            try {
+                // Save buffer to temp file
+                const inputPath = path.join(tempDir, `input_${Date.now()}.${isPNG ? 'png' : 'webp'}`);
+                const outputPath = path.join(tempDir, `output_${Date.now()}.jpg`);
+                
+                fs.writeFileSync(inputPath, imageBuffer);
+                
+                // Convert to JPEG using webp-converter
+                if (isPNG) {
+                    // For PNG files, use webp-converter's PNG to JPEG conversion
+                    await webp.cwebp(inputPath, outputPath, "-q 90");
+                } else {
+                    // For other formats (likely WEBP), convert to JPEG
+                    await webp.dwebp(inputPath, outputPath, "-o");
+                }
+                
+                // Read converted file
+                finalImageBuffer = fs.readFileSync(outputPath);
+                
+                // Clean up temp files
+                try {
+                    fs.unlinkSync(inputPath);
+                    fs.unlinkSync(outputPath);
+                } catch (cleanupErr) {
+                    console.warn("Cleanup warning:", cleanupErr.message);
+                }
+            } catch (err) {
+                console.error("webp-converter error:", err);
+                // If conversion fails, use original buffer
+                finalImageBuffer = imageBuffer;
             }
-        } catch (err) {
-            console.error("Sharp error:", err);
-            finalImageBuffer = imageBuffer;
         }
 
         // Prepare form data
