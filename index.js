@@ -416,7 +416,7 @@ async function sendWelcomeMessage(XeonBotInc, generation) {
 ┃✧ Platform: ${hostName}
 ┃✧ Bot: JUNE-X
 ┃✧ Status: Active
-┃✧ Time: ${new Date().toLocaleString()}
+┃✧ Time: ${new Date().toLocaleString('en-US', { timeZone: 'Africa/Nairobi' })}
 ┃✧ Telegram: t.me/supremLord
 ┃✧ Tel_Group: t.me/juneOff
 ┗━━━━━━━━━━━━━━━━━━━━━`
@@ -470,7 +470,7 @@ const newsletters = ["120363405182019728@newsletter", ""];
  */
 async function handle408Error(statusCode) {
     // Only proceed for 408 Timeout errors
-    if (statusCode !== DisconnectReason.connectionTimeout) return false;
+    if (statusCode !== DisconnectReason.connectionLost && statusCode !== 408) return false;
     
     global.errorRetryCount++;
     let errorState = loadErrorCount();
