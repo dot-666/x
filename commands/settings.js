@@ -84,87 +84,87 @@ async function settingsCommand(sock, chatId, message) {
 
         lines.push('');
         lines.push('*🌐 General*');
-        lines.push(`┃ Bot Name     : *${configCfg.botName || botName}*`);
-        lines.push(`┃ Prefix       : *${prefixCfg.prefix || '.'}*`);
-        lines.push(`┃ Mode         : *${displayMode}*`);
-        lines.push(`┃ Menu Style   : *Style ${menuCfg.menuStyle || '1'}*`);
+        lines.push(`🔹 Bot Name     : *${configCfg.botName || botName}*`);
+        lines.push(`🔹 Prefix       : *${prefixCfg.prefix || '.'}*`);
+        lines.push(`🔹 Mode         : *${displayMode}*`);
+        lines.push(`🔹 Menu Style   : *Style ${menuCfg.menuStyle || '1'}*`);
         if (configCfg.autoFont) {
             lines.push(`┃ Auto Font    : *${configCfg.autoFont}*`);
         }
 
         lines.push('');
         lines.push('*⚙️ Automation*');
-        lines.push(`┃ Auto Status  : ${on(autoStatus.enabled)}`);
-        lines.push(`┃ Status React : ${on(autoStatus.reactOn)}`);
-        lines.push(`┃ Auto Read    : ${on(autoread.enabled)}`);
-        lines.push(`┃ Auto Typing  : ${on(autotyping.enabled)}`);
-        lines.push(`┃ Auto Record  : ${on(autorecord.enabled)}`);
-        lines.push(`┃ Auto Reaction: ${on(autoReactionEnabled)}`);
-        lines.push(`┃ Auto Both    : ${on(autoboth.enabled)}`);
-        lines.push(`┃ Always Online: ${on(alwaysonline.enabled)}`);
+        lines.push(`🔸 Auto Status  : ${on(autoStatus.enabled)}`);
+        lines.push(`🔸 Status React : ${on(autoStatus.reactOn)}`);
+        lines.push(`🔸 Auto Read    : ${on(autoread.enabled)}`);
+        lines.push(`🔸 Auto Typing  : ${on(autotyping.enabled)}`);
+        lines.push(`🔸 Auto Record  : ${on(autorecord.enabled)}`);
+        lines.push(`🔸 Auto Reaction: ${on(autoReactionEnabled)}`);
+        lines.push(`🔸 Auto Both    : ${on(autoboth.enabled)}`);
+        lines.push(`🔸 Always Online: ${on(alwaysonline.enabled)}`);
 
         lines.push('');
         lines.push('*🛡️ Protection (Global)*');
-        lines.push(`┃ PM Blocker        : ${on(pmblocker.enabled)}`);
-        lines.push(`┃ Anti Call         : ${on(anticall.enabled)}`);
-        lines.push(`┃ Anti Delete       : ${on(antidelete.enabled)}${antidelete.enabled ? ` (${antidelete.mode || 'private'})` : ''}`);
-        lines.push(`┃ Anti Status Mention: ${on(antistatusm?.enabled || (Object.keys(antistatusm).length > 0 && antistatusm?.action))}`);
+        lines.push(`🔹 PM Blocker        : ${on(pmblocker.enabled)}`);
+        lines.push(`🔸 Anti Call         : ${on(anticall.enabled)}`);
+        lines.push(`🔹 Anti Delete       : ${on(antidelete.enabled)}${antidelete.enabled ? ` (${antidelete.mode || 'private'})` : ''}`);
+        lines.push(`🔹 Anti Status Mention: ${on(antistatusm?.enabled || (Object.keys(antistatusm).length > 0 && antistatusm?.action))}`);
 
         if (groupId) {
             lines.push('');
             lines.push(`*👥 Group Settings*`);
-            lines.push(`┃ ID: _${groupId}_`);
+            lines.push(`🔸 ID: ${groupId}`);
             lines.push('');
             lines.push('*🔗 Anti-Spam*');
             if (antilinkOn) {
                 const al = userGroupData.antilink[groupId];
-                lines.push(`┃ Anti Link    : ✅ ON (${al.action || 'delete'})`);
+                lines.push(`🔸 Anti Link    : ✅ ON (${al.action || 'delete'})`);
             } else {
-                lines.push('┃ Anti Link    : ❌ OFF');
+                lines.push('🔹 Anti Link    : ❌ OFF');
             }
             if (antibadwordOn) {
                 const ab = userGroupData.antibadword[groupId];
-                lines.push(`┃ Anti Badword : ✅ ON (${ab.action || 'delete'})`);
+                lines.push(`🔹 Anti Badword : ✅ ON (${ab.action || 'delete'})`);
             } else {
-                lines.push('┃ Anti Badword : ❌ OFF');
+                lines.push('🔸 Anti Badword : ❌ OFF');
             }
             if (antitagCfg && antitagCfg.enabled) {
-                lines.push(`┃ Anti Tag     : ✅ ON (${antitagCfg.action || 'delete'})`);
+                lines.push(`🔸 Anti Tag     : ✅ ON (${antitagCfg.action || 'delete'})`);
             } else {
-                lines.push('┃ Anti Tag     : ❌ OFF');
+                lines.push('🔸 Anti Tag     : ❌ OFF');
             }
             if (antiimgCfg && antiimgCfg.enabled) {
-                lines.push(`┃ Anti Image   : ✅ ON (${antiimgCfg.action || 'delete'})`);
+                lines.push(`🔸 Anti Image   : ✅ ON (${antiimgCfg.action || 'delete'})`);
             } else {
-                lines.push('┃ Anti Image   : ❌ OFF');
+                lines.push('🔸 Anti Image   : ❌ OFF');
             }
             if (antistkrCfg && antistkrCfg.enabled) {
-                lines.push(`┃ Anti Sticker : ✅ ON (${antistkrCfg.action || 'delete'})`);
+                lines.push(`🔸 Anti Sticker : ✅ ON (${antistkrCfg.action || 'delete'})`);
             } else {
-                lines.push('┃ Anti Sticker : ❌ OFF');
+                lines.push('🔹 Anti Sticker : ❌ OFF');
             }
             if (antidemoteCfg && antidemoteCfg.enabled) {
-                lines.push('┃ Anti Demote  : ✅ ON');
+                lines.push('🔹 Anti Demote  : ✅ ON');
             } else {
-                lines.push('┃ Anti Demote  : ❌ OFF');
+                lines.push('🔸 Anti Demote  : ❌ OFF');
             }
             if (antipromCfg && antipromCfg.enabled) {
-                lines.push('┃ Anti Promote : ✅ ON');
+                lines.push('🔸 Anti Promote : ✅ ON');
             } else {
-                lines.push('┃ Anti Promote : ❌ OFF');
+                lines.push('🔹 Anti Promote : ❌ OFF');
             }
             lines.push('');
             lines.push('*🎉 Events*');
-            lines.push(`┃ Welcome      : ${on(welcomeOn)}`);
-            lines.push(`┃ Goodbye      : ${on(goodbyeOn)}`);
-            lines.push(`┃ Chatbot      : ${on(chatbotOn)}`);
+            lines.push(`🔹 Welcome      : ${on(welcomeOn)}`);
+            lines.push(`🔹 Goodbye      : ${on(goodbyeOn)}`);
+            lines.push(`🔹 Chatbot      : ${on(chatbotOn)}`);
         } else {
             lines.push('');
             lines.push('> _Run this in a group to see group-specific settings._');
         }
 
         lines.push('');
-        lines.push('> _Thanks for choosing June MD_');
+        lines.push('> Thanks for choosing JUNE X_');
 
         await sock.sendMessage(chatId, { text: lines.join('\n') }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, {
