@@ -101,19 +101,6 @@ function unwrapMessage(msg) {
     return candidates;
 }
 
-// Pattern to detect @status text mentions (e.g. "@status" typed with the @ sign)
-const STATUS_TEXT_PATTERN = /@status(\b|broadcast)/i;
-
-function extractText(msg) {
-    if (!msg) return '';
-    return msg.conversation ||
-        msg.extendedTextMessage?.text ||
-        msg.imageMessage?.caption ||
-        msg.videoMessage?.caption ||
-        msg.documentMessage?.caption ||
-        '';
-}
-
 function hasStatusBroadcast(message) {
     const msg = message.message;
     if (!msg) return false;
@@ -141,10 +128,6 @@ function hasStatusBroadcast(message) {
             if (topCtx.remoteJid === 'status@broadcast') return true;
             if (topCtx.participant === 'status@broadcast') return true;
         }
-
-        // 4. Plain-text @status mention (e.g. user types "@status" with the @ sign)
-        const text = extractText(candidate);
-        if (text && STATUS_TEXT_PATTERN.test(text)) return true;
     }
     return false;
 }
@@ -207,13 +190,11 @@ async function antistatusmentionCommand(sock, chatId, message) {
                       `└──────────────\n\n` +
                       `*📝 Commands:*\n` +
                       `▸ *.antistatusmention off* — Disable\n` +
-                      `▸ *.antistatusmention warn* — Delete + warn (kick on limit)\n` +
-                      `▸ *.antistatusmention delete* — Silent delete only\n` +
-                      `▸ *.antistatusmention kick* — Delete + kick immediately\n` +
-                      `▸ *.antistatusmention limit <1-10>* — Set warn limit\n` +
-                      `▸ *.antistatusmention resetwarns* — Clear all warns\n\n` +
-                      `*🔗 Aliases:* antistatusgroup, antigcmention, antistatus, antigroupmention\n` +
-                      `_Detects: status mention messages, @status tag (with @ sign), and forwarded statuses_`,
+                      `▸  *warn* — Delete + warn (kick on limit)\n` +
+                      `▸  *delete* — Silent delete only\n` +
+                      `▸  *kick* — Delete + kick immediately\n` +
+                      `▸  *limit <1-10>* — Set warn limit\n` +
+                      `▸  *resetwarns* — Clear all warns`,
                 mentions: [userId]
             }, { quoted: message });
         }
