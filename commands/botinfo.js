@@ -66,33 +66,31 @@ async function botInfoCommand(sock, chatId, message) {
         const osType = `${os.type()} ${os.release()}`;
 
         const text = `
-╭━━━━━━━━━━━━━━━━━━╮
  🤖 *BOT INFORMATION*
-╰━━━━━━━━━━━━━━━━━━╯
 
 🔷 *Bot Details:*
-├─ *Name:* ${botName}
-├─ *Version:* v${version}
-├─ *Owner:* ${botOwner}
-├─ *Owner Number:* +${ownerNumber}
-├─ *Mode:* ${commandMode}
-└─ *Uptime:* ${formatUptime(uptime)}
+🔹 *Name:* ${botName}
+🔹 *Version:* v${version}
+🔹 *Owner:* ${botOwner}
+🔹 *Owner Number:* +${ownerNumber}
+🔹 *Mode:* ${commandMode}
+🔹 *Uptime:* ${formatUptime(uptime)}
 
-🖥️ *Server Info:*
-├─ *Platform:* ${platform}
-├─ *OS:* ${osType}
-├─ *Architecture:* ${arch}
-├─ *Hostname:* ${hostname}
-└─ *Node.js:* ${nodeVersion}
+🔶 *Server Info:*
+🔸 *Platform:* ${platform}
+🔸 *OS:* ${osType}
+🔸 *Architecture:* ${arch}
+🔸 *Hostname:* ${hostname}
+🔸 *Node.js:* ${nodeVersion}
 
 ⚙️ *CPU:*
-├─ *Model:* ${cpuModel}
-└─ *Cores:* ${cpuCores}
+🔹 *Model:* ${cpuModel}
+🔸 *Cores:* ${cpuCores}
 
 💾 *Memory:*
-├─ *Total:* ${formatBytes(totalMem)}
-├─ *Used:* ${formatBytes(usedMem)} (${memPercent}%)
-└─ *Free:* ${formatBytes(freeMem)}
+🔸 *Total:* ${formatBytes(totalMem)}
+🔹 *Used:* ${formatBytes(usedMem)} (${memPercent}%)
+🔸 *Free:* ${formatBytes(freeMem)}
 `.trim();
 
         await sock.sendMessage(chatId, { text }, { quoted: createFakeContact(message) });
