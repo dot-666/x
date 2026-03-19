@@ -281,6 +281,8 @@ const { truthCommand } = require('./commands/truth');
 const { clearCommand } = require('./commands/clear');
 const pingCommand = require('./commands/ping');
 const aliveCommand = require('./commands/alive');
+const timeCommand = require('./commands/time');
+const botInfoCommand = require('./commands/botinfo');
 const blurCommand = require('./commands/img-blur');
 const githubCommand = require('./commands/github');
 const antibadwordCommand = require('./commands/antibadword');
@@ -1371,6 +1373,18 @@ case userMessage === `${prefix}forfeit` ||
             case userMessage === `${prefix}ping` ||
                  userMessage === `${prefix}p`:
                 await pingCommand(sock, chatId, message);
+                break;
+
+            case userMessage === `${prefix}time` ||
+                 userMessage === `${prefix}date` ||
+                 userMessage === `${prefix}datetime`:
+                await timeCommand(sock, chatId, message);
+                break;
+
+            case userMessage === `${prefix}botinfo` ||
+                 userMessage === `${prefix}info` ||
+                 userMessage === `${prefix}status`:
+                await botInfoCommand(sock, chatId, message);
                 break;
 
             case userMessage === `${prefix}getpp`:
