@@ -27,14 +27,14 @@ async function timeCommand(sock, chatId, message) {
 🕐 *REAL-TIME CLOCK* 🕐
 
 📅 *Date:*
-├─ *Day:* ${dayName}
-├─ *Date:* ${day} ${month} ${year}
-└─ *Week Day:* Day ${now.getDay() + 1} of the week
+🔹*Day:* ${dayName}
+🔹*Date:* ${day} ${month} ${year}
+🔹*Week Day:* Day ${now.getDay() + 1} of the week
 
 ⏰ *Time:*
-├─ *12-Hour:* ${hours12}:${minutes}:${seconds} ${ampm}
-├─ *24-Hour:* ${String(hours).padStart(2, '0')}:${minutes}:${seconds}
-└─ *Timezone:* ${timeZone}
+🔹*12-Hour:* ${hours12}:${minutes}:${seconds} ${ampm}
+🔹*24-Hour:* ${String(hours).padStart(2, '0')}:${minutes}:${seconds}
+🔹*Timezone:* ${timeZone}
 `.trim();
 
         await sock.sendMessage(chatId, { text }, { quoted: createFakeContact(message) });
