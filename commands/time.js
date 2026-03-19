@@ -1,40 +1,56 @@
 const { createFakeContact } = require('../lib/fakeContact');
+const { getTimezone } = require('../lib/botConfig');
 
 async function timeCommand(sock, chatId, message) {
     try {
+        const TIMEZONE = getTimezone();
         const now = new Date();
 
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const months = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-        ];
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: TIMEZONE,
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        }).formatToParts(now);
 
-        const dayName = days[now.getDay()];
-        const day = now.getDate();
-        const month = months[now.getMonth()];
-        const year = now.getFullYear();
+        const get = (type) => parts.find(p => p.type === type)?.value || '';
 
-        let hours = now.getHours();
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        const hours12 = hours % 12 || 12;
+        const dayName = get('weekday');
+        const day     = get('day');
+        const month   = get('month');
+        const year    = get('year');
+        const hour12  = get('hour');
+        const minute  = get('minute');
+        const second  = get('second');
+        const ampm    = get('dayPeriod');
 
-        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const weekDayShort = new Intl.DateTimeFormat('en-US', { timeZone: TIMEZONE, weekday: 'short' }).format(now);
+        const dayOfWeek = weekdays.findIndex(d => d.startsWith(weekDayShort)) + 1 || '?';
+
+        const hour24 = String(new Intl.DateTimeFormat('en-US', {
+            timeZone: TIMEZONE,
+            hour: '2-digit',
+            hour12: false
+        }).format(now)).padStart(2, '0');
 
         const text = `
 🕐 *REAL-TIME CLOCK* 🕐
 
 📅 *Date:*
-🔹*Day:* ${dayName}
-🔹*Date:* ${day} ${month} ${year}
-🔹*Week Day:* Day ${now.getDay() + 1} of the week
+├─ *Day:* ${dayName}
+├─ *Date:* ${day} ${month} ${year}
+└─ *Week Day:* Day ${dayOfWeek} of the week
 
 ⏰ *Time:*
-🔹*12-Hour:* ${hours12}:${minutes}:${seconds} ${ampm}
-🔹*24-Hour:* ${String(hours).padStart(2, '0')}:${minutes}:${seconds}
-🔹*Timezone:* ${timeZone}
+├─ *12-Hour:* ${hour12}:${minute}:${second} ${ampm}
+├─ *24-Hour:* ${hour24}:${minute}:${second}
+└─ *Timezone:* ${TIMEZONE}
 `.trim();
 
         await sock.sendMessage(chatId, { text }, { quoted: createFakeContact(message) });
