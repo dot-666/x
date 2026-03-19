@@ -71,7 +71,7 @@ async function antipromoteCommand(sock, chatId, message, senderId) {
                     `📌 Group: ${chatId.split('@')[0]}\n` +
                     `🔰 Status: ${config.enabled ? '✅ ACTIVE' : '❌ INACTIVE'}\n` +
                     `🚫 Blocked Promotions: ${config.blockedCount || 0}\n` +
-                    `📅 Last Updated: ${config.updatedAt ? new Date(config.updatedAt).toLocaleString() : 'Never'}\n\n` +
+                    `📅 Last Updated: ${config.updatedAt ? new Date(config.updatedAt).toLocaleString('en-US', { timeZone: 'Africa/Nairobi' }) : 'Never'}\n\n` +
                     `${config.enabled ? '🟢 Unauthorized promotions are blocked' : '🔴 No protection active'}`;
                 await sock.sendMessage(chatId, { text: statusText }, { quoted: createFakeContact(message) });
                 break;

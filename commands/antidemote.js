@@ -78,7 +78,7 @@ async function antidemoteCommand(sock, chatId, message, senderId) {
                     `🔰 Status: ${statusConfig.enabled ? '✅ ACTIVE' : '❌ INACTIVE'}\n` +
                     `🛡️ Protections: ${statusConfig.protectedCount || 0}\n` +
                     `👢 Total Kicks: ${statusConfig.kickCount || 0}\n` +
-                    `📅 Last Updated: ${statusConfig.updatedAt ? new Date(statusConfig.updatedAt).toLocaleString() : 'Never'}\n\n` +
+                    `📅 Last Updated: ${statusConfig.updatedAt ? new Date(statusConfig.updatedAt).toLocaleString('en-US', { timeZone: 'Africa/Nairobi' }) : 'Never'}\n\n` +
                     `${statusConfig.enabled ? '🟢 Admins are protected from demotion' : '🔴 No protection active'}`;
                 await sock.sendMessage(chatId, { text: statusText }, { quoted: createFakeContact(message) });
                 break;
