@@ -78,9 +78,7 @@ async function settingsCommand(sock, chatId, message) {
         const on = (v) => v ? '✅ ON' : '❌ OFF';
 
         const lines = [];
-        lines.push('╔══════════════════════╗');
-        lines.push(`║   *${botName} SETTINGS*   `);
-        lines.push('╚══════════════════════╝');
+        lines.push(` 🔸*${botName} SETTINGS*🔸   `);
 
         lines.push('');
         lines.push('*🌐 General*');
@@ -93,7 +91,7 @@ async function settingsCommand(sock, chatId, message) {
         }
 
         lines.push('');
-        lines.push('*⚙️ Automation*');
+        lines.push('*⚙️ AUTOMATION*');
         lines.push(`🔸 Auto Status  : ${on(autoStatus.enabled)}`);
         lines.push(`🔸 Status React : ${on(autoStatus.reactOn)}`);
         lines.push(`🔸 Auto Read    : ${on(autoread.enabled)}`);
@@ -104,7 +102,7 @@ async function settingsCommand(sock, chatId, message) {
         lines.push(`🔸 Always Online: ${on(alwaysonline.enabled)}`);
 
         lines.push('');
-        lines.push('*🛡️ Protection (Global)*');
+        lines.push('*🛡️ PROTECTION (Global)*');
         lines.push(`🔹 PM Blocker        : ${on(pmblocker.enabled)}`);
         lines.push(`🔸 Anti Call         : ${on(anticall.enabled)}`);
         lines.push(`🔹 Anti Delete       : ${on(antidelete.enabled)}${antidelete.enabled ? ` (${antidelete.mode || 'private'})` : ''}`);
@@ -112,7 +110,7 @@ async function settingsCommand(sock, chatId, message) {
 
         if (groupId) {
             lines.push('');
-            lines.push(`*👥 Group Settings*`);
+            lines.push(`*👥 GROUP Settings*`);
             lines.push(`🔸 ID: ${groupId}`);
             lines.push('');
             lines.push('*🔗 Anti-Spam*');
@@ -154,7 +152,7 @@ async function settingsCommand(sock, chatId, message) {
                 lines.push('🔹 Anti Promote : ❌ OFF');
             }
             lines.push('');
-            lines.push('*🎉 Events*');
+            lines.push('*🎉 EVENTS*');
             lines.push(`🔹 Welcome      : ${on(welcomeOn)}`);
             lines.push(`🔹 Goodbye      : ${on(goodbyeOn)}`);
             lines.push(`🔹 Chatbot      : ${on(chatbotOn)}`);
@@ -164,7 +162,7 @@ async function settingsCommand(sock, chatId, message) {
         }
 
         lines.push('');
-        lines.push('> Thanks for choosing JUNE X_');
+        lines.push(`> Thanks for choosing ${botName}`);
 
         await sock.sendMessage(chatId, { text: lines.join('\n') }, { quoted: createFakeContact(message) });
         await sock.sendMessage(chatId, {
