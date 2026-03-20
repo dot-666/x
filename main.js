@@ -2342,12 +2342,30 @@ case userMessage === `${prefix}forfeit` ||
             case userMessage.startsWith(`${prefix}kiss`):
             case userMessage.startsWith(`${prefix}wink`):
             case userMessage.startsWith(`${prefix}facepalm`):
-            case userMessage.startsWith(`${prefix}face-palm`): 
+            case userMessage.startsWith(`${prefix}face-palm`):
             case userMessage.startsWith(`${prefix}loli`):
+            case userMessage.startsWith(`${prefix}waifu`):
+            case userMessage.startsWith(`${prefix}neko`):
+            case userMessage.startsWith(`${prefix}kitsune`):
+            case userMessage.startsWith(`${prefix}husbando`):
+            case userMessage.startsWith(`${prefix}animequote`):
+            case userMessage.startsWith(`${prefix}bite`):
+            case userMessage.startsWith(`${prefix}blush`):
+            case userMessage.startsWith(`${prefix}cuddle`):
+            case userMessage.startsWith(`${prefix}dance`):
+            case userMessage.startsWith(`${prefix}slap`):
+            case userMessage.startsWith(`${prefix}pout`):
+            case userMessage.startsWith(`${prefix}sleep`):
+            case userMessage.startsWith(`${prefix}wave`):
+            case userMessage.startsWith(`${prefix}smile`):
                 {
                     const parts = userMessage.trim().split(/\s+/);
                     let sub = parts[0].slice(prefix.length);
-                    if (sub === 'facepalm') sub = 'face-palm';
+                    if (sub === 'facepalm') sub = 'facepalm';
+                    if (sub === 'face-palm') sub = 'facepalm';
+                    if (sub === 'nome') sub = 'nom';
+                    if (sub === 'loli') sub = 'neko';
+                    if (sub === 'animequote') sub = 'quote';
                     await animeCommand(sock, chatId, message, [sub]);
                 }
                 break;
