@@ -2,14 +2,27 @@ const { downloadContentFromMessage, generateWAMessageContent, generateWAMessageF
 const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const { PassThrough } = require('stream');
-const { createFakeContact } = require('../lib/fakeContact');
+const fetch = require('node-fetch');
 
-// ================================================
-// Sticker conversion helper
-// ================================================
-async function convertStickerToImage(stickerBuffer) {
-    // For animated WebP stickers just return the buffer as-is (WhatsApp handles it)
+//================================================
+// Sticker conversion (simple fallback)
+//================================================
+const { createFakeContact } = require('../lib/fakeContact');
+async function convertStickerToImageSimple(stickerBuffer) {
+    if (stickerBuffer.slice(0, 12).toString('hex').includes('52494646')) { // RIFF header
+        console.log('Detected WebP sticker, using fallback conversion');
+        return stickerBuffer; 
+    }
     return stickerBuffer;
+}
+
+async function convertStickerToImage(stickerBuffer, mimetype = 'image/webp') {
+    try {
+        return await convertStickerToImageSimple(stickerBuffer);
+    } catch (error) {
+        console.error('Sticker conversion failed:', error);
+        throw new Error(`Sticker conversion failed: ${error.message}`);
+    }
 }
 
 // ================================================
@@ -17,13 +30,13 @@ async function convertStickerToImage(stickerBuffer) {
 // ================================================
 async function setGroupStatusCommand(sock, chatId, msg) {
     try {
-        // Group check
+        // ✅ Group check
         const isGroup = chatId.endsWith('@g.us');
         if (!isGroup) {
             return sock.sendMessage(chatId, { text: '❌ Groups only!' }, { quoted: msg });
         }
 
-        // Admin check
+        // ✅ Admin check
         const participant = await sock.groupMetadata(chatId).then(metadata =>
             metadata.participants.find(p => p.id === msg.key.participant || p.id === msg.key.remoteJid)
         );
@@ -34,43 +47,30 @@ async function setGroupStatusCommand(sock, chatId, msg) {
             return sock.sendMessage(chatId, { text: '❌ Admins only!' }, { quoted: msg });
         }
 
-        const messageText =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            msg.message?.imageMessage?.caption ||
-            msg.message?.videoMessage?.caption || '';
-
+        const messageText = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
         const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const commandRegex = /^[.!#/]?(togstatus|swgc|groupstatus|tosgroup)\s*/i;
 
-        // Regex that matches ALL aliases including togroupstatus
-        const commandRegex = /^[.!#/]?(togroupstatus|setgstatus|togstatus|swgc|groupstatus|tosgroup)\s*/i;
-
-        // Extract text typed after the command
-        let textAfterCommand = '';
-        const match = messageText.match(commandRegex);
-        if (match) {
-            textAfterCommand = messageText.slice(match[0].length).trim();
-        }
-
-        // If there's no quoted message AND no text after the command → show help
-        if (!quotedMessage && !textAfterCommand) {
+        if (!quotedMessage && (!messageText.trim() || messageText.trim().match(commandRegex))) {
             return sock.sendMessage(chatId, { text: getHelpText() }, { quoted: msg });
         }
 
         let payload = null;
+        let textAfterCommand = '';
+
+        if (messageText.trim()) {
+            const match = messageText.match(commandRegex);
+            if (match) textAfterCommand = messageText.slice(match[0].length).trim();
+        }
 
         if (quotedMessage) {
             payload = await buildPayloadFromQuoted(quotedMessage);
-            // Attach caption typed after command to media payload
-            if (textAfterCommand && payload && (payload.video || payload.image || payload.audio)) {
-                if (!payload.audio) {
+            if (textAfterCommand && payload) {
+                if (payload.video || payload.image || (payload.convertedSticker && payload.image)) {
                     payload.caption = textAfterCommand;
                 }
             }
-        }
-
-        // No quoted message — send plain text typed after command
-        if (!payload) {
+        } else if (messageText.trim()) {
             if (textAfterCommand) {
                 payload = { text: textAfterCommand };
             } else {
@@ -78,11 +78,15 @@ async function setGroupStatusCommand(sock, chatId, msg) {
             }
         }
 
-        // Send group status
+        if (!payload) {
+            return sock.sendMessage(chatId, { text: getHelpText() }, { quoted: msg });
+        }
+
+        // ✅ Send group status
         await sendGroupStatus(sock, chatId, payload);
 
         const mediaType = detectMediaType(quotedMessage, payload);
-        let successMsg = `✅ ${mediaType} sent to group status!`;
+        let successMsg = `✅ ${mediaType} sent!`;
         if (payload.caption) successMsg += `\n📝 "${payload.caption}"`;
         if (payload.convertedSticker) successMsg += `\n(sticker → image)`;
 
@@ -90,85 +94,89 @@ async function setGroupStatusCommand(sock, chatId, msg) {
 
     } catch (error) {
         console.error('Error in group status command:', error);
-        await sock.sendMessage(chatId, { text: `❌ Error: ${error.message}` }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `❌ Error: ${error.message}` }, { quoted: createFakeContact(message) });
     }
 }
 
 /* ------------------ Helpers ------------------ */
 
+// 📌 Short help text
 function getHelpText() {
-    return `✦ *GROUP STATUS* ✦
+    return `
+✦ *GROUP STATUS* ✦
 
-Commands: .togroupstatus | .setgstatus | .tosgroup
+Commands:
+✦ togroupstatus 
+✦ tosgroup
+✦ setgstatus
 
-*Usage:*
-✦ \`.togroupstatus hello group\` — send a text status
-✦ Reply to an image with \`.togroupstatus\` — send image
-✦ Reply to a video with \`.togroupstatus\` — send video
-✦ Reply to an audio with \`.togroupstatus\` — send audio
-✦ Reply to a sticker with \`.togroupstatus\` — send sticker as image
-✦ Reply to media + \`.togroupstatus caption\` — add caption`;
+Usage:
+✦ tosgroup text
+✦ Reply to media/sticker with .tosgroup
+✦ Add caption after command`;
 }
 
+// 📌 Build payload from quoted message
 async function buildPayloadFromQuoted(quotedMessage) {
     if (quotedMessage.videoMessage) {
         const buffer = await downloadToBuffer(quotedMessage.videoMessage, 'video');
-        return {
-            video: buffer,
+        return { 
+            video: buffer, 
             caption: quotedMessage.videoMessage.caption || '',
             gifPlayback: quotedMessage.videoMessage.gifPlayback || false,
             mimetype: quotedMessage.videoMessage.mimetype || 'video/mp4'
         };
-    }
-    if (quotedMessage.imageMessage) {
+    } else if (quotedMessage.imageMessage) {
         const buffer = await downloadToBuffer(quotedMessage.imageMessage, 'image');
-        return {
-            image: buffer,
+        return { 
+            image: buffer, 
             caption: quotedMessage.imageMessage.caption || '',
             mimetype: quotedMessage.imageMessage.mimetype || 'image/jpeg'
         };
-    }
-    if (quotedMessage.audioMessage) {
+    } else if (quotedMessage.audioMessage) {
         const buffer = await downloadToBuffer(quotedMessage.audioMessage, 'audio');
         if (quotedMessage.audioMessage.ptt) {
             const audioVn = await toVN(buffer);
-            return { audio: audioVn, mimetype: 'audio/ogg; codecs=opus', ptt: true };
+            return { audio: audioVn, mimetype: "audio/ogg; codecs=opus", ptt: true };
+        } else {
+            return { audio: buffer, mimetype: quotedMessage.audioMessage.mimetype || 'audio/mpeg', ptt: false };
         }
-        return { audio: buffer, mimetype: quotedMessage.audioMessage.mimetype || 'audio/mpeg', ptt: false };
-    }
-    if (quotedMessage.stickerMessage) {
+    } else if (quotedMessage.stickerMessage) {
         try {
             const buffer = await downloadToBuffer(quotedMessage.stickerMessage, 'sticker');
-            const imageBuffer = await convertStickerToImage(buffer);
-            return {
-                image: imageBuffer,
-                caption: '',
-                mimetype: 'image/webp',
-                convertedSticker: true
+            const imageBuffer = await convertStickerToImage(buffer, quotedMessage.stickerMessage.mimetype);
+            return { 
+                image: imageBuffer, 
+                caption: quotedMessage.stickerMessage.caption || '',
+                mimetype: 'image/png',
+                convertedSticker: true,
+                originalMimetype: quotedMessage.stickerMessage.mimetype
             };
-        } catch (err) {
-            console.error('Sticker conversion failed:', err);
-            return { text: `⚠️ Sticker conversion failed: ${err.message}` };
+        } catch (conversionError) {
+            console.error('Sticker conversion failed:', conversionError);
+            return { text: `⚠️ Sticker conversion failed (${quotedMessage.stickerMessage.mimetype || 'unknown'})` };
         }
-    }
-    if (quotedMessage.conversation || quotedMessage.extendedTextMessage?.text) {
-        const text = quotedMessage.conversation || quotedMessage.extendedTextMessage?.text || '';
-        return { text };
+    } else if (quotedMessage.conversation || quotedMessage.extendedTextMessage?.text) {
+        const textContent = quotedMessage.conversation || quotedMessage.extendedTextMessage?.text || '';
+        return { text: textContent };
     }
     return null;
 }
 
-function detectMediaType(quotedMessage, payload) {
+// 📌 Detect media type
+function detectMediaType(quotedMessage, payload = null) {
     if (!quotedMessage) return 'Text';
     if (quotedMessage.videoMessage) return 'Video';
     if (quotedMessage.imageMessage) return 'Image';
     if (quotedMessage.audioMessage) return 'Audio';
     if (quotedMessage.stickerMessage) {
-        return payload && payload.convertedSticker ? 'Sticker → Image' : 'Sticker';
+        if (payload && payload.convertedSticker) return 'Sticker → Image';
+        return 'Sticker';
     }
     return 'Text';
 }
 
+// 📌 Download message content
 async function downloadToBuffer(message, type) {
     const stream = await downloadContentFromMessage(message, type);
     let buffer = Buffer.from([]);
@@ -176,6 +184,7 @@ async function downloadToBuffer(message, type) {
     return buffer;
 }
 
+// 📌 Send group status
 async function sendGroupStatus(conn, jid, content) {
     const inside = await generateWAMessageContent(content, { upload: conn.waUploadToServer });
     const messageSecret = crypto.randomBytes(32);
@@ -187,6 +196,7 @@ async function sendGroupStatus(conn, jid, content) {
     return m;
 }
 
+// 📌 Convert audio to voice note
 async function toVN(inputBuffer) {
     return new Promise((resolve, reject) => {
         const inStream = new PassThrough();
@@ -195,15 +205,15 @@ async function toVN(inputBuffer) {
         const chunks = [];
         ffmpeg(inStream)
             .noVideo()
-            .audioCodec('libopus')
-            .format('ogg')
-            .audioBitrate('48k')
+            .audioCodec("libopus")
+            .format("ogg")
+            .audioBitrate("48k")
             .audioChannels(1)
             .audioFrequency(48000)
-            .on('error', reject)
-            .on('end', () => resolve(Buffer.concat(chunks)))
+            .on("error", reject)
+            .on("end", () => resolve(Buffer.concat(chunks)))
             .pipe(outStream, { end: true });
-        outStream.on('data', chunk => chunks.push(chunk));
+        outStream.on("data", chunk => chunks.push(chunk));
     });
 }
 
