@@ -22,13 +22,13 @@ async function setTimezoneCommand(sock, chatId, message, args, isOwner) {
 *Usage:* \`.settimezone <timezone>\`
 
 *Examples:*
-├─ \`.settimezone Africa/Nairobi\`
-├─ \`.settimezone America/New_York\`
-├─ \`.settimezone Europe/London\`
-├─ \`.settimezone Asia/Dubai\`
-└─ \`.settimezone Asia/Kolkata\`
+ settimezone Africa/Nairobi
+ settimezone America/New_York
+ settimezone Europe/London
+ settimezone Asia/Dubai
+ settimezone Asia/Kolkata
 
-_Use standard IANA timezone names._
+> Use standard IANA timezone names
 `.trim();
             await sock.sendMessage(chatId, { text }, { quoted: createFakeContact(message) });
             return;
