@@ -4,8 +4,38 @@ const isOwnerOrSudo = require('../lib/isOwner');
 const { createFakeContact } = require('../lib/fakeContact');
 const {
     jidNormalizedUser,
-    isJidStatusBroadcast
+    jidDecode,
+    isJidStatusBroadcast,
+    isLidUser
 } = require('@whiskeysockets/baileys');
+
+/**
+ * Resolve a @lid JID to its @s.whatsapp.net (PN) JID equivalent using the
+ * LID-mapping stored in the session keys.  The mapping is written by Baileys
+ * whenever it processes a message whose sender has both a LID and a PN, so
+ * it is available as soon as we have decrypted at least one message from that
+ * contact.
+ *
+ * Key format (stored by Baileys LIDMappingStore):
+ *   keys.get('lid-mapping', [`${lidUser}_reverse`])  → pnUser (phone number)
+ *
+ * Returns the PN JID on success, or the original LID JID as fallback so the
+ * send call is still attempted (Baileys may USync-resolve it).
+ */
+async function resolveLidToPN(sock, jid) {
+    try {
+        if (!isLidUser(jid)) return jid;
+        const decoded = jidDecode(jid);
+        if (!decoded?.user) return jid;
+        const stored = await sock.authState.keys.get('lid-mapping', [`${decoded.user}_reverse`]);
+        const pnUser = stored?.[`${decoded.user}_reverse`];
+        if (!pnUser) return jid;                          // mapping not yet known — fall back
+        const device = decoded.device || 0;
+        return device ? `${pnUser}:${device}@s.whatsapp.net` : `${pnUser}@s.whatsapp.net`;
+    } catch {
+        return jid;
+    }
+}
 
 const configPath = path.join(__dirname, '../data/autoStatus.json');
 
@@ -70,13 +100,12 @@ async function processStatusMessage(sock, msg) {
     if (!isJidStatusBroadcast(msgKey.remoteJid)) return;
     if (msgKey.fromMe) return;
 
+    const participant = msgKey.participant;
+
     // Give Baileys a moment to finish storing the message
     await new Promise(r => setTimeout(r, 500));
 
     // ── Step 1: Mark status as viewed ──────────────────────────────────────
-    // Pass the key exactly as received from the upsert event.
-    // aggregateMessageKeysNotFromMe() inside readMessages() uses fromMe=false
-    // to group by remoteJid:participant and sends the correct read receipt.
     try {
         await sock.readMessages([msgKey]);
     } catch (err) {
@@ -90,16 +119,18 @@ async function processStatusMessage(sock, msg) {
     // ── Step 2: React if enabled ────────────────────────────────────────────
     if (!isStatusReactionEnabled()) return;
 
-    const participant = msgKey.participant;  // raw JID — may be @s.whatsapp.net or @lid
     if (!participant) return;
 
     const myId = sock.user?.id;
     if (!myId) return;
 
-    // statusJidList tells Baileys which users to encrypt and deliver the
-    // reaction message to. Use the raw participant (Baileys handles @lid
-    // internally) plus our own normalised JID so our other devices see it.
-    const statusJidList = [participant, jidNormalizedUser(myId)]
+    // Resolve @lid JIDs → @s.whatsapp.net so Baileys can encrypt correctly.
+    // WhatsApp delivers reactions using phone-number JIDs; passing a raw @lid
+    // causes the sendMessage call to succeed internally but the server silently
+    // drops the reaction because encryption is addressed to the wrong identity.
+    const resolvedParticipant = await resolveLidToPN(sock, participant);
+
+    const statusJidList = [resolvedParticipant, jidNormalizedUser(myId)]
         .filter(Boolean)
         .filter((v, i, a) => a.indexOf(v) === i);  // deduplicate
 
