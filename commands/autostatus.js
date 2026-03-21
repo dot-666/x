@@ -9,17 +9,30 @@ const {
 
 const configPath = path.join(__dirname, '../data/autoStatus.json');
 
-if (!fs.existsSync(configPath)) {
-    fs.writeFileSync(configPath, JSON.stringify({ enabled: false, reactOn: false }, null, 2));
-}
+const DEFAULT_CONFIG = { enabled: false, reactOn: false };
 
 function readConfig() {
-    try { return JSON.parse(fs.readFileSync(configPath, 'utf8')); }
-    catch { return { enabled: false, reactOn: false }; }
+    try {
+        const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        // Merge with defaults so missing/empty files still have required fields
+        return { ...DEFAULT_CONFIG, ...raw };
+    } catch {
+        return { ...DEFAULT_CONFIG };
+    }
 }
 
 function writeConfig(cfg) {
     fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
+}
+
+// Ensure the file exists and has valid content on startup
+try {
+    const existing = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (typeof existing.enabled === 'undefined') {
+        writeConfig({ ...DEFAULT_CONFIG, ...existing });
+    }
+} catch {
+    writeConfig({ ...DEFAULT_CONFIG });
 }
 
 function isAutoStatusEnabled() { return !!readConfig().enabled; }
