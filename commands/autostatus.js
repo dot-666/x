@@ -41,8 +41,8 @@ function getEmoji() {
 }
 
 /**
- * Resolve a @lid JID to @s.whatsapp.net.
- * Tries two key formats in the auth store, falls back to the original JID.
+ * Try to resolve a @lid JID to a @s.whatsapp.net JID.
+ * Falls back to the original JID if resolution fails.
  */
 async function resolveLidJid(sock, jid) {
     if (!jid || !isLidUser(jid)) return jid;
@@ -52,107 +52,111 @@ async function resolveLidJid(sock, jid) {
         const lidUser = decoded.user;
         const device = decoded.device ?? 0;
 
-        // Strategy 1: reverse mapping  (lidUser_reverse → phone number)
         const reverseKey = `${lidUser}_reverse`;
         const res1 = await sock.authState.keys.get('lid-mapping', [reverseKey]);
         if (res1?.[reverseKey]) {
             return `${res1[reverseKey]}:${device}@s.whatsapp.net`;
         }
 
-        // Strategy 2: direct mapping  (lidUser → phone number)
         const res2 = await sock.authState.keys.get('lid-mapping', [lidUser]);
         if (res2?.[lidUser]) {
             return `${res2[lidUser]}:${device}@s.whatsapp.net`;
         }
     } catch { /* fall through */ }
 
-    // Can't resolve — return as-is and let Baileys try internally
     return jid;
 }
 
 /**
- * Mark a single status as viewed and optionally react to it.
+ * Mark a status as viewed and optionally react to it.
+ * @param {object} sock - Baileys socket
+ * @param {object} msg  - Full message object from messages.upsert
  */
-async function processStatusMessage(sock, msgKey) {
+async function processStatusMessage(sock, msg) {
+    const msgKey = msg?.key;
     if (!msgKey?.id) return;
     if (!isJidStatusBroadcast(msgKey.remoteJid)) return;
-    if (msgKey.fromMe) return; // skip our own status posts
+    if (msgKey.fromMe) return;
 
-    // Resolve @lid participant to phone JID
-    const resolvedParticipant = await resolveLidJid(sock, msgKey.participant);
-    const resolvedKey = { ...msgKey, participant: resolvedParticipant, fromMe: false };
-
-    // Brief settle delay
+    // Brief settle delay so Baileys finishes processing the message
     await new Promise(r => setTimeout(r, 500));
 
-    // Mark as viewed
+    // ── Step 1: Mark status as viewed ──────────────────────────────────────
+    // Use the key exactly as received — do NOT mutate fromMe or participant.
+    // Baileys' readMessages() handles status@broadcast keys natively.
     try {
-        await sock.readMessages([resolvedKey]);
-        // Notification removed
+        await sock.readMessages([msgKey]);
     } catch (err) {
-        if (err.message?.includes('rate-overlimit')) {
+        if (err?.message?.includes('rate-overlimit')) {
             await new Promise(r => setTimeout(r, 3000));
-            try { await sock.readMessages([resolvedKey]); } catch { /* ignore */ }
-        } else {
-            // Error removed
+            try { await sock.readMessages([msgKey]); } catch { /* ignore */ }
         }
     }
 
-    // React if enabled
+    // ── Step 2: React if enabled ────────────────────────────────────────────
     if (!isStatusReactionEnabled()) return;
 
-    // Build statusJidList — only @s.whatsapp.net JIDs are accepted by WhatsApp
+    // Build the statusJidList.
+    // According to official Baileys docs the list must contain at least the
+    // sender's normalised @s.whatsapp.net JID so WhatsApp delivers the receipt.
+    const participant = msgKey.participant;
+    if (!participant) return;
+
     const ownRaw = sock.user?.id || '';
     const ownJid = ownRaw ? jidNormalizedUser(ownRaw) : null;
-    const senderJid = !isLidUser(resolvedParticipant) ? resolvedParticipant : null;
-    const jidList = [ownJid, senderJid].filter(j =>
-        j && typeof j === 'string' && j.endsWith('@s.whatsapp.net')
-    );
 
-    if (jidList.length === 0) return;
+    // Resolve @lid → @s.whatsapp.net when possible
+    const resolvedSender = await resolveLidJid(sock, participant);
+
+    // Normalise: only include verified @s.whatsapp.net JIDs
+    const toNorm = (j) => {
+        if (!j || typeof j !== 'string') return null;
+        // Already normalised
+        if (j.endsWith('@s.whatsapp.net')) return jidNormalizedUser(j);
+        // LID we couldn't resolve — skip
+        return null;
+    };
+
+    const statusJidList = [toNorm(resolvedSender), toNorm(ownJid)]
+        .filter(Boolean)
+        // Remove duplicates
+        .filter((v, i, a) => a.indexOf(v) === i);
+
+    // We need at least the sender to deliver the reaction receipt
+    if (statusJidList.length === 0) return;
 
     try {
         await sock.sendMessage(
             'status@broadcast',
-            { react: { text: getEmoji(), key: resolvedKey } },
-            { statusJidList: jidList }
+            { react: { text: getEmoji(), key: msgKey } },
+            { statusJidList }
         );
-    } catch (err) {
-        // Error removed
-    }
+    } catch { /* ignore reaction errors silently */ }
 }
 
 /**
- * Main handler — called for every messages.upsert event that has status@broadcast.
- * Processes every message in the batch.
+ * Main handler — called for every messages.upsert event that contains status@broadcast.
+ * Supports both the full chatUpdate object (with .messages array) and a bare message.
  */
 async function handleStatusUpdate(sock, statusUpdate) {
     try {
         if (!isAutoStatusEnabled()) return;
 
-        // Shape 1: messages array (messages.upsert)
+        // Shape 1: full chatUpdate object { messages: [...], type: '...' }
         if (Array.isArray(statusUpdate?.messages)) {
             for (const msg of statusUpdate.messages) {
                 if (isJidStatusBroadcast(msg?.key?.remoteJid)) {
-                    await processStatusMessage(sock, msg.key);
+                    await processStatusMessage(sock, msg);
                 }
             }
             return;
         }
 
-        // Shape 2: bare key
-        if (isJidStatusBroadcast(statusUpdate?.key?.remoteJid)) {
-            await processStatusMessage(sock, statusUpdate.key);
-            return;
+        // Shape 2: bare message object { key: { remoteJid, id, ... }, ... }
+        if (statusUpdate?.key && isJidStatusBroadcast(statusUpdate.key.remoteJid)) {
+            await processStatusMessage(sock, statusUpdate);
         }
-
-        // Shape 3: reaction wrapper
-        if (isJidStatusBroadcast(statusUpdate?.reaction?.key?.remoteJid)) {
-            await processStatusMessage(sock, statusUpdate.reaction.key);
-        }
-    } catch (err) {
-        // Error removed
-    }
+    } catch { /* ignore top-level errors */ }
 }
 
 // ─── Command handler ───────────────────────────────────────────────────────────
