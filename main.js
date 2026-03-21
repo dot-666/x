@@ -440,13 +440,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
     try {
         const { messages, type } = messageUpdate;
 
-        // Status updates arrive with type 'append', not 'notify' — handle them first
-        const firstMsg = messages?.[0];
-        if (firstMsg?.key?.remoteJid === 'status@broadcast') {
-            await handleStatusUpdate(sock, { messages });
-            return;
-        }
-
+        // Status messages are handled upstream in index.js via handleStatus
+        // before handleMessages is called — skip them here to avoid double-processing
         if (type !== 'notify') return;
 
         const message = messages[0];
