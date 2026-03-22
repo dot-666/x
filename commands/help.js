@@ -349,12 +349,16 @@ async function helpCommand(sock, chatId, message) {
     const fkontak = createFakeContact(message);
 
     const start = Date.now();
-    // Send opening reaction only — avoids flooding WhatsApp with rapid messages
+    await sock.sendMessage(chatId, { 
+        text: '_Wait loading Menu..._' 
+    }, { quoted: createFakeContact(message) });
+    const end = Date.now();
+    const ping = Math.round((end - start) / 2);
+
+    // Send opening reaction
     await sock.sendMessage(chatId, {
         react: { text: '🪐', key: message.key }
     });
-    const end = Date.now();
-    const ping = Math.round((end - start) / 2);
 
     const uptimeInSeconds = process.uptime();
     const uptimeFormatted = formatTime(uptimeInSeconds);
