@@ -70,17 +70,17 @@ const COMMAND_CATEGORIES = {
     'OWNER MENU': [
         'mode', 'autostatus', 'antidelete', 'autoread', 'autotyping',
         'autoreact', 'areact', 'autoreaction', 'autofont', 'autorecording',
-        'pmblocker', 'setpp', 'setbio', 'clearsession', 'cleartmp',
+        'autoboth', 'pmblocker', 'setpp', 'setbio', 'clearsession', 'cleartmp',
         'sudo', 'setprefix', 'setowner', 'setbotname', 'setmenu', 'restart',
         'menuimage', 'configimage', 'settings', 'update', 'paircode',
-        'anticall', 'antibot', 'antistatusmention', 'alwaysonline', 'online',
-        'disp', 'readreciepts'
+        'anticall', 'antibot', 'antiedit', 'antistatusmention', 'alwaysonline', 'online',
+        'disp', 'readreciepts', 'settimezone'
     ],
     'GROUP ADMIN': [
         'promote', 'demote', 'kick', 'mute', 'unmute', 'ban', 'unban',
         'warn', 'warnings', 'add', 'approve', 'join', 'killall',
         'antilink', 'antibadword', 'antitag', 'antisticker', 'antidemote',
-        'antiimage', 'welcome', 'goodbye',
+        'antiimage', 'antimention', 'antipromote', 'welcome', 'goodbye',
         'setgroupdesc', 'setgname', 'setgpp', 'open', 'close',
         'resetlink', 'link', 'revoke'
     ],
@@ -88,28 +88,30 @@ const COMMAND_CATEGORIES = {
         'tagall', 'tag', 'hidetag', 'tagnoadmin', 'tagnotadmin', 'mention',
         'groupinfo', 'infogroup', 'admins', 'listadmin', 'listonline',
         'topmembers', 'leave', 'pair', 'chatbot', 'clear', 'delete',
-        'getpp', 'lastseen', 'drop', 'getgcprofile', 'getgcname'
+        'getpp', 'lastseen', 'drop', 'getgcprofile', 'getgcname',
+        'staff', 'creategroup'
     ],
     'AI MENU': [
         'ai', 'gpt', 'gemini', 'copilot', 'deepseek', 'meta', 'metai',
         'vision', 'analyse', 'ilama', 'wormgpt', 'birdai', 'blackbox',
         'perplexity', 'mistral', 'grok', 'speechwrite',
-        'imagine', 'flux', 'dalle', 'sora', 'magicstudio', 'remini'
+        'imagine', 'flux', 'dalle', 'sora', 'magicstudio', 'remini', 'gptedit'
     ],
     'DOWNLOADER': [
         'play', 'song', 'video', 'ytplay', 'ytv', 'ytaudio', 'ytvideo',
         'ytdocplay', 'ytdocvideo', 'spotify',
         'instagram', 'facebook', 'tiktok', 'xvideo',
         'mediafire', 'mf', 'apk', 'gitclone',
-        'lyrics', 'whatsong'
+        'lyrics', 'whatsong', 'pinterest', 'terabox'
     ],
     'SEARCH & TOOLS': [
         'yts', 'ytsearch', 'img', 'image', 'movie', 'shazam',
         'fetch', 'ss', 'trt', 'transcribe', 'translate',
         'locate', 'location', 'url', 'tourl', 'vcf',
-        'ping', 'runtime', 'alive', 'vv', 'vv2',
+        'ping', 'runtime', 'uptime', 'alive', 'vv', 'vv2',
         'block', 'unblock', 'allblocklist',
-        'enc', 'viewonce', 'weather', 'news', 'inspect'
+        'enc', 'viewonce', 'weather', 'news', 'inspect',
+        'botinfo', 'time', 'date', 'chanelid', 'gif'
     ],
     'STICKER MENU': [
         'sticker', 'stickercrop', 'tgsticker', 'take', 'attp', 'emojimix',
@@ -117,7 +119,7 @@ const COMMAND_CATEGORIES = {
     ],
     'CONVERTER': [
         'totext', 'toimage', 'toaudio', 'tomp3', 'toppt', 'tourl',
-        'gptedit', 'pinterest', 'terabox', 'trim', 'tts'
+        'tovoicenote', 'trim', 'tts'
     ],
     'GAME MENU': [
         'tictactoe', 'connect4', 'hangman', 'trivia', 'answer',
@@ -125,7 +127,7 @@ const COMMAND_CATEGORIES = {
     ],
     'FUN & SOCIAL': [
         'compliment', 'insult', 'flirt', 'shayari', 'goodnight', 'gn',
-        'roseday', 'lovenight', 'character', 'ship', 'simp', 'wasted', 'stupid',
+        'roseday', 'lovenight', 'character', 'rate', 'ship', 'simp', 'wasted', 'stupid',
         'joke', 'quote', 'fact', 'oogway', 'pies', 'say'
     ],
     'ANIME MENU': [
@@ -345,11 +347,12 @@ async function helpCommand(sock, chatId, message) {
 
     // Create fake contact for enhanced reply
     const fkontak = createFakeContact(message);
-    
+
     const start = Date.now();
-    await sock.sendMessage(chatId, { 
-        text: '_Wait loading Menu..._' 
-    }, { quoted: createFakeContact(message) });
+    // Send opening reaction only — avoids flooding WhatsApp with rapid messages
+    await sock.sendMessage(chatId, {
+        react: { text: '🪐', key: message.key }
+    });
     const end = Date.now();
     const ping = Math.round((end - start) / 2);
 
@@ -389,22 +392,12 @@ async function helpCommand(sock, chatId, message) {
         thumbnailPath = path.join(__dirname, '../assets', randomThumbFile);
     }
 
-    // Send reaction
-    await sock.sendMessage(chatId, {
-        react: { text: '🪐', key: message.key }
-    });
-
     try {
         // Load thumbnail using helper function
         const thumbnailBuffer = await loadThumbnail(thumbnailPath);
 
         // Send menu using JUNE-X BOT menu style function
         await sendMenuWithStyle(sock, chatId, message, menulist, menuStyle, thumbnailBuffer, pushname);
-
-        // Success reaction
-        await sock.sendMessage(chatId, {
-            react: { text: '☄️', key: message.key }
-        });
 
     } catch (error) {
         console.error('Error in help command:', error);
