@@ -411,6 +411,7 @@ const setBotNameCommand = require('./commands/setbotname');
 const setBioCommand = require('./commands/setbio');
 const { autofontCommand } = require('./commands/autofont');
 const { applyFont } = require('./lib/autoFont');
+const { createGroupCommand } = require('./commands/creategroup');
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Global settings
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -1733,6 +1734,10 @@ case userMessage === `${prefix}forfeit` ||
                 
             case userMessage.startsWith(`${prefix}approve`):
                 await approveCommand(sock, chatId, message);
+                break;
+
+            case userMessage.startsWith(`${prefix}creategroup`):
+                await createGroupCommand(sock, chatId, senderId, message, rawText);
                 break;
 
             case userMessage.startsWith(`${prefix}wasted`):
