@@ -24,10 +24,20 @@ function getSudoList() {
     return [];
 }
 
+// Only convert true phone JIDs — never convert @lid JIDs
 function toPhoneJid(jid) {
     if (!jid || typeof jid !== 'string') return null;
+    if (jid.endsWith('@lid')) return null; // @lid can't be reliably converted
     const num = jid.split('@')[0].split(':')[0];
+    if (!num || num.length < 7) return null;
     return `${num}@s.whatsapp.net`;
+}
+
+// Normalize a raw phone number string into a JID
+function numberToJid(num) {
+    const clean = num.replace(/[^0-9]/g, '');
+    if (clean.length < 7) return null;
+    return `${clean}@s.whatsapp.net`;
 }
 
 async function createGroupCommand(sock, chatId, senderId, message, rawText) {
@@ -46,12 +56,15 @@ async function createGroupCommand(sock, chatId, senderId, message, rawText) {
             return;
         }
 
-        // Strip the command word from rawText to get just the arguments
+        // Strip the command word to get just the arguments
         const args = (rawText || '').replace(/^\S+\s*/, '').trim();
 
         if (!args) {
             await sock.sendMessage(chatId, {
-                text: `📝 *Create Group Usage:*\n\n▸ *.creategroup <Name>*\n▸ *.creategroup <Name> | 1234567890,0987654321*\n\nYou can also @mention members.`
+                text: `📝 *Create Group Usage:*\n\n` +
+                      `▸ *.creategroup <Name> | <numbers>*\n\n` +
+                      `*Example:*\n.creategroup My Group | 2348012345678, 2348087654321\n\n` +
+                      `You can also @mention members instead of typing numbers.`
             }, { quoted: message });
             return;
         }
@@ -66,17 +79,17 @@ async function createGroupCommand(sock, chatId, senderId, message, rawText) {
             return;
         }
 
-        // Collect participants from numbers provided after |
+        // Collect participants from explicitly typed numbers
         let participants = [];
         if (parts[1]) {
-            const numbers = parts[1]
-                .split(',')
-                .map(n => n.trim().replace(/[^0-9]/g, ''))
-                .filter(n => n.length >= 7);
-            participants = numbers.map(n => `${n}@s.whatsapp.net`);
+            const raw = parts[1].split(',');
+            for (const n of raw) {
+                const jid = numberToJid(n.trim());
+                if (jid) participants.push(jid);
+            }
         }
 
-        // Include any @mentioned users
+        // Include @mentioned users (only real phone JIDs, skip @lid)
         const mentioned = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
         for (const jid of mentioned) {
             const phoneJid = toPhoneJid(jid);
@@ -85,52 +98,55 @@ async function createGroupCommand(sock, chatId, senderId, message, rawText) {
             }
         }
 
-        // Add the sender so they are in the group
-        const senderPhoneJid = toPhoneJid(senderId);
-        if (senderPhoneJid && !participants.includes(senderPhoneJid)) {
-            participants.push(senderPhoneJid);
+        // Deduplicate
+        participants = [...new Set(participants)];
+
+        if (participants.length === 0) {
+            await sock.sendMessage(chatId, {
+                text: `❌ Please provide at least one participant number.\n\n` +
+                      `Example: *.creategroup My Group | 2348012345678*`
+            }, { quoted: message });
+            return;
         }
 
-        // Deduplicate and remove @lid JIDs which WhatsApp rejects
-        const botNum = sock.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null;
-        const botJid = botNum ? `${botNum}@s.whatsapp.net` : null;
-
-        const uniqueParticipants = participants
-            .filter(p => p && !p.endsWith('@lid') && p !== botJid)
-            .filter((p, i, arr) => arr.indexOf(p) === i);
-
         await sock.sendMessage(chatId, {
-            text: `⏳ Creating group *${groupName}*...`
+            text: `⏳ Creating group *${groupName}* with ${participants.length} member(s)...`
         }, { quoted: message });
 
-        console.log('\x1b[35m[CREATEGROUP] Creating group:', groupName, 'with', uniqueParticipants.length, 'members\x1b[0m');
+        console.log('\x1b[35m[CREATEGROUP] Creating:', groupName, participants, '\x1b[0m');
 
-        const group = await sock.groupCreate(groupName, uniqueParticipants);
+        const group = await sock.groupCreate(groupName, participants);
 
         let inviteLink = '';
         try {
             const inviteCode = await sock.groupInviteCode(group.id);
             inviteLink = `\n🔗 https://chat.whatsapp.com/${inviteCode}`;
         } catch (e) {
-            console.log('[CREATEGROUP] Could not fetch invite link:', e.message);
+            console.log('[CREATEGROUP] Could not get invite link:', e.message);
         }
 
-        console.log('\x1b[35m[CREATEGROUP] Group created:', group.id, '\x1b[0m');
+        console.log('\x1b[35m[CREATEGROUP] Created:', group.id, '\x1b[0m');
 
         await sock.sendMessage(chatId, {
-            text: `✅ Group *${groupName}* created successfully!\n👥 Members: ${uniqueParticipants.length + 1}${inviteLink}`
+            text: `✅ Group *${groupName}* created!\n👥 Members added: ${participants.length}${inviteLink}`
         }, { quoted: message });
 
         // Welcome message inside the new group
         await sock.sendMessage(group.id, {
-            text: `👋 Welcome to *${groupName}*! This group was created by the bot.`
+            text: `👋 Welcome to *${groupName}*!`
         });
 
     } catch (err) {
         console.error('\x1b[35m[CREATEGROUP] Error:\x1b[0m', err.message);
-        await sock.sendMessage(chatId, {
-            text: `❌ Failed to create group: ${err?.message || 'Unknown error'}`
-        }, { quoted: message });
+
+        let errText = '❌ Failed to create group.';
+        if (err.message?.includes('bad-request')) {
+            errText = `❌ Failed to create group: one or more numbers are not on WhatsApp or are invalid. Make sure all numbers include the country code (e.g. 2348012345678).`;
+        } else {
+            errText = `❌ Failed to create group: ${err.message || 'Unknown error'}`;
+        }
+
+        await sock.sendMessage(chatId, { text: errText }, { quoted: message });
     }
 }
 
