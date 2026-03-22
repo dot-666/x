@@ -1,6 +1,5 @@
 /**
  * june x Bot - A WhatsApp Bot
- * Tennor-modz 
  * © 2025 supreme
  * * NOTE: This is the combined codebase. It handles cloning the core code from 
  * * the hidden repo on every startup while ensuring persistence files (session and settings) 
@@ -10,25 +9,7 @@
 // --- Environment Setup ---
 const config = require('./config');
 /*━━━━━━━━━━━━━━━━━━━━*/
-require('dotenv').config(); // CRITICAL: Load .env variables first!
-
-// Suppress known harmless libsignal decryption noise that bypasses the pino logger.
-// These are hardcoded console.error() calls inside Baileys' bundled libsignal library
-// triggered by Bad MAC / session mismatch events — they are non-fatal and self-recovering.
-const _origConsoleError = console.error.bind(console);
-console.error = (...args) => {
-    const msg = typeof args[0] === 'string' ? args[0] : '';
-    if (
-        msg.includes('Failed to decrypt message with any known session') ||
-        msg.includes('Session error:') ||
-        msg.includes('Bad MAC')
-    ) return;
-    _origConsoleError(...args);
-};
-// *******************************************************************
-// *** CRITICAL CHANGE: REQUIRED FILES (settings.js, main, etc.) ***
-// *** HAVE BEEN REMOVED FROM HERE AND MOVED BELOW THE CLONER RUN. ***
-// *******************************************************************
+require('dotenv').config(); // CRITICAL: Load .env variables first
 
 const fs = require('fs')
 const chalk = require('chalk')
@@ -36,8 +17,7 @@ const path = require('path')
 const axios = require('axios')
 const os = require('os')
 const PhoneNumber = require('awesome-phonenumber')
-// The smsg utility also depends on other files, so we'll move its require statement.
-// const { smsg } = require('./lib/myfunc') 
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -53,13 +33,15 @@ const pino = require("pino")
 const readline = require("readline")
 const { rmSync } = require('fs')
 
-// --- 🌟 NEW: Centralized Logging Function ---
+// --- 🌟 NEW: Centralized Logging Function
+
 /**
  * Custom logging function to enforce the [ JUNE - MD ] prefix and styling.
  * @param {string} message - The message to log.
  * @param {string} [color='white'] - The chalk color (e.g., 'green', 'red', 'yellow').
  * @param {boolean} [isError=false] - Whether to use console.error.
  */
+
 function log(message, color = 'white', isError = false) {
     const prefix = chalk.magenta.bold('[ JUNE - X ]');
     const logFunc = isError ? console.error : console.log;
@@ -79,9 +61,6 @@ function log(message, color = 'white', isError = false) {
 // --- GLOBAL FLAGS ---
 global.isBotConnected = false; 
 global.connectDebounceTimeout = null;
-global.currentSocket = null;       // Tracks the active socket so old ones can be closed
-global.isReconnecting = false;     // Guard to prevent concurrent reconnect attempts
-global.socketGeneration = 0;       // Increments each reconnect so stale welcome msgs are skipped
 // --- NEW: Error State Management ---
 global.errorRetryCount = 0; // The in-memory counter for 408 errors in the active process
 
@@ -158,9 +137,10 @@ function deleteErrorCountFile() {
 /**
  * NEW: Helper function to centralize the cleanup of all session-related files.
  */
+
 function clearSessionFiles() {
     try {
-        log('🗑️ Clearing session folder...', 'blue');
+        log('[ CLEARING ] session folder...', 'blue');
         // Delete the entire session directory
         rmSync(sessionDir, { recursive: true, force: true });
         // Delete login file if it exists
@@ -168,7 +148,7 @@ function clearSessionFiles() {
         // Delete error count file
         deleteErrorCountFile();
         global.errorRetryCount = 0; // Reset in-memory counter
-        log('✅ Session files cleaned successfully.', 'green');
+        log('[ SESSION ] files cleaned successfully.', 'green');
     } catch (e) {
         log(`Failed to clear session files: ${e.message}`, 'red', true);
     }
@@ -193,7 +173,7 @@ function cleanupOldMessages() {
         }
     }
     saveStoredMessages(cleanedMessages);
-    log("🧹 [Msg Cleanup] Old messages removed from message_backup.json", 'green');
+    log("[ MSG CLEANUP ] Old messages removed  🧹", 'green');
 }
 
 function cleanupJunkFiles(botSocket) {
@@ -270,15 +250,49 @@ function sessionExists() {
 async function checkEnvSession() {
     const envSessionID = process.env.SESSION_ID;
     if (envSessionID) {
+        if (!envSessionID.includes("JUNE-MD:~")) { 
+            log("🚨 WARNING: Environment SESSION_ID is missing the required prefix 'JUNE-MD:~'. Assuming BASE64 format.", 'red'); 
+        }
         global.SESSION_ID = envSessionID.trim();
         return true;
     }
     return false;
 }
 
+/**
+ * NEW LOGIC: Checks if SESSION_ID starts with "JUNE-MD". If not, cleans .env and restarts.
+ */
 async function checkAndHandleSessionFormat() {
-    // Format validation removed — any non-empty SESSION_ID is accepted.
-    // Strict prefix checks were silently wiping valid session IDs from .env.
+    const sessionId = process.env.SESSION_ID;
+    
+    if (sessionId && sessionId.trim() !== '') {
+        // Only check if it's set and non-empty
+        if (!sessionId.trim().startsWith('JUNE-MD')) {
+            log(chalk.white.bgRed('[ERROR]: Invalid SESSION_ID in .env'), 'white');
+            log(chalk.white.bgRed('[SESSION ID] MUST start with "JUNE-MD".'), 'white');
+            log(chalk.white.bgRed('Cleaning .env and creating new one...'), 'white');
+            
+         try {
+                let envContent = fs.readFileSync(envPath, 'utf8');
+                
+                // Use regex to replace only the SESSION_ID line while preserving other variables
+                envContent = envContent.replace(/^SESSION_ID=.*$/m, 'SESSION_ID=');
+                
+                fs.writeFileSync(envPath, envContent);
+                log('✅ Cleaned SESSION_ID entry in .env file.', 'green');
+                log('Please add a proper session ID and restart the bot.', 'yellow');
+            } catch (e) {
+                log(`Failed to modify .env file. Please check permissions: ${e.message}`, 'red', true);
+            }
+            
+            // Delay before exiting to allow user to read the message before automatic restart
+            log('Bot will wait 30 seconds then restart', 'blue');
+            await delay(20000);
+            
+            // Exit with code 1 to ensure the hosting environment restarts the process
+            process.exit(1);
+        }
+    }
 }
 
 
@@ -304,9 +318,9 @@ async function getLoginMethod() {
     }
 
 
-    log("Choose login method:", 'blue');
-    log("1] Enter WhatsApp Number (Pairing Code)", 'blue');
-    log("2] Paste Session ID  (session id)", 'blue');
+    log(" Choose login method:", 'blue');
+    log(" 1] ENTER WhatsApp Number [Pairing Code]", 'blue');
+    log(" 2] ENTER Paste Session ID [Use session]", 'blue');
 
     let choice = await question("Enter option number (1 or 2): ");
     choice = choice.trim();
@@ -322,6 +336,11 @@ async function getLoginMethod() {
     } else if (choice === '2') {
         let sessionId = await question(chalk.bgBlack(chalk.greenBright(`Paste your Session ID here: `)));
         sessionId = sessionId.trim();
+        // Pre-check the format during interactive entry as well
+        if (!sessionId.includes("JUNE-MD:~")) { 
+            log("Invalid Session ID format! Must contain 'JUNE-MD:~'.", 'red'); 
+            process.exit(1); 
+        }
         global.SESSION_ID = sessionId;
         await saveLoginMethod('session');
         return 'session';
@@ -335,24 +354,14 @@ async function getLoginMethod() {
 async function downloadSessionData() {
     try {
         await fs.promises.mkdir(sessionDir, { recursive: true });
-        if (!global.SESSION_ID) {
-            log('No SESSION_ID provided — skipping session download.', 'yellow');
-            return;
+        if (!fs.existsSync(credsPath) && global.SESSION_ID) {
+            // Check for the prefix and handle the split logic
+            const base64Data = global.SESSION_ID.includes("JUNE-MD:~") ? global.SESSION_ID.split("JUNE-MD:~")[1] : global.SESSION_ID;
+            const sessionData = Buffer.from(base64Data, 'base64');
+            await fs.promises.writeFile(credsPath, sessionData);
+            log(`Session successfully saved.`, 'green');
         }
-
-        // Strip the prefix to get the raw base64 payload
-        const base64Data = global.SESSION_ID.includes("JUNE-MD:~")
-            ? global.SESSION_ID.split("JUNE-MD:~")[1]
-            : global.SESSION_ID;
-
-        const sessionData = Buffer.from(base64Data.trim(), 'base64');
-
-        // Always overwrite — a new SESSION_ID must replace any stale creds.json
-        await fs.promises.writeFile(credsPath, sessionData);
-        log(`Session successfully saved.`, 'green');
-    } catch (err) {
-        log(`Error saving session data: ${err.message}`, 'red', true);
-    }
+    } catch (err) { log(`Error downloading session data: ${err.message}`, 'red', true); }
 }
 
 // --- Request pairing code (JUNE MD) ---
@@ -369,7 +378,7 @@ Please enter this code in WhatsApp app:
 1. Open WhatsApp
 2. Go to Settings => Linked Devices
 3. Tap "Link a Device"
-4. Enter the code : ${code} 👈
+4. Enter the code shown above
         `, 'blue');
         return true; 
     } catch (err) { 
@@ -379,16 +388,12 @@ Please enter this code in WhatsApp app:
 }
 
 // --- Dedicated function to handle post-connection initialization and welcome message
-async function sendWelcomeMessage(XeonBotInc, generation) {
+async function sendWelcomeMessage(XeonBotInc) {
     // Safety check: Only proceed if the welcome message hasn't been sent yet in this session.
-    if (global.isBotConnected) return;
-
+    if (global.isBotConnected) return; 
+    
     // CRITICAL: Wait 10 seconds for the connection to fully stabilize
-    await delay(10000);
-
-    // If this socket is no longer the active generation, abort silently.
-    // Prevents stale sockets from sending duplicate/broken welcome messages.
-    if (generation !== global.socketGeneration) return; 
+    await delay(10000); 
 
     //detectPlatform
  const detectPlatform = () => {
@@ -419,7 +424,7 @@ async function sendWelcomeMessage(XeonBotInc, generation) {
         const pNumber = XeonBotInc.user.id.split(':')[0] + '@s.whatsapp.net';
         let data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
         const currentMode = data.isPublic ? 'public' : 'private';           
-        const prefix = getPrefix();
+        const prefix = getPrefix() || '.';
 
         // Send the message
         await XeonBotInc.sendMessage(pNumber, {
@@ -430,15 +435,14 @@ async function sendWelcomeMessage(XeonBotInc, generation) {
 ┃✧ Platform: ${hostName}
 ┃✧ Bot: JUNE-X
 ┃✧ Status: Active
-┃✧ Time: ${new Date().toLocaleString('en-US', { timeZone: 'Africa/Nairobi' })}
+┃✧ Time: ${new Date().toLocaleString()}
 ┃✧ Telegram: t.me/supremLord
-┃✧ Tel_Group: t.me/juneOff
+┃✧ Group: t.me/junexOff
 ┗━━━━━━━━━━━━━━━━━━━━━`
         });
-        log('✅ Bot successfully connected to Whatsapp.', 'green');
-
-        //auto follow group functions
-const newsletters = ["120363405182019728@newsletter", ""];
+        log('[ BOT ] successfully connected.', 'blue');
+        
+        const newsletters = ["120363405182019728@newsletter", ""];
         global.newsletters = newsletters;
         for (let i = 0; i < newsletters.length; i++) {
             try {
@@ -484,11 +488,11 @@ const newsletters = ["120363405182019728@newsletter", ""];
  */
 async function handle408Error(statusCode) {
     // Only proceed for 408 Timeout errors
-    if (statusCode !== DisconnectReason.connectionLost && statusCode !== 408) return false;
+    if (statusCode !== DisconnectReason.connectionTimeout) return false;
     
     global.errorRetryCount++;
     let errorState = loadErrorCount();
-    const MAX_RETRIES = 5;
+    const MAX_RETRIES = 3;
     
     // Update persistent and in-memory counters
     errorState.count = global.errorRetryCount;
@@ -500,80 +504,50 @@ async function handle408Error(statusCode) {
     if (global.errorRetryCount >= MAX_RETRIES) {
         log(chalk.white.bgRed(`[MAX CONNECTION TIMEOUTS] (${MAX_RETRIES}) REACHED IN ACTIVE STATE. `), 'white');
         log(chalk.white.bgRed('This indicates a persistent network or session issue.'), 'white');
-        log(chalk.white.bgRed('Exiting process to allow hosting platform to restart cleanly.'), 'white');
+        log(chalk.white.bgRed('Exiting process to stop infinite restart loop.'), 'white');
 
         deleteErrorCountFile();
-        global.errorRetryCount = 0;
+        global.errorRetryCount = 0; // Reset in-memory counter
         
-        await delay(5000);
+        // Force exit to prevent a restart loop, user must intervene (Pterodactyl/Heroku)
+        await delay(5000); // Give time for logs to print
         process.exit(1);
     }
-    // Return retry count so caller can apply exponential backoff
-    return global.errorRetryCount;
+    return true;
 }
 
 
 // --- Start bot (JUNE MD) ---
 async function startXeonBotInc() {
-    // Guard: prevent multiple concurrent reconnect attempts
-    if (global.isReconnecting) {
-        log('Reconnect already in progress, skipping duplicate call.', 'yellow');
-        return;
-    }
-    global.isReconnecting = true;
+    log('Connecting to WhatsApp...', 'cyan');
+    const { version } = await fetchLatestBaileysVersion();
+    
+    // Ensure session directory exists before Baileys attempts to use it
+    await fs.promises.mkdir(sessionDir, { recursive: true });
 
-    // Close the previous socket cleanly before opening a new one.
-    // This is the root fix for the 440 (Connection Replaced) loop.
-    if (global.currentSocket) {
-        try { global.currentSocket.end(new Error('Replaced by new connection')); } catch (_) {}
-        global.currentSocket = null;
-    }
+    const { state, saveCreds } = await useMultiFileAuthState(`./session`);
+    const msgRetryCounterCache = new NodeCache();
 
-    // Bump generation so any pending sendWelcomeMessage calls from the old socket bail out.
-    global.socketGeneration++;
-    const myGeneration = global.socketGeneration;
-    global.isBotConnected = false;
-
-    let XeonBotInc;
-    try {
-        log('Connecting to WhatsApp...', 'cyan');
-        const { version } = await fetchLatestBaileysVersion();
-
-        // Ensure session directory exists before Baileys attempts to use it
-        await fs.promises.mkdir(sessionDir, { recursive: true });
-
-        const { state, saveCreds: _saveCreds } = await useMultiFileAuthState(`./session`);
-        const msgRetryCounterCache = new NodeCache();
-
-        XeonBotInc = makeWASocket({
-            version,
-            logger: pino({ level: 'silent' }),
-            printQRInTerminal: false,
-            browser: ["Ubuntu", "Chrome", "20.0.04"],
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
-            },
-            markOnlineOnConnect: true,
-            generateHighQualityLinkPreview: true,
-            syncFullHistory: false,
-            getMessage: async (key) => {
-                let jid = jidNormalizedUser(key.remoteJid);
-                let msg = await store.loadMessage(jid, key.id);
-                return msg?.message || "";
-            },
-            msgRetryCounterCache
-        });
-
-        // Register this as the active socket
-        global.currentSocket = XeonBotInc;
-
-        // Re-bind saveCreds under its real name for use in event listener below
-        var saveCreds = _saveCreds;
-    } finally {
-        // Always release the reconnect guard, even if makeWASocket throws
-        global.isReconnecting = false;
-    }
+    const XeonBotInc = makeWASocket({
+        version,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false, 
+        browser: ["Ubuntu", "Chrome", "20.0.04"],
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
+        },
+        markOnlineOnConnect: true,
+        generateHighQualityLinkPreview: false,
+        syncFullHistory: false,
+        getMessage: async (key) => {
+            let jid = jidNormalizedUser(key.remoteJid);
+            // This now uses the globally available 'store' which is loaded inside tylor()
+            let msg = await store.loadMessage(jid, key.id); 
+            return msg?.message || "";
+        },
+        msgRetryCounterCache
+    });
 
     store.bind(XeonBotInc.ev);
 
@@ -593,39 +567,19 @@ async function startXeonBotInc() {
 
         // --- JUNE MD ORIGINAL HANDLER ---
         const mek = chatUpdate.messages[0];
-
-        // Check EVERY message in the batch for status@broadcast.
-        // Status messages arrive with type:'append' and often have no .message body.
-        // Using only messages[0] misses status updates that are batched after a
-        // non-status message.
-        const statusMsgs = chatUpdate.messages.filter(m => m?.key?.remoteJid === 'status@broadcast');
-        if (statusMsgs.length > 0) {
-            await handleStatus(XeonBotInc, { messages: statusMsgs, type: chatUpdate.type });
-            // If the ENTIRE batch was status messages, stop here
-            if (statusMsgs.length === chatUpdate.messages.length) return;
-        }
-
         if (!mek.message) return;
         mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
+        // This relies on handleStatus and handleMessages being loaded
+        if (mek.key.remoteJid === 'status@broadcast') { await handleStatus(XeonBotInc, chatUpdate); return; }
         try { await handleMessages(XeonBotInc, chatUpdate, true) } catch(e){ log(e.message, 'red', true) }
     });
 
 
     // --- ⚠️ CONNECTION UPDATE LISTENER (Enhanced Logic with 401/408 handler)
-    // Capture this socket in a local const so the closure can check staleness
-    const thisSocket = XeonBotInc;
     XeonBotInc.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
         if (connection === 'close') {
-            // Stale-socket guard: if this socket is no longer the active one (e.g. it was
-            // closed by startXeonBotInc() to make way for a new socket), ignore the event.
-            // This prevents the old socket's delayed close event from triggering a second
-            // reconnect and causing a rapid 440 loop.
-            if (thisSocket !== global.currentSocket) {
-                return;
-            }
-
             global.isBotConnected = false; 
             
             const statusCode = lastDisconnect?.error?.output?.statusCode;
@@ -649,32 +603,24 @@ async function startXeonBotInc() {
                 
             } else {
                 // NEW: Handle the 408 Timeout Logic FIRST
-                const retryCount = await handle408Error(statusCode);
-                if (retryCount) {
-                    // handle408Error only exits at MAX_RETRIES via process.exit(1).
-                    // Below max retries reconnect with exponential backoff so we don't
-                    // hammer WhatsApp: 5s, 10s, 20s, 40s...
-                    const backoffMs = Math.min(5000 * Math.pow(2, retryCount - 1), 60000);
-                    log(`Reconnecting after 408 timeout (attempt ${retryCount}) in ${backoffMs / 1000}s...`, 'yellow');
-                    await delay(backoffMs);
-                    await startXeonBotInc().catch(e => log(`Reconnect error: ${e.message}`, 'red', true));
+                const is408Handled = await handle408Error(statusCode);
+                if (is408Handled) {
+                    // If handle408Error decides to exit, it will already have called process.exit(1)
                     return;
                 }
 
-                // Status 440 = Connection Replaced. A new connection has taken over on WhatsApp's
-                // side. Wait longer before reconnecting to avoid a rapid 440 loop.
-                const reconnectDelay = statusCode === 440 ? 8000 : 3000;
-                log(`Connection closed (Status: ${statusCode}). Reconnecting in ${reconnectDelay / 1000}s...`, 'yellow');
-                await delay(reconnectDelay);
-                await startXeonBotInc().catch(e => log(`Reconnect error: ${e.message}`, 'red', true));
+                // This handles all other temporary errors (Stream, Connection, Timeout, etc.)
+                log(`Connection closed due to temporary issue (Status: ${statusCode}). Attempting reconnect...`, 'yellow');
+                // Re-start the whole bot process (this handles temporary errors/reconnects)
+                startXeonBotInc(); 
             }
         } else if (connection === 'open') {           
             console.log(chalk.yellow(`💅Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
-            log('[ JUNE X ] Connected', 'yellow');      
-            log(`Github: [ Vinpink2 ]`, 'yellow');
+            log('JUNE-X CONNECTED', 'yellow');      
+            log(`GITHUB: VINPINK2`, 'yellow');
             
-            // Pass myGeneration so stale sockets skip the welcome message after reconnects
-            await sendWelcomeMessage(XeonBotInc, myGeneration);
+            // Send the welcome message (which includes the 10s stability delay and error reset)
+     await sendWelcomeMessage(XeonBotInc);
         }
     });
 
@@ -746,8 +692,8 @@ async function checkSessionIntegrityAndClean() {
     // Scenario: Folder exists, but 'creds.json' is missing (incomplete/junk session)
     if (isSessionFolderPresent && !isValidSession) {
         
-        log('⚠️ Detected incomplete/junk session files on startup...', 'red');
-        log('✅ Cleaning up before proceeding...', 'yellow');
+        log('[ DETECTED ] incomplete/junk session files on startup...', 'red');
+        log('[ CLEANING ] up before proceeding...', 'yellow');
         
         // 1. Delete the entire session folder (junk files, partial state, etc.)
         clearSessionFiles(); // Use the helper function
@@ -766,38 +712,25 @@ async function checkSessionIntegrityAndClean() {
  * @private 
  */
 function checkEnvStatus() {
-    // On cloud platforms (Heroku, Render, etc.), env vars are managed via config vars,
-    // not a .env file. Skip the file watcher to prevent deployment from hanging.
-    const isCloudPlatform = process.env.DYNO || process.env.RENDER || process.env.RAILWAY_ENVIRONMENT;
-    if (isCloudPlatform) {
-        log(` [WATCHER] Cloud platform detected — .env file watcher skipped `, 'yellow');
-        return;
-    }
-
-    // Also skip if .env file does not exist on disk
-    if (!fs.existsSync(envPath)) {
-        log(` [WATCHER] No .env file found — watcher skipped `, 'yellow');
-        return;
-    }
-
     try {
-        log(` [WATCHER] .env `, 'green');
-
-        // Record when the watcher starts. On some Linux containers (e.g. Pterodactyl)
-        // fs.watch fires a spurious 'change' event immediately after being created.
-        // Ignoring events in the first 3 seconds prevents a false restart right at boot.
-        const watcherStarted = Date.now();
-
+        log(` [ WATCHER ] .env... `, 'green');
+        
+        // Use persistent: false for better behavior in some hosting environments
+        // Always set the watcher regardless of the environment
         fs.watch(envPath, { persistent: false }, (eventType, filename) => {
-            if (filename && eventType === 'change' && (Date.now() - watcherStarted) > 3000) {
+            if (filename && eventType === 'change') {
+                log(chalk.bgRed.black('================================================='), 'white');
                 log(chalk.white.bgRed(' [ENV] env file change detected!'), 'white');
                 log(chalk.white.bgRed('Forcing a clean restart to apply new configuration (e.g., SESSION_ID).'), 'white');
+                log(chalk.red.bgBlack('================================================='), 'white');
                 
+                // Use process.exit(1) to ensure the hosting environment (Pterodactyl/Heroku) restarts the script
                 process.exit(1);
             }
         });
     } catch (e) {
         log(`❌ Failed to set up .env file watcher (fs.watch error): ${e.message}`, 'red', true);
+        // Do not exit, as the bot can still run, but notify the user
     }
 }
 // -------------------------------------------------------------
@@ -847,8 +780,8 @@ async function tylor() {
     // 4. *** IMPLEMENT USER'S PRIORITY LOGIC: Check .env SESSION_ID FIRST ***
     const envSessionID = process.env.SESSION_ID?.trim();
 
-    if (envSessionID) { 
-        log("Found SESSION_ID in environment variable.", 'magenta');
+    if (envSessionID && envSessionID.startsWith('JUNE-MD')) { 
+        log("Found new SESSION_ID in environment variable.", 'magenta');
         
         // 4a. Force the use of the new session by cleaning any old persistent files.
         clearSessionFiles(); 
@@ -894,9 +827,6 @@ async function tylor() {
     let XeonBotInc;
 
     if (loginMethod === 'session') {
-        // Clear any stale creds.json first — same as the env SESSION_ID flow.
-        // Without this, downloadSessionData() would skip writing if an old file exists.
-        clearSessionFiles();
         await downloadSessionData();
         // Socket is only created AFTER session data is saved
         XeonBotInc = await startXeonBotInc(); 
@@ -928,3 +858,5 @@ async function tylor() {
 tylor().catch(err => log(`Fatal error starting bot: ${err.message}`, 'red', true));
 process.on('uncaughtException', (err) => log(`Uncaught Exception: ${err.message}`, 'red', true));
 process.on('unhandledRejection', (err) => log(`Unhandled Rejection: ${err.message}`, 'red', true));
+
+
