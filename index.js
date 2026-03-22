@@ -11,6 +11,20 @@
 const config = require('./config');
 /*━━━━━━━━━━━━━━━━━━━━*/
 require('dotenv').config(); // CRITICAL: Load .env variables first!
+
+// Suppress known harmless libsignal decryption noise that bypasses the pino logger.
+// These are hardcoded console.error() calls inside Baileys' bundled libsignal library
+// triggered by Bad MAC / session mismatch events — they are non-fatal and self-recovering.
+const _origConsoleError = console.error.bind(console);
+console.error = (...args) => {
+    const msg = typeof args[0] === 'string' ? args[0] : '';
+    if (
+        msg.includes('Failed to decrypt message with any known session') ||
+        msg.includes('Session error:') ||
+        msg.includes('Bad MAC')
+    ) return;
+    _origConsoleError(...args);
+};
 // *******************************************************************
 // *** CRITICAL CHANGE: REQUIRED FILES (settings.js, main, etc.) ***
 // *** HAVE BEEN REMOVED FROM HERE AND MOVED BELOW THE CLONER RUN. ***
