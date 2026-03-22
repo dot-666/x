@@ -22,13 +22,12 @@ function getTargetFromMessage(message) {
     return null;
 }
 
-function getTargetFromArgs(message) {
+function getPhoneFromArgs(message) {
     const text =
         message.message?.conversation ||
         message.message?.extendedTextMessage?.text || '';
-    const arg = text.trim().split(/\s+/).slice(1).join('').replace(/\D/g, '');
-    if (arg.length < 6) return null;
-    return normalizeJid(`${arg}@s.whatsapp.net`);
+    const clean = text.trim().split(/\s+/).slice(1).join('').replace(/\D/g, '');
+    return clean.length >= 6 ? clean : null;
 }
 
 function getBotJid(sock) {
@@ -38,53 +37,35 @@ function getBotJid(sock) {
 }
 
 /**
- * Resolve a @lid JID to a @s.whatsapp.net JID so it can be used with updateBlockStatus.
- * Strategy:
- *  1. Session file lookup (lid-mapping files)
- *  2. Group metadata participants cross-reference
- *  3. sock.contacts lookup
- *  Returns null if it cannot be resolved.
+ * Resolve a @lid JID to @s.whatsapp.net via group metadata or session files.
  */
 async function resolveLidToPhoneJid(sock, lidJid, chatId) {
     if (!isLid(lidJid)) return lidJid;
 
     const lidNum = lidJid.split('@')[0];
 
-    // 1. Try session file lookup
+    // 1. Session file lookup
     const fromSession = resolvePhoneFromLid(lidNum);
     if (fromSession) return `${fromSession}@s.whatsapp.net`;
 
-    // 2. Try group metadata participants lookup
+    // 2. Group metadata lookup
     if (chatId && chatId.endsWith('@g.us')) {
         try {
             const meta = await sock.groupMetadata(chatId);
-            if (meta && Array.isArray(meta.participants)) {
-                for (const p of meta.participants) {
-                    if (!p.id) continue;
-                    if (p.id === lidJid || p.lid === lidJid) {
-                        // Some Baileys versions expose both p.id and p.lid
-                        const phoneJid = p.id.endsWith('@s.whatsapp.net') ? p.id
-                                       : (p.lid && p.lid === lidJid && p.id) ? p.id
-                                       : null;
-                        if (phoneJid) return normalizeJid(phoneJid);
-                    }
-                    // Cross-match: participant id is @lid, check if there's phone info
-                    if (p.lid && p.lid === lidJid && p.id && p.id.endsWith('@s.whatsapp.net')) {
-                        return normalizeJid(p.id);
-                    }
+            for (const p of (meta?.participants || [])) {
+                if (p.lid === lidJid && p.id && p.id.endsWith('@s.whatsapp.net')) {
+                    return normalizeJid(p.id);
+                }
+                if (p.id === lidJid && p.lid && p.lid.endsWith('@s.whatsapp.net')) {
+                    return normalizeJid(p.lid);
                 }
             }
         } catch (_) {}
     }
 
-    // 3. Try sock.contacts lookup
+    // 3. sock.contacts lookup
     try {
         const contacts = sock.contacts || {};
-        if (contacts[lidJid]?.lid) {
-            const phone = contacts[lidJid].lid.split('@')[0];
-            if (phone) return `${phone}@s.whatsapp.net`;
-        }
-        // Sometimes contacts stores by phone JID with a lid field
         for (const [key, val] of Object.entries(contacts)) {
             if ((val?.lid === lidJid || val?.id === lidJid) && key.endsWith('@s.whatsapp.net')) {
                 return normalizeJid(key);
@@ -95,6 +76,22 @@ async function resolveLidToPhoneJid(sock, lidJid, chatId) {
     return null;
 }
 
+/**
+ * Look up a phone number on WhatsApp and return their real JID.
+ * Returns null if not found or on error.
+ */
+async function resolvePhoneToJid(sock, phoneNumber) {
+    try {
+        const results = await sock.onWhatsApp(phoneNumber);
+        if (results && results.length > 0 && results[0].exists) {
+            return results[0].jid;
+        }
+    } catch (e) {
+        console.error('[Block] onWhatsApp lookup failed:', e.message);
+    }
+    return null;
+}
+
 async function blockCommand(sock, chatId, message) {
     if (!(await isOwnerOrSudo(sock, message))) {
         return sock.sendMessage(chatId, {
@@ -102,35 +99,54 @@ async function blockCommand(sock, chatId, message) {
         }, { quoted: message });
     }
 
-    const rawTarget = getTargetFromMessage(message) || getTargetFromArgs(message);
+    const botJid = getBotJid(sock);
+    let target = null;
+    let phone = null;
 
-    if (!rawTarget) {
+    const fromMsg = getTargetFromMessage(message);
+    const fromArgs = getPhoneFromArgs(message);
+
+    if (fromMsg) {
+        // Target from reply or @mention — may be @lid
+        let resolved = fromMsg;
+        if (isLid(fromMsg)) {
+            resolved = await resolveLidToPhoneJid(sock, fromMsg, chatId);
+        }
+        if (resolved && resolved.endsWith('@s.whatsapp.net')) {
+            phone = jidToPhone(resolved);
+            // Verify number is on WhatsApp and get their exact JID
+            const verified = await resolvePhoneToJid(sock, phone);
+            target = verified || resolved;
+        } else if (!resolved) {
+            // LID could not be resolved — ask user to type the number
+            return sock.sendMessage(chatId, {
+                text: `❌ *Cannot Block*\n\nCould not resolve this user's number.\n\n▸ Try: *.block ${phone || '2348012345678'}*`
+            }, { quoted: message });
+        }
+    } else if (fromArgs) {
+        // Target from typed phone number — verify it exists on WhatsApp
+        const verified = await resolvePhoneToJid(sock, fromArgs);
+        if (!verified) {
+            return sock.sendMessage(chatId, {
+                text: `❌ *Block Failed*\n\n+${fromArgs} is not found on WhatsApp.\n_Make sure the number includes the country code._`
+            }, { quoted: message });
+        }
+        target = verified;
+        phone = jidToPhone(target);
+    } else {
         await sock.sendMessage(chatId, { react: { text: '❓', key: message.key } });
         return sock.sendMessage(chatId, {
-            text: '*🔒 Block a User*\n\n' +
-                  'You must specify who to block:\n\n' +
-                  '▸ Reply to their message and send `.block`\n' +
-                  '▸ Mention them: `.block @user`\n' +
-                  '▸ Use their number: `.block 2348012345678`'
+            text: `*🔒 Block a User*\n\n` +
+                  `▸ Reply to their message and type *.block*\n` +
+                  `▸ Mention them: *.block @user*\n` +
+                  `▸ Type their number: *.block 2348012345678*`
         }, { quoted: message });
     }
 
-    const botJid = getBotJid(sock);
-
-    // Resolve @lid to @s.whatsapp.net if needed
-    let target = rawTarget;
-    if (isLid(rawTarget)) {
-        const resolved = await resolveLidToPhoneJid(sock, rawTarget, chatId);
-        if (!resolved) {
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-            return sock.sendMessage(chatId, {
-                text: '❌ *Cannot Block*\n\n' +
-                      'This user has a new WhatsApp ID format that could not be resolved.\n\n' +
-                      '▸ Try using their phone number directly:\n' +
-                      '  `.block 2348012345678`'
-            }, { quoted: message });
-        }
-        target = resolved;
+    if (!target) {
+        return sock.sendMessage(chatId, {
+            text: '❌ Could not resolve the target user.'
+        }, { quoted: message });
     }
 
     if (normalizeJid(target) === normalizeJid(botJid)) {
@@ -138,8 +154,6 @@ async function blockCommand(sock, chatId, message) {
             text: '❌ You cannot block the bot itself.'
         }, { quoted: message });
     }
-
-    const phone = jidToPhone(target);
 
     try {
         await sock.updateBlockStatus(target, 'block');
@@ -151,7 +165,7 @@ async function blockCommand(sock, chatId, message) {
                   `_This user can no longer message the bot._`
         }, { quoted: message });
     } catch (e) {
-        console.error('[Block] Error:', e);
+        console.error('[Block] updateBlockStatus error:', e.message);
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
         await sock.sendMessage(chatId, {
             text: `❌ *Block Failed*\n\nCould not block +${phone}.\n_Reason: ${e.message}_`
@@ -166,36 +180,50 @@ async function unblockCommand(sock, chatId, message) {
         }, { quoted: message });
     }
 
-    const rawTarget = getTargetFromMessage(message) || getTargetFromArgs(message);
+    let target = null;
+    let phone = null;
 
-    if (!rawTarget) {
+    const fromMsg = getTargetFromMessage(message);
+    const fromArgs = getPhoneFromArgs(message);
+
+    if (fromMsg) {
+        let resolved = fromMsg;
+        if (isLid(fromMsg)) {
+            resolved = await resolveLidToPhoneJid(sock, fromMsg, chatId);
+        }
+        if (resolved && resolved.endsWith('@s.whatsapp.net')) {
+            phone = jidToPhone(resolved);
+            const verified = await resolvePhoneToJid(sock, phone);
+            target = verified || resolved;
+        } else if (!resolved) {
+            return sock.sendMessage(chatId, {
+                text: `❌ *Cannot Unblock*\n\nCould not resolve this user's number.\n\n▸ Try: *.unblock ${phone || '2348012345678'}*`
+            }, { quoted: message });
+        }
+    } else if (fromArgs) {
+        const verified = await resolvePhoneToJid(sock, fromArgs);
+        if (!verified) {
+            return sock.sendMessage(chatId, {
+                text: `❌ *Unblock Failed*\n\n+${fromArgs} is not found on WhatsApp.\n_Make sure the number includes the country code._`
+            }, { quoted: message });
+        }
+        target = verified;
+        phone = jidToPhone(target);
+    } else {
         await sock.sendMessage(chatId, { react: { text: '❓', key: message.key } });
         return sock.sendMessage(chatId, {
-            text: '*🔓 Unblock a User*\n\n' +
-                  'You must specify who to unblock:\n\n' +
-                  '▸ Reply to their message and send `.unblock`\n' +
-                  '▸ Mention them: `.unblock @user`\n' +
-                  '▸ Use their number: `.unblock 2348012345678`'
+            text: `*🔓 Unblock a User*\n\n` +
+                  `▸ Reply to their message and type *.unblock*\n` +
+                  `▸ Mention them: *.unblock @user*\n` +
+                  `▸ Type their number: *.unblock 2348012345678*`
         }, { quoted: message });
     }
 
-    // Resolve @lid to @s.whatsapp.net if needed
-    let target = rawTarget;
-    if (isLid(rawTarget)) {
-        const resolved = await resolveLidToPhoneJid(sock, rawTarget, chatId);
-        if (!resolved) {
-            await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
-            return sock.sendMessage(chatId, {
-                text: '❌ *Cannot Unblock*\n\n' +
-                      'This user has a new WhatsApp ID format that could not be resolved.\n\n' +
-                      '▸ Try using their phone number directly:\n' +
-                      '  `.unblock 2348012345678`'
-            }, { quoted: message });
-        }
-        target = resolved;
+    if (!target) {
+        return sock.sendMessage(chatId, {
+            text: '❌ Could not resolve the target user.'
+        }, { quoted: message });
     }
-
-    const phone = jidToPhone(target);
 
     try {
         const blocklist = await sock.fetchBlocklist().catch(() => []);
@@ -217,7 +245,7 @@ async function unblockCommand(sock, chatId, message) {
                   `_This user can now message the bot again._`
         }, { quoted: message });
     } catch (e) {
-        console.error('[Unblock] Error:', e);
+        console.error('[Unblock] updateBlockStatus error:', e.message);
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });
         await sock.sendMessage(chatId, {
             text: `❌ *Unblock Failed*\n\nCould not unblock +${phone}.\n_Reason: ${e.message}_`
@@ -236,10 +264,14 @@ async function unblockallCommand(sock, chatId, message) {
 
     const blocked = await sock.fetchBlocklist().catch(() => []);
     if (!blocked.length) {
-        return sock.sendMessage(chatId, { text: '📭 No blocked contacts to unblock.' }, { quoted: message });
+        return sock.sendMessage(chatId, {
+            text: '📭 No blocked contacts to unblock.'
+        }, { quoted: message });
     }
 
-    await sock.sendMessage(chatId, { text: `⏳ Unblocking ${blocked.length} contact(s)...` }, { quoted: message });
+    await sock.sendMessage(chatId, {
+        text: `⏳ Unblocking ${blocked.length} contact(s)...`
+    }, { quoted: message });
 
     let success = 0;
     for (const jid of blocked) {
@@ -284,7 +316,9 @@ async function blocklistCommand(sock, chatId, message) {
 
     for (let i = 0; i < chunks.length; i++) {
         const header = i === 0 ? `🔒 *Blocked Contacts* (${blocked.length} total)\n\n` : '';
-        await sock.sendMessage(chatId, { text: header + chunks[i].join('\n') }, { quoted: message });
+        await sock.sendMessage(chatId, {
+            text: header + chunks[i].join('\n')
+        }, { quoted: message });
         if (i < chunks.length - 1) await delay(500);
     }
 }
