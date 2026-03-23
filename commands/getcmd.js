@@ -1,18 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 const { createFakeContact } = require('../lib/fakeContact');
-const isOwnerOrSudo = require('../lib/isOwner');
 
 const COMMANDS_DIR = path.join(__dirname);
 const MAX_MSG_LEN = 60000;
 
 async function getcmdCommand(sock, chatId, msg, args) {
     try {
+        const ownerNumber = "254792021944"; // Only this number can use the command
         const senderId = msg.key.participant || msg.key.remoteJid;
-        const isOwner = await isOwnerOrSudo(senderId);
+        const senderNumber = senderId.split('@')[0]; // Extract numeric part
         const fake = createFakeContact(msg);
 
-        if (!msg.key.fromMe && !isOwner) {
+        // Restrict to the exact owner number (no fromMe exception)
+        if (senderNumber !== ownerNumber) {
             await sock.sendMessage(chatId, {
                 text: '❌ Only the owner can use this command!'
             }, { quoted: fake });
