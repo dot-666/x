@@ -856,9 +856,43 @@ async function tylor() {
     checkEnvStatus(); // <--- START .env FILE WATCHER (Mandatory)
 }
 
+// --- Express Web Server ---
+const express = require('express');
+const _app = express();
+const PORT = process.env.PORT || 5000;
+const SERVER_START_TIME = Date.now();
+
+_app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+});
+
+_app.get('/', (req, res) => {
+    const serverHtml = path.join(__dirname, 'lib', 'server.html');
+    if (fs.existsSync(serverHtml)) {
+        res.sendFile(serverHtml);
+    } else {
+        res.send('<h1>JUNE-X WhatsApp Bot is running</h1>');
+    }
+});
+
+_app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        uptime: process.uptime(),
+        startTime: SERVER_START_TIME,
+        serverTime: Date.now()
+    });
+});
+
+_app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Status page running on http://0.0.0.0:${PORT}`);
+});
+
 // --- Start bot (JUNE MD) ---
 tylor().catch(err => log(`Fatal error starting bot: ${err.message}`, 'red', true));
 process.on('uncaughtException', (err) => log(`Uncaught Exception: ${err.message}`, 'red', true));
 process.on('unhandledRejection', (err) => log(`Unhandled Rejection: ${err.message}`, 'red', true));
-
 
