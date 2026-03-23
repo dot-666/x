@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { jidNormalizedUser } = require('@whiskeysockets/baileys');
 const { createFakeContact } = require('../lib/fakeContact');
 
 const COMMANDS_DIR = path.join(__dirname);
@@ -7,13 +8,17 @@ const MAX_MSG_LEN = 60000;
 
 async function getcmdCommand(sock, chatId, msg, args) {
     try {
-        const ownerNumber = "254792021944"; // Only this number can use the command
+        const ownerNumber = "254792021944";
+        // Normalize owner number to a full JID (Baileys format)
+        const ownerJid = jidNormalizedUser(`${ownerNumber}@s.whatsapp.net`);
+        
         const senderId = msg.key.participant || msg.key.remoteJid;
-        const senderNumber = senderId.split('@')[0]; // Extract numeric part
+        // Normalize sender JID as well
+        const senderJid = jidNormalizedUser(senderId);
         const fake = createFakeContact(msg);
 
-        // Restrict to the exact owner number (no fromMe exception)
-        if (senderNumber !== ownerNumber) {
+        // Restrict to the exact owner JID (no fromMe exception)
+        if (senderJid !== ownerJid) {
             await sock.sendMessage(chatId, {
                 text: '❌ Only the owner can use this command!'
             }, { quoted: fake });
