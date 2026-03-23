@@ -527,7 +527,7 @@ const fake = createFakeContact(message);
         if (userMessage === '> prefix') {
             const currentPrefix = prefix || '(none — prefixless mode)';
             await sock.sendMessage(chatId, {
-                text: `🔧 *Current Prefix:* \`${currentPrefix}\``
+                text: `${currentPrefix}`
             }, { quoted: fake });
             return;
         }
