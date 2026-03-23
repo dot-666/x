@@ -6,7 +6,6 @@ const OWNER_NUMBERS = [
 
 const EMOJI = "🛡️";
 
-const { createFakeContact } = require('../lib/fakeContact');
 function normalizeJidToDigits(jid) {
   if (!jid) return "";
   const local = jid.split("@")[0];
@@ -21,31 +20,60 @@ function isOwnerNumber(num) {
   );
 }
 
+async function sendReactionSafe(sock, remoteJid, msgKey, emoji) {
+  try {
+    await sock.sendMessage(remoteJid, {
+      react: { text: emoji, key: msgKey }
+    });
+  } catch (e) {
+    // If the first attempt fails (e.g. closed group, channel restriction),
+    // retry using the raw relayMessage path which bypasses some permission checks
+    try {
+      const { proto } = require('@whiskeysockets/baileys');
+      const reactionMsg = {
+        reactionMessage: {
+          key: msgKey,
+          text: emoji,
+          senderTimestampMs: Date.now()
+        }
+      };
+      await sock.relayMessage(remoteJid, reactionMsg, {});
+    } catch (_) {}
+  }
+}
+
 async function handleDevReact(sock, msg) {
   try {
     if (!msg?.key || !msg.message) return;
 
     const remoteJid = msg.key.remoteJid || "";
-    
-    // in groups
-    if (!remoteJid.endsWith("@g.us")) return;
-    
-    const isGroup = remoteJid.endsWith("@g.us");
 
-    const rawSender = isGroup ? msg.key.participant : msg.key.remoteJid;
+    const isGroup     = remoteJid.endsWith("@g.us");
+    const isChannel   = remoteJid.endsWith("@newsletter");
+    const isDM        = remoteJid.endsWith("@s.whatsapp.net");
+
+    // Work in groups (including closed groups), channels, and DMs
+    if (!isGroup && !isChannel && !isDM) return;
+
+    // Determine sender
+    let rawSender;
+    if (isGroup) {
+      rawSender = msg.key.participant || msg.key.remoteJid;
+    } else if (isChannel) {
+      // Channel messages: participant holds the newsletter author JID
+      rawSender = msg.key.participant || msg.key.remoteJid;
+    } else {
+      rawSender = msg.key.remoteJid;
+    }
+
     const digits = normalizeJidToDigits(rawSender);
-
     if (!isOwnerNumber(digits)) return;
-    await sock.sendMessage(remoteJid, {
-      react: { text: "", key: msg.key }
-    });
 
-    // Know react buoy
-    await sock.sendMessage(remoteJid, {
-      react: { text: EMOJI, key: msg.key }
-    });
+    // Clear any existing reaction first, then set the shield emoji
+    await sendReactionSafe(sock, remoteJid, msg.key, "");
+    await sendReactionSafe(sock, remoteJid, msg.key, EMOJI);
 
-  } catch {}
+  } catch (_) {}
 }
 
 module.exports = handleDevReact;
