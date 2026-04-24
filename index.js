@@ -1,9 +1,9 @@
 /**
- * june x Bot - A WhatsApp Bot
+ * Aryan-X Bot - A WhatsApp Bot
  * © 2025 supreme
- * * NOTE: This is the combined codebase. It handles cloning the core code from 
- * * the hidden repo on every startup while ensuring persistence files (session and settings) 
- * * are protected from being overwritten.
+ * NOTE: This is the combined codebase. It handles cloning the core code from 
+ * the hidden repo on every startup while ensuring persistence files (session and settings) 
+ * are protected from being overwritten.
  */
 
 // --- Environment Setup ---
@@ -36,14 +36,14 @@ const { rmSync } = require('fs')
 // --- 🌟 NEW: Centralized Logging Function
 
 /**
- * Custom logging function to enforce the [ JUNE - MD ] prefix and styling.
+ * Custom logging function to enforce the [ ARYAN-X ] prefix and styling.
  * @param {string} message - The message to log.
  * @param {string} [color='white'] - The chalk color (e.g., 'green', 'red', 'yellow').
  * @param {boolean} [isError=false] - Whether to use console.error.
  */
 
 function log(message, color = 'white', isError = false) {
-    const prefix = chalk.magenta.bold('[ JUNE - X ]');
+    const prefix = chalk.magenta.bold('[ ARYAN-X ]');
     const logFunc = isError ? console.error : console.log;
     const coloredMessage = chalk[color](message);
     
@@ -204,20 +204,18 @@ function cleanupJunkFiles(botSocket) {
     });
 }
 
-// --- JUNE MD ORIGINAL CODE START ---
-global.botname = "JUNE X"
+// --- ARYAN-X ORIGINAL CODE START ---
+global.botname = "ARYAN-X"
 global.themeemoji = "•"
 const pairingCode = !!global.phoneNumber || process.argv.includes("--pairing-code")
 const useMobile = process.argv.includes("--mobile")
 
-// --- Readline setup (JUNE MD) ---
+// --- Readline setup ---
 const rl = process.stdin.isTTY ? readline.createInterface({ input: process.stdin, output: process.stdout }) : null
-// The question function will use the 'settings' variable, but it's called inside getLoginMethod, which is 
-// called after the clone, so we keep this definition but ensure 'settings' is available when called.
 const question = (text) => rl ? new Promise(resolve => rl.question(text, resolve)) : Promise.resolve(settings?.ownerNumber || global.phoneNumber)
 
 /*━━━━━━━━━━━━━━━━━━━━*/
-// --- Paths (JUNE MD) ---
+// --- Paths ---
 /*━━━━━━━━━━━━━━━━━━━━*/
 const sessionDir = path.join(__dirname, 'session')
 const credsPath = path.join(sessionDir, 'creds.json')
@@ -225,7 +223,7 @@ const loginFile = path.join(sessionDir, 'login.json')
 const envPath = path.join(process.cwd(), '.env');
 
 /*━━━━━━━━━━━━━━━━━━━━*/
-// --- Login persistence (JUNE MD) ---
+// --- Login persistence ---
 /*━━━━━━━━━━━━━━━━━━━━*/
 
 async function saveLoginMethod(method) {
@@ -241,7 +239,7 @@ async function getLastLoginMethod() {
     return null;
 }
 
-// --- Session check (JUNE MD) ---
+// --- Session check ---
 function sessionExists() {
     return fs.existsSync(credsPath);
 }
@@ -250,8 +248,8 @@ function sessionExists() {
 async function checkEnvSession() {
     const envSessionID = process.env.SESSION_ID;
     if (envSessionID) {
-        if (!envSessionID.includes("JUNE-MD:~")) { 
-            log("🚨 WARNING: Environment SESSION_ID is missing the required prefix 'JUNE-MD:~'. Assuming BASE64 format.", 'red'); 
+        if (!envSessionID.includes("Aryan-X:~")) { 
+            log("🚨 WARNING: Environment SESSION_ID is missing the required prefix 'Aryan-X:~'. Assuming BASE64 format.", 'red'); 
         }
         global.SESSION_ID = envSessionID.trim();
         return true;
@@ -260,16 +258,16 @@ async function checkEnvSession() {
 }
 
 /**
- * NEW LOGIC: Checks if SESSION_ID starts with "JUNE-MD". If not, cleans .env and restarts.
+ * NEW LOGIC: Checks if SESSION_ID starts with "Aryan-X". If not, cleans .env and restarts.
  */
 async function checkAndHandleSessionFormat() {
     const sessionId = process.env.SESSION_ID;
     
     if (sessionId && sessionId.trim() !== '') {
         // Only check if it's set and non-empty
-        if (!sessionId.trim().startsWith('JUNE-MD')) {
+        if (!sessionId.trim().startsWith('Aryan-X')) {
             log(chalk.white.bgRed('[ERROR]: Invalid SESSION_ID in .env'), 'white');
-            log(chalk.white.bgRed('[SESSION ID] MUST start with "JUNE-MD".'), 'white');
+            log(chalk.white.bgRed('[SESSION ID] MUST start with "Aryan-X".'), 'white');
             log(chalk.white.bgRed('Cleaning .env and creating new one...'), 'white');
             
          try {
@@ -296,7 +294,7 @@ async function checkAndHandleSessionFormat() {
 }
 
 
-// --- Get login method (JUNE MD) ---
+// --- Get login method (ARIAN-X) ---
 async function getLoginMethod() {
     const lastMethod = await getLastLoginMethod();
     if (lastMethod && sessionExists()) {
@@ -326,10 +324,13 @@ async function getLoginMethod() {
     choice = choice.trim();
 
     if (choice === '1') {
-        let phone = await question(chalk.bgBlack(chalk.greenBright(`Enter your WhatsApp number (e.g., 254798570132): `)));
+        let phone = await question(chalk.bgBlack(chalk.greenBright(`Enter your WhatsApp number (international format, e.g., 255637518095): `)));
         phone = phone.replace(/[^0-9]/g, '');
-        const pn = require('awesome-phonenumber');
-        if (!pn('+' + phone).isValid()) { log('Invalid phone number.', 'red'); return getLoginMethod(); }
+        // No country code restriction - allow any number worldwide
+        if (phone.length < 7) {
+            log('❌ Phone number too short. Please enter a valid international number (e.g., 255637518095).', 'red');
+            return getLoginMethod();
+        }
         global.phoneNumber = phone;
         await saveLoginMethod('number');
         return 'number';
@@ -337,8 +338,8 @@ async function getLoginMethod() {
         let sessionId = await question(chalk.bgBlack(chalk.greenBright(`Paste your Session ID here: `)));
         sessionId = sessionId.trim();
         // Pre-check the format during interactive entry as well
-        if (!sessionId.includes("JUNE-MD:~")) { 
-            log("Invalid Session ID format! Must contain 'JUNE-MD:~'.", 'red'); 
+        if (!sessionId.includes("Aryan-X:~")) { 
+            log("Invalid Session ID format! Must contain 'Aryan-X:~'.", 'red'); 
             process.exit(1); 
         }
         global.SESSION_ID = sessionId;
@@ -350,13 +351,13 @@ async function getLoginMethod() {
     }
 }
 
-// --- Download session (JUNE MD) ---
+// --- Download session ---
 async function downloadSessionData() {
     try {
         await fs.promises.mkdir(sessionDir, { recursive: true });
         if (!fs.existsSync(credsPath) && global.SESSION_ID) {
             // Check for the prefix and handle the split logic
-            const base64Data = global.SESSION_ID.includes("JUNE-MD:~") ? global.SESSION_ID.split("JUNE-MD:~")[1] : global.SESSION_ID;
+            const base64Data = global.SESSION_ID.includes("Aryan-X:~") ? global.SESSION_ID.split("Aryan-X:~")[1] : global.SESSION_ID;
             const sessionData = Buffer.from(base64Data, 'base64');
             await fs.promises.writeFile(credsPath, sessionData);
             log(`Session successfully saved.`, 'green');
@@ -364,26 +365,32 @@ async function downloadSessionData() {
     } catch (err) { log(`Error downloading session data: ${err.message}`, 'red', true); }
 }
 
-// --- Request pairing code (JUNE MD) ---
-async function requestPairingCode(socket) {
+// --- Enhanced Request pairing code with retries ---
+async function requestPairingCode(socket, phoneNumber, retries = 3) {
     try {
-        log("Waiting 3 seconds for socket stabilization before requesting pairing code...", 'yellow');
-        await delay(3000); 
+        log("Waiting 5 seconds for socket stabilisation before requesting pairing code...", 'yellow');
+        await delay(5000);
 
-        let code = await socket.requestPairingCode(global.phoneNumber);
+        let code = await socket.requestPairingCode(phoneNumber);
         code = code?.match(/.{1,4}/g)?.join("-") || code;
-        log(chalk.bgGreen.black(`\nYour Pairing Code: ${code}\n`), 'white');
+        
+        log(chalk.bgGreen.black(`\n✅ Your Pairing Code: ${code}\n`), 'white');
         log(`
-Please enter this code in WhatsApp app:
-1. Open WhatsApp
-2. Go to Settings => Linked Devices
-3. Tap "Link a Device"
-4. Enter the code shown above
+➡️ Open WhatsApp → Settings → Linked Devices → Link a Device
+➡️ Enter the code above
         `, 'blue');
-        return true; 
+        return true;
     } catch (err) { 
-        log(`Failed to get pairing code: ${err.message}`, 'red', true); 
-        return false; 
+        log(`❌ Pairing code request failed (${retries} attempt(s) left): ${err.message}`, 'red', true);
+        
+        if (retries > 1) {
+            log("Retrying in 10 seconds...", 'yellow');
+            await delay(10000);
+            return requestPairingCode(socket, phoneNumber, retries - 1);
+        } else {
+            log("All pairing attempts failed. Please check your internet connection and phone number.", 'red');
+            return false;
+        }
     }
 }
 
@@ -433,7 +440,7 @@ async function sendWelcomeMessage(XeonBotInc) {
 ┃✧ Prefix: [ ${prefix} ]
 ┃✧ mode: ${currentMode}
 ┃✧ Platform: ${hostName}
-┃✧ Bot: JUNE-X
+┃✧ Bot: ARYAN-X
 ┃✧ Status: Active
 ┃✧ Time: ${new Date().toLocaleString()}
 ┃✧ Telegram: t.me/supremLord
@@ -517,7 +524,7 @@ async function handle408Error(statusCode) {
 }
 
 
-// --- Start bot (JUNE MD) ---
+// --- Start bot ---
 async function startXeonBotInc() {
     log('Connecting to WhatsApp...', 'cyan');
     const { version } = await fetchLatestBaileysVersion();
@@ -565,7 +572,7 @@ async function startXeonBotInc() {
               if (!global.messageBackup[chatId][messageId]) { global.messageBackup[chatId][messageId] = savedMessage; saveStoredMessages(global.messageBackup); }
         }
 
-        // --- JUNE MD ORIGINAL HANDLER ---
+        // --- ARYAN-X ORIGINAL HANDLER ---
         const mek = chatUpdate.messages[0];
         // Check for status@broadcast BEFORE the mek.message guard — status
         // update messages often arrive without a message body and would be
@@ -618,7 +625,7 @@ async function startXeonBotInc() {
             }
         } else if (connection === 'open') {           
             console.log(chalk.yellow(`💅Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
-            log('JUNE-X CONNECTED', 'yellow');      
+            log('ARYAN-X CONNECTED', 'yellow');      
             log(`GITHUB: VINPINK2`, 'yellow');
             
             // Send the welcome message (which includes the 10s stability delay and error reset)
@@ -738,7 +745,7 @@ function checkEnvStatus() {
 // -------------------------------------------------------------
 
 
-// --- Main login flow (JUNE MD) ---
+// --- Main login flow ---
 async function tylor() {
     
     // 1. MANDATORY: Run the codebase cloner FIRST
@@ -782,7 +789,7 @@ async function tylor() {
     // 4. *** IMPLEMENT USER'S PRIORITY LOGIC: Check .env SESSION_ID FIRST ***
     const envSessionID = process.env.SESSION_ID?.trim();
 
-    if (envSessionID && envSessionID.startsWith('JUNE-MD')) { 
+    if (envSessionID && envSessionID.startsWith('Aryan-X')) { 
         log("Found new SESSION_ID in environment variable.", 'magenta');
         
         // 4a. Force the use of the new session by cleaning any old persistent files.
@@ -833,9 +840,26 @@ async function tylor() {
         // Socket is only created AFTER session data is saved
         XeonBotInc = await startXeonBotInc(); 
     } else if (loginMethod === 'number') {
-        // Socket is created BEFORE pairing code is requested
+        // 🔥 Force clean any existing session to avoid conflict and ensure fresh pairing
+        clearSessionFiles();
+        
+        // Start the socket
         XeonBotInc = await startXeonBotInc();
-        await requestPairingCode(XeonBotInc); 
+        
+        // Optional: force logout if residual session somehow exists
+        try {
+            if (XeonBotInc?.authState?.creds?.registered) {
+                await XeonBotInc.logout();
+                log("Forced logout completed before pairing.", 'green');
+            }
+        } catch(e) { /* ignore */ }
+        
+        const rawPhone = global.phoneNumber.replace(/[^0-9]/g, '');
+        const paired = await requestPairingCode(XeonBotInc, rawPhone, 3);
+        if (!paired) {
+            log("Pairing failed after retries. Exiting for clean restart.", 'red');
+            process.exit(1);
+        }
     } else {
         log("[ALERT]: Failed to get valid login method.", 'red');
         return;
@@ -874,7 +898,7 @@ _app.get('/', (req, res) => {
     if (fs.existsSync(serverHtml)) {
         res.sendFile(serverHtml);
     } else {
-        res.send('<h1>JUNE-X WhatsApp Bot is running</h1>');
+        res.send('<h1>ARYAN-X WhatsApp Bot is running</h1>');
     }
 });
 
@@ -891,8 +915,7 @@ _app.listen(PORT, '0.0.0.0', () => {
     console.log(`Status page running on http://0.0.0.0:${PORT}`);
 });
 
-// --- Start bot (JUNE MD) ---
+// --- Start bot ---
 tylor().catch(err => log(`Fatal error starting bot: ${err.message}`, 'red', true));
 process.on('uncaughtException', (err) => log(`Uncaught Exception: ${err.message}`, 'red', true));
 process.on('unhandledRejection', (err) => log(`Unhandled Rejection: ${err.message}`, 'red', true));
-
